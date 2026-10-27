@@ -1,0 +1,124 @@
+/* 프로토타입(reference/fridge-prototype.html) 스타일을 그대로 옮김 */
+:root{
+  --bg:#ffffff; --card:#f4f6f8; --fg:#191f28; --sub:#6b7684; --line:#e5e8eb;
+  --accent:#3182f6; --accent-bg:#e8f3ff; --on-accent:#ffffff;
+  --red:#e5313f; --red-bg:#fdecee; --amber:#c76a00; --amber-bg:#fff2dd;
+  --green:#0a8f5f; --green-bg:#e3f6ee; --shadow:0 8px 24px rgba(25,31,40,.12);
+  --cta:#0f2a3d; --on-cta:#ffffff; --hero:#dcebff; --hero2:#f3f8ff; --white:#ffffff;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#17171c; --card:#202027; --fg:#f2f4f6; --sub:#9ea4ae; --line:#2e2f38;
+  --accent:#4d97ff; --accent-bg:#1b2b44; --on-accent:#0b1220;
+  --red:#ff6b77; --red-bg:#3a2024; --amber:#ffb454; --amber-bg:#3a2d17; --green:#4fd1a1; --green-bg:#16312a; --shadow:0 8px 24px rgba(0,0,0,.5);
+  --cta:#4d97ff; --on-cta:#0b1220; --hero:#1b2b44; --hero2:#17171c; --white:#2a2c36;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#17171c; --card:#202027; --fg:#f2f4f6; --sub:#9ea4ae; --line:#2e2f38;
+  --accent:#4d97ff; --accent-bg:#1b2b44; --on-accent:#0b1220;
+  --red:#ff6b77; --red-bg:#3a2024; --amber:#ffb454; --amber-bg:#3a2d17; --green:#4fd1a1; --green-bg:#16312a; --shadow:0 8px 24px rgba(0,0,0,.5);
+  --cta:#4d97ff; --on-cta:#0b1220; --hero:#1b2b44; --hero2:#17171c; --white:#2a2c36;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  padding-block:8px 96px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+#app{max-width:480px;margin:0 auto}
+h1{font-size:24px;line-height:1.35;font-weight:700;margin:20px 0 6px;letter-spacing:-.02em;text-wrap:balance;word-break:keep-all}
+.lead{color:var(--sub);font-size:15px;margin:0 0 20px}
+.eyebrow{color:var(--accent);font-weight:700;font-size:13px;margin-top:20px}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;scrollbar-width:none}
+.chip{flex:none;padding:8px 14px;border-radius:999px;background:var(--card);font-size:14px;font-weight:500;color:var(--sub)}
+.chip.on{background:var(--fg);color:var(--bg)}
+.row{display:flex;align-items:center;gap:12px;padding:14px 0;width:100%;text-align:left;border-bottom:1px solid var(--line)}
+.row .main{flex:1;min-width:0}
+.row .nm{font-weight:700;font-size:16px}
+.row .meta{color:var(--sub);font-size:13px;margin-top:2px}
+.badge{flex:none;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:4px 9px 4px 7px;border-radius:999px;white-space:nowrap}
+.badge .em{font-size:12px;line-height:1}
+.b-soon{background:var(--red-bg);color:var(--red)}
+.b-buried{background:var(--amber-bg);color:var(--amber)}
+.b-ok{background:var(--green-bg);color:var(--green)}
+.b-none{background:var(--card);color:var(--sub)}
+.b-info{background:var(--accent-bg);color:var(--accent)}
+.card{background:var(--card);border-radius:20px;padding:18px;margin:12px 0}
+.card.blue{background:var(--accent-bg)}
+.card h3{margin:0 0 4px;font-size:16px}
+.card p{margin:0;color:var(--sub);font-size:14px}
+.cta{display:block;width:100%;background:var(--cta);color:var(--on-cta);font-weight:700;font-size:16px;padding:16px;border-radius:16px;margin-top:16px;text-align:center}
+.cta.ghost{background:var(--card);color:var(--fg)}
+.cta[disabled]{opacity:.4;cursor:default}
+.ctas{display:flex;gap:8px}.ctas .cta{flex:1}
+input[type=text],select{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--card);border:2px solid transparent;border-radius:14px;padding:15px 16px;outline:none}
+input[type=text]:focus,select:focus{border-color:var(--accent)}
+.tabbar{position:fixed;left:0;right:0;bottom:0;padding:0 max(12px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));pointer-events:none}
+.tabbar div{max-width:456px;margin:0 auto;display:flex;background:var(--bg);border:1px solid var(--line);border-radius:28px;padding:4px;box-shadow:var(--shadow);pointer-events:auto}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;font-size:11px;font-weight:500;color:var(--sub)}
+.tab svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab.on{color:var(--fg);font-weight:700;background:var(--card);border-radius:22px}
+.tab.on svg{stroke:var(--accent)}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.sheet{max-height:92vh;overflow-y:auto;width:100%;max-width:480px;background:var(--bg);border-radius:24px 24px 0 0;padding:24px 20px calc(20px + env(safe-area-inset-bottom,0px))}
+.toast{position:fixed;left:50%;bottom:calc(88px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);
+  padding:12px 18px;border-radius:14px;font-size:14px;font-weight:500;z-index:30;max-width:90%;box-shadow:var(--shadow)}
+.sub-card{margin-top:10px;background:var(--accent-bg);border-radius:14px;padding:12px 14px}
+.sub-card b{display:block;font-size:15px}
+.sub-card span{display:block;color:var(--sub);font-size:13px;margin-top:2px}
+.note{color:var(--sub);font-size:12.5px;margin:14px 0 0}
+.pulse{display:flex;flex-direction:column;align-items:center;gap:16px;padding:80px 0;color:var(--sub)}
+.spin{width:36px;height:36px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--accent);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.day{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+.day .d{flex:none;width:52px;text-align:center}.day .d span{white-space:nowrap}
+.day .d b{display:block;font-size:20px}.day .d span{font-size:12px;color:var(--sub)}
+.day .body{flex:1;min-width:0}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.tag{font-size:12px;padding:3px 8px;border-radius:8px;background:var(--card);color:var(--sub)}
+.tag.hot{background:var(--red-bg);color:var(--red);font-weight:700}
+.tag.bur{background:var(--amber-bg);color:var(--amber);font-weight:700}
+.day.done .nm,.day.done .d{opacity:.55}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.small-btn.alt{background:var(--card);color:var(--sub)}
+.tag.buy{background:var(--accent-bg);color:var(--accent);font-weight:700}
+.basis{background:var(--card);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;font-size:13px;margin-top:14px}
+.basis>div{display:flex;justify-content:space-between;gap:12px}.basis span{color:var(--sub);flex:none}.basis b{font-weight:500;text-align:right}
+.basis .acts{justify-content:flex-end}
+.small-btn{background:var(--accent-bg);color:var(--accent);font-weight:700;font-size:14px;padding:9px 14px;border-radius:12px}
+.drop{border:2px dashed var(--line);border-radius:20px;padding:36px 16px;text-align:center;color:var(--sub);font-size:14px}
+.thumb{max-width:100%;max-height:200px;border-radius:14px;display:block;margin:12px auto 0}
+.seg{display:flex;gap:6px;margin:8px 0 4px}
+.seg button{flex:1;padding:10px 0;border-radius:12px;background:var(--card);font-size:14px;font-weight:500;color:var(--sub)}
+.seg button.on{background:var(--accent-bg);color:var(--accent);font-weight:700}
+.sample-btn{display:block;width:100%;text-align:left;padding:14px 16px;border-radius:14px;background:var(--card);margin-top:8px;font-size:15px}
+.sample-btn small{display:block;color:var(--sub);font-size:12px}
+.hero{position:relative;overflow:hidden;margin-top:8px;padding:22px 20px 20px;border-radius:28px;background:linear-gradient(180deg,var(--hero),var(--hero2))}
+.hero h1{margin:6px 0 4px;font-size:24px;max-width:70%}
+.hero .lead{margin:0 0 16px;font-size:14px;max-width:64%}
+.hero .pill{display:inline-block;background:var(--white);color:var(--fg);font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;box-shadow:var(--shadow)}
+.mascot{position:absolute;right:12px;bottom:0;width:124px;height:auto;max-width:34%}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--accent-bg);color:var(--accent);font-weight:700;font-size:15px;padding:12px 20px;border-radius:999px;box-shadow:var(--shadow);z-index:5}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.gi{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 2px 10px;border-radius:16px;border:2px solid transparent;background:var(--card);font-size:13px;font-weight:500}
+.gi .e{font-size:30px;line-height:1.2}
+.gi.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:700}
+.gi[disabled]{opacity:.45;cursor:default}
+.gi small{font-size:10px;color:var(--sub)}
+.stepper{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:16px;padding:10px 12px 10px 16px;margin:16px 0 12px;font-size:14px;color:var(--sub)}
+.stepper div{display:flex;align-items:center;gap:14px}
+.stepper button{width:40px;height:40px;border-radius:12px;background:var(--bg);font-size:20px;font-weight:700}
+.stepper b{color:var(--fg);font-size:18px;min-width:48px;text-align:center}
+.btn-soft{flex:1;padding:14px;border-radius:14px;font-weight:700;font-size:15px}
+.tile{flex:none;width:44px;height:44px;border-radius:14px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1}
+.back{display:flex;align-items:center;justify-content:center;width:40px;height:40px;margin:8px 0 0 -8px;font-size:32px;line-height:1;color:var(--fg);border-radius:12px}
+.hdr{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.ver{font-size:12px;color:var(--sub)}
+
+/* ---- 앱에서 추가 ---- */
+#app{max-width:480px;margin:0 auto}
+.soon-box{padding:72px 0;text-align:center}
+.soon-box .e{font-size:48px}
+.sheet h1{margin-top:12px}
+.basis .usual{color:var(--sub);font-size:12.5px}
+/* 시트 바깥 누르면 닫기: iOS Safari는 cursor:pointer가 없으면 div에 click을 보내지 않을 수 있다 */
+.sheet-bg{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sheet{cursor:auto;max-height:calc(100dvh - 56px)}
