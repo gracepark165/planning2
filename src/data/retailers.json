@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "note": "입고일 규칙(FR-17). 주문일 + checkinDays = 입고일. 쿠팡은 원래 메일의 도착 보장일을 쓰지만, 메일 읽기 전까지 프로토타입 값(2일)을 쓴다.",
+  "retailers": [
+    { "name": "컬리", "checkinDays": 1, "description": "23시 전 주문 → 다음 날 아침 7시 도착" },
+    { "name": "B마트", "checkinDays": 0, "description": "주문한 날 바로 도착" },
+    { "name": "쿠팡", "checkinDays": 2, "description": "메일에 적힌 도착 보장일 기준" }
+  ]
+}

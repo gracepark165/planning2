@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "note": "AI 연결 전까지 보여주는 예시 결과 (프로토타입 RECIPES_VIDEO, ORDER_ITEMS).",
+  "videos": [
+    {
+      "id": "curry",
+      "url": "https://youtube.com/shorts/예시-버터크림치킨카레",
+      "title": "버터크림치킨카레",
+      "ingredients": [
+        { "name": "닭다리살", "core": "닭고기" },
+        { "name": "카레가루" },
+        { "name": "우유" },
+        { "name": "양파" },
+        { "name": "버터" }
+      ],
+      "skipped": ["소금", "식용유"]
+    },
+    {
+      "id": "jeyuk",
+      "url": "https://youtube.com/shorts/예시-제육볶음",
+      "title": "제육볶음",
+      "ingredients": [
+        { "name": "돼지고기 앞다리살", "core": "돼지고기" },
+        { "name": "양파" },
+        { "name": "대파" },
+        { "name": "고추장" }
+      ],
+      "skipped": ["간장", "설탕", "참기름"]
+    }
+  ],
+  "orderItems": [
+    { "name": "닭다리살", "qty": "400g", "core": "닭고기", "shelfDays": 3, "confident": true, "basisText": "소비기한 표기 읽음" },
+    { "name": "두부", "qty": "300g", "core": "", "shelfDays": 10, "confident": true, "basisText": "소비기한 표기 읽음" },
+    { "name": "피코크 김치찌개", "qty": "1팩", "core": "", "shelfDays": 7, "confident": false, "basisText": "" }
+  ]
+}
