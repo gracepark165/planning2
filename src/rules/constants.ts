@@ -49,6 +49,12 @@ export const PORTION_SHELF_DAYS: Partial<Record<FoodGroup, number>> = {
   veg: 30,
 };
 
+/**
+ * "잊혀지는 중"에서 빼는 품목군 (상비 재료): 양념·소스, 면·곡물.
+ * 원래 오래 두고 쓰는 재료라 14일이 지나도 잊힌 게 아니다. 기한이 가까워지면 "오늘 내일 해요"로는 올라온다.
+ */
+export const BURIED_EXCLUDE_GROUPS: readonly FoodGroup[] = ['sauce', 'grain'];
+
 /** 소분 품목의 기본 보관 위치를 냉동으로 두는 품목군 (임시 가정). 나머지는 품목 기본 위치. */
 export const PORTION_FREEZE_GROUPS: readonly FoodGroup[] = ['meat', 'seafood', 'frozenFood'];
 

@@ -1,11 +1,26 @@
 // 상태 판정·정렬. AI가 아니라 규칙으로 계산한다.
 // "오늘"은 항상 인자로 받는다.
 
-import { BURIED_AGO, BURIED_URGENCY, SOON_DAYS, SOON_URGENCY_BASE, STATE_META } from './constants';
+import { findCatalog } from '../data';
+import {
+  BURIED_AGO,
+  BURIED_EXCLUDE_GROUPS,
+  BURIED_URGENCY,
+  SOON_DAYS,
+  SOON_URGENCY_BASE,
+  STATE_META,
+} from './constants';
 import { daysBetween } from './date';
 import type { DateKey, Item, ItemState } from './types';
 
-type Dated = Pick<Item, 'enteredAt' | 'expiresAt'>;
+/** 상태 판정에 필요한 것: 날짜 두 개 (+ 상비 재료인지 보려면 이름) */
+type Dated = Pick<Item, 'enteredAt' | 'expiresAt'> & { name?: string };
+
+/** 상비 재료(양념·소스, 면·곡물)인지: 재료 사전의 품목군으로 본다 */
+export function isStaple(name: string | undefined): boolean {
+  const group = name ? findCatalog(name)?.group : undefined;
+  return group !== undefined && BURIED_EXCLUDE_GROUPS.includes(group);
+}
 
 /** 남은 소비기한(일). 오늘까지면 0, 지났으면 음수. */
 export function daysLeft(item: Dated, today: DateKey): number {
@@ -17,10 +32,10 @@ export function daysSinceEntered(item: Dated, today: DateKey): number {
   return daysBetween(item.enteredAt, today);
 }
 
-/** 곧 상할 → 묻힘 후보 → 정상 순서로 검사한다. */
+/** 곧 상할 → 묻힘 후보 → 정상 순서로 검사한다. 상비 재료는 묻힘 후보가 되지 않는다. */
 export function stateOf(item: Dated, today: DateKey): ItemState {
   if (daysLeft(item, today) <= SOON_DAYS) return 'soon';
-  if (daysSinceEntered(item, today) >= BURIED_AGO) return 'buried';
+  if (daysSinceEntered(item, today) >= BURIED_AGO && !isStaple(item.name)) return 'buried';
   return 'ok';
 }
 
@@ -36,10 +51,34 @@ export function urgencyOf(item: Dated, today: DateKey): number {
   return 0;
 }
 
-/** 홈 목록 정렬(FR-12): 묻힘 후보 먼저, 그다음 소비기한이 가까운 순. 같으면 원래 순서. */
+/** 홈 구역 순서 (FR-12): 곧 상할 → 묻힘 후보 → 정상 */
+export const HOME_SECTION_ORDER: readonly ItemState[] = ['soon', 'buried', 'ok'];
+
+/**
+ * 홈 목록 정렬(FR-12): 상태 순서(HOME_SECTION_ORDER).
+ * 같은 상태 안은 소비기한이 가까운 순, 단 묻힘 후보끼리는 오래 묵은 순(화면에 "N일째"를 크게 보여주므로).
+ * 그래도 같으면 원래 순서.
+ */
 export function sortForHome<T extends Dated>(items: readonly T[], today: DateKey): T[] {
-  const key = (i: T) => (stateOf(i, today) === 'buried' ? 0 : 1);
-  return [...items].sort((a, b) => key(a) - key(b) || daysLeft(a, today) - daysLeft(b, today));
+  const keyed = items.map((i) => ({ i, st: stateOf(i, today) }));
+  keyed.sort((a, b) => {
+    const byState = HOME_SECTION_ORDER.indexOf(a.st) - HOME_SECTION_ORDER.indexOf(b.st);
+    if (byState) return byState;
+    if (a.st === 'buried') {
+      const byAge = daysSinceEntered(b.i, today) - daysSinceEntered(a.i, today);
+      if (byAge) return byAge;
+    }
+    return daysLeft(a.i, today) - daysLeft(b.i, today);
+  });
+  return keyed.map((k) => k.i);
+}
+
+/** 홈 목록을 상태별 구역으로 묶는다. 구역 안은 sortForHome 순서. 빈 구역은 뺀다. */
+export function groupForHome<T extends Dated>(items: readonly T[], today: DateKey): { state: ItemState; items: T[] }[] {
+  const sorted = sortForHome(items, today);
+  return HOME_SECTION_ORDER.map((state) => ({ state, items: sorted.filter((i) => stateOf(i, today) === state) })).filter(
+    (g) => g.items.length > 0,
+  );
 }
 
 export function countByState(items: readonly Dated[], today: DateKey): Record<ItemState, number> {

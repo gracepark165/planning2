@@ -4,6 +4,7 @@ import { addDays } from './date';
 import {
   countByState,
   dDayLabel,
+  groupForHome,
   daysLeft,
   daysSinceEntered,
   homeHeadline,
@@ -51,6 +52,19 @@ describe('상태 판정 경계값', () => {
     expect(stateOf(at(30, 13), today)).toBe('ok');
   });
 
+  it('상비 재료(양념·소스, 면·곡물)는 오래 있어도 잊혀지는 중이 아니다', () => {
+    expect(stateOf({ name: '카레가루', ...at(200, 30) }, today)).toBe('ok');
+    expect(stateOf({ name: '스파게티면', ...at(300, 60) }, today)).toBe('ok');
+    expect(stateOf({ name: '고추장', ...at(100, 20) }, today)).toBe('ok');
+    expect(stateOf({ name: '만두', ...at(60, 30) }, today)).toBe('buried'); // 냉동식품은 해당 없음
+    expect(stateOf({ name: '사전에 없는 재료', ...at(30, 20) }, today)).toBe('buried');
+  });
+
+  it('상비 재료도 기한이 가까우면 오늘 내일 해요', () => {
+    expect(stateOf({ name: '식빵', ...at(2, 3) }, today)).toBe('soon');
+    expect(stateOf({ name: '카레가루', ...at(1, 300) }, today)).toBe('soon');
+  });
+
   it('곧 상할을 먼저 검사한다 (오래됐어도 기한이 가까우면 곧 상할)', () => {
     expect(stateOf(at(3, 20), today)).toBe('soon');
     expect(stateOf(at(4, 14), today)).toBe('buried');
@@ -78,7 +92,7 @@ describe('급함 점수', () => {
 });
 
 describe('홈 정렬과 헤드라인', () => {
-  it('묻힘 후보 먼저, 그다음 소비기한이 가까운 순', () => {
+  it('곧 상할 먼저, 그다음 묻힘 후보(오래 묵은 순), 정상(소비기한 순)', () => {
     const items = [
       { name: '정상5', ...at(5, 1) },
       { name: '곧상할1', ...at(1, 1) },
@@ -86,23 +100,37 @@ describe('홈 정렬과 헤드라인', () => {
       { name: '지남', ...at(-1, 10) },
       { name: '묻힘10', ...at(10, 15) },
     ];
-    expect(sortForHome(items, today).map((i) => i.name)).toEqual(['묻힘10', '묻힘40', '지남', '곧상할1', '정상5']);
+    expect(sortForHome(items, today).map((i) => i.name)).toEqual(['지남', '곧상할1', '묻힘40', '묻힘10', '정상5']); // 묻힘40은 20일째, 묻힘10은 15일째
     expect(items[0].name).toBe('정상5'); // 원래 배열은 그대로
   });
 
-  it('샘플 재고가 프로토타입과 같은 순서·개수로 나온다', () => {
+  it('샘플 재고 순서·개수', () => {
     const inv = makeSampleInventory(today);
     expect(sortForHome(inv, today).map((i) => i.name)).toEqual([
-      '새우살', '만두', '카레가루', '스파게티면',
       '닭안심', '소고기 불고기용', '오이', '우유',
-      '삼겹살', '대파', '삼겹 베이컨', '양파', '계란', '버터',
+      '만두', '새우살',
+      '삼겹살', '대파', '삼겹 베이컨', '양파', '계란', '버터', '카레가루', '스파게티면',
     ]);
     const counts = countByState(inv, today);
-    expect(counts).toEqual({ soon: 4, buried: 4, ok: 6 });
+    expect(counts).toEqual({ soon: 4, buried: 2, ok: 8 });
     expect(homeHeadline(counts)).toEqual({
       title: '얼른 먹어야 할 재료가 4개 있어요',
-      lead: '잊혀지는 중인 재료도 4개예요.',
+      lead: '잊혀지는 중인 재료도 2개예요.',
     });
+  });
+
+  it('상태별 구역: 오늘 내일 해요 → 잊혀지는 중 → 싱싱해요', () => {
+    const groups = groupForHome(makeSampleInventory(today), today);
+    expect(groups.map((g) => [g.state, g.items.map((i) => i.name)])).toEqual([
+      ['soon', ['닭안심', '소고기 불고기용', '오이', '우유']],
+      ['buried', ['만두', '새우살']],
+      ['ok', ['삼겹살', '대파', '삼겹 베이컨', '양파', '계란', '버터', '카레가루', '스파게티면']],
+    ]);
+  });
+
+  it('빈 구역은 빠진다', () => {
+    expect(groupForHome([at(30, 1), at(40, 2)], today).map((g) => g.state)).toEqual(['ok']);
+    expect(groupForHome([], today)).toEqual([]);
   });
 
   it('급한 재료가 없을 때 문구', () => {
