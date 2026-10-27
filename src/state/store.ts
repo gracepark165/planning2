@@ -3,7 +3,9 @@
 
 import { makeSampleInventory } from '../data/sampleInventory';
 import { autoExpiresAt, defaultLocation, shiftExpiry } from '../rules/expiry';
-import type { CatalogEntry, DateKey, Item, MealLog, Plan, Remaining } from '../rules/types';
+import { findItem, portionQty } from '../rules/plan';
+import { stateOf } from '../rules/status';
+import type { CatalogEntry, DateKey, Item, MealLog, Plan, Recipe, Remaining } from '../rules/types';
 
 export interface AppState {
   items: Item[];
@@ -16,7 +18,14 @@ export type Action =
   | { type: 'shiftExpiry'; id: string; delta: number }
   | { type: 'setRemaining'; id: string; remaining: Remaining }
   | { type: 'finishItem'; id: string; action: MealLog['action']; at: string }
-  | { type: 'reset'; today: DateKey };
+  | { type: 'reset'; today: DateKey }
+  // 이번 주 플랜
+  | { type: 'setMeals'; mealsPerWeek: number }
+  | { type: 'swap'; slotIndex: number }
+  | { type: 'skip'; recipe: string }
+  | { type: 'clearRejected' }
+  | { type: 'confirmMeal'; recipe: Recipe; today: DateKey; at: string }
+  | { type: 'undoMeal'; at: string };
 
 export const DEFAULT_MEALS_PER_WEEK = 4;
 
@@ -69,5 +78,64 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case 'reset':
       return initialState(action.today);
+    case 'setMeals':
+      return { ...state, plan: { ...state.plan, mealsPerWeek: action.mealsPerWeek, swapIndex: {} } };
+    case 'swap': {
+      const { swapIndex } = state.plan;
+      const next = { ...swapIndex, [action.slotIndex]: (swapIndex[action.slotIndex] ?? 0) + 1 };
+      return { ...state, plan: { ...state.plan, swapIndex: next } };
+    }
+    case 'skip':
+      if (state.plan.rejectedRecipes.includes(action.recipe)) return state;
+      return {
+        ...state,
+        plan: { ...state.plan, rejectedRecipes: [...state.plan.rejectedRecipes, action.recipe], swapIndex: {} },
+      };
+    case 'clearRejected':
+      return { ...state, plan: { ...state.plan, rejectedRecipes: [], swapIndex: {} } };
+    case 'confirmMeal':
+      return confirmMeal(state, action.recipe, action.today, action.at);
+    case 'undoMeal':
+      return undoMeal(state, action.at);
   }
+}
+
+const withCount = (item: Item, count: number): Item => ({ ...item, count, qty: portionQty(count, item.unit) });
+
+/** "이걸로 할게요": 쓰는 재료를 재고에서 뺀다. 소분 품목은 1개만 줄인다. */
+function confirmMeal(state: AppState, recipe: Recipe, today: DateKey, at: string): AppState {
+  let items = state.items;
+  const logs = [...state.logs];
+  const usedItems: Item[] = [];
+  const soonUsed: string[] = [];
+  for (const name of recipe.uses) {
+    const it = findItem(items, name, today);
+    if (!it) continue;
+    usedItems.push(it);
+    if (stateOf(it, today) === 'soon') soonUsed.push(name);
+    items =
+      it.portioned && (it.count ?? 1) > 1
+        ? items.map((i) => (i.id === it.id ? withCount(i, (i.count ?? 1) - 1) : i))
+        : items.filter((i) => i.id !== it.id);
+    logs.push({ itemId: it.id, action: 'eat', at });
+  }
+  const doneMeals = [...state.plan.doneMeals, { recipe: recipe.name, usedItems, soonUsed, at }];
+  return { items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };
+}
+
+/** 확정 되돌리기(확정 시각으로 찾음): 뺀 재료를 다시 넣고 그때 남긴 기록을 지운다. 이미 되돌렸으면 무시. */
+function undoMeal(state: AppState, at: string): AppState {
+  const done = state.plan.doneMeals.find((d) => d.at === at);
+  if (!done) return state;
+  let items = state.items;
+  for (const used of done.usedItems) {
+    const cur = items.find((i) => i.id === used.id);
+    items = cur
+      ? items.map((i) => (i.id === used.id ? withCount(i, (i.count ?? 0) + 1) : i))
+      : [...items, used];
+  }
+  const usedIds = new Set(done.usedItems.map((i) => i.id));
+  const logs = state.logs.filter((l) => !(l.at === done.at && l.action === 'eat' && usedIds.has(l.itemId)));
+  const doneMeals = state.plan.doneMeals.filter((d) => d !== done);
+  return { items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };
 }

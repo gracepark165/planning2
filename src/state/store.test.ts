@@ -94,3 +94,72 @@ describe('기기 안 저장', () => {
     expect(() => saveState(initialState(today), broken)).not.toThrow();
   });
 });
+
+describe('이번 주 플랜 상태', () => {
+  const curry = { name: '닭안심 버터카레', uses: ['닭안심'], keeps: ['양파', '카레가루', '버터'], buy: ['감자', '당근'] };
+  const mandu = { name: '군만두와 오이무침', uses: ['만두', '오이'], keeps: [], buy: [] };
+
+  it('집밥 횟수를 바꾸면 바꾸기 기록이 초기화된다', () => {
+    let s = reducer(initialState(today), { type: 'swap', slotIndex: 0 });
+    s = reducer(s, { type: 'swap', slotIndex: 0 });
+    expect(s.plan.swapIndex).toEqual({ 0: 2 });
+    s = reducer(s, { type: 'setMeals', mealsPerWeek: 6 });
+    expect(s.plan).toMatchObject({ mealsPerWeek: 6, swapIndex: {} });
+  });
+
+  it('건너뛰기는 한 번만 기록되고, 다시 보기로 모두 지운다', () => {
+    let s = reducer(initialState(today), { type: 'skip', recipe: '소불고기 덮밥' });
+    s = reducer(s, { type: 'skip', recipe: '소불고기 덮밥' });
+    expect(s.plan.rejectedRecipes).toEqual(['소불고기 덮밥']);
+    s = reducer(s, { type: 'clearRejected' });
+    expect(s.plan.rejectedRecipes).toEqual([]);
+  });
+
+  it('확정: 쓰는 재료를 재고에서 빼고, 먹었어요 기록을 남긴다', () => {
+    const s0 = initialState(today);
+    const s1 = reducer(s0, { type: 'confirmMeal', recipe: mandu, today, at: 'T1' });
+    expect(s1.items.map((i) => i.name)).not.toContain('만두');
+    expect(s1.items.map((i) => i.name)).not.toContain('오이');
+    expect(s1.items).toHaveLength(12);
+    expect(s1.logs.map((l) => l.action)).toEqual(['eat', 'eat']);
+    expect(s1.plan.doneMeals).toHaveLength(1);
+    expect(s1.plan.doneMeals[0]).toMatchObject({ recipe: '군만두와 오이무침', soonUsed: ['오이'], at: 'T1' });
+  });
+
+  it('상비 재료는 빼지 않는다', () => {
+    const s1 = reducer(initialState(today), { type: 'confirmMeal', recipe: curry, today, at: 'T1' });
+    expect(s1.items.map((i) => i.name)).toEqual(expect.arrayContaining(['양파', '카레가루', '버터']));
+  });
+
+  it('되돌리기: 재고와 기록이 확정 전과 같아진다 (순서만 다를 수 있음)', () => {
+    const s0 = reducer(initialState(today), { type: 'finishItem', id: 'sample-3', action: 'discard', at: 'T0' });
+    const s1 = reducer(s0, { type: 'confirmMeal', recipe: curry, today, at: 'T1' });
+    const s2 = reducer(s1, { type: 'confirmMeal', recipe: mandu, today, at: 'T2' });
+    const s3 = reducer(s2, { type: 'undoMeal', at: 'T1' }); // 카레만 되돌림
+    expect(s3.items.map((i) => i.name)).toContain('닭안심');
+    expect(s3.items.map((i) => i.name)).not.toContain('만두');
+    expect(s3.plan.doneMeals.map((d) => d.recipe)).toEqual(['군만두와 오이무침']);
+    expect(s3.logs.map((l) => l.at)).toEqual(['T0', 'T2']);
+    const s4 = reducer(s3, { type: 'undoMeal', at: 'T2' });
+    expect(reducer(s4, { type: 'undoMeal', at: 'T2' })).toBe(s4); // 두 번 눌러도 한 번만
+    const byId = (xs: { id: string }[]) => [...xs].sort((a, b) => a.id.localeCompare(b.id));
+    expect(byId(s4.items)).toEqual(byId(s0.items));
+    expect(s4.logs).toEqual(s0.logs);
+    expect(s4.plan.doneMeals).toEqual([]);
+  });
+
+  it('소분 품목은 한 끼에 1개씩 줄고, 되돌리면 다시 늘어난다', () => {
+    const portion = {
+      ...newItemFromCatalog(findCatalog('닭안심')!, today, 'p1'),
+      portioned: true, count: 3, unit: '덩이', qty: '소분 3덩이', location: '냉동' as const,
+    };
+    const base = { ...initialState(today), items: [portion] };
+    const s1 = reducer(base, { type: 'confirmMeal', recipe: curry, today, at: 'T1' });
+    expect(s1.items[0]).toMatchObject({ id: 'p1', count: 2, qty: '소분 2덩이' });
+    const s2 = reducer(s1, { type: 'confirmMeal', recipe: curry, today, at: 'T2' });
+    const s3 = reducer(s2, { type: 'confirmMeal', recipe: curry, today, at: 'T3' });
+    expect(s3.items).toEqual([]); // 마지막 1덩이를 쓰면 재고에서 빠짐
+    const back = reducer(reducer(s3, { type: 'undoMeal', at: 'T3' }), { type: 'undoMeal', at: 'T2' });
+    expect(back.items[0]).toMatchObject({ id: 'p1', count: 2, qty: '소분 2덩이' });
+  });
+});

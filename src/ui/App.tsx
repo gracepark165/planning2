@@ -1,20 +1,25 @@
 import { type ReactNode, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { findCatalog } from '../data';
 import { todayKey } from '../rules/date';
-import { eul, withJosa } from '../rules/josa';
+import { eul, eun, withJosa } from '../rules/josa';
 import { loadState, saveState } from '../state/persist';
 import { initialState, newItemFromCatalog, reducer } from '../state/store';
 import { AddView } from './AddView';
 import { HomeView } from './HomeView';
 import { ItemSheet } from './ItemSheet';
+import { PlanView } from './PlanView';
 import { TabBar, type TabKey } from './TabBar';
 import { newId } from './id';
 
 type Screen = TabKey | 'add';
 
-/** 아직 만들지 않은 탭 (4~6단계에서 채운다) */
-const COMING: Record<Exclude<TabKey, 'home'>, { title: string; step: number; emoji: string }> = {
-  plan: { title: '이번 주', step: 4, emoji: '🗓️' },
+interface Toast {
+  msg: string;
+  action?: { label: string; run: () => void };
+}
+
+/** 아직 만들지 않은 탭 (5~6단계에서 채운다) */
+const COMING: Record<Exclude<TabKey, 'home' | 'plan'>, { title: string; step: number; emoji: string }> = {
   order: { title: '장보기 올리기', step: 5, emoji: '🧾' },
   video: { title: '영상 확인', step: 6, emoji: '🎬' },
 };
@@ -25,15 +30,16 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [prevScreen, setPrevScreen] = useState<Screen>('home');
   const [sheetId, setSheetId] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => saveState(state), [state]);
 
-  const showToast = useCallback((msg: string) => {
-    setToast(msg);
+  const showToast = useCallback((msg: string, action?: Toast['action']) => {
+    setToast({ msg, action });
     window.clearTimeout(toastTimer.current);
-    toastTimer.current = window.setTimeout(() => setToast(''), 2200);
+    // 되돌리기 같은 버튼이 있으면 누를 시간을 더 준다
+    toastTimer.current = window.setTimeout(() => setToast(null), action ? 5000 : 2200);
   }, []);
 
   const go = (s: Screen) => {
@@ -55,6 +61,11 @@ export function App() {
     showToast(`${items.length}개를 담았어요. 이번 주 먹을 순서예요`);
   };
 
+  const undoMeal = (recipeName: string, at: string) => {
+    dispatch({ type: 'undoMeal', at });
+    showToast(`${recipeName}에 쓴 재료를 냉장고로 되돌렸어요`);
+  };
+
   const sheetItem = state.items.find((i) => i.id === sheetId);
   const closeSheet = useCallback(() => setSheetId(null), []);
 
@@ -71,6 +82,33 @@ export function App() {
         onReset={() => {
           dispatch({ type: 'reset', today });
           showToast('처음 상태로 되돌렸어요');
+        }}
+      />
+    );
+  } else if (screen === 'plan') {
+    view = (
+      <PlanView
+        items={state.items}
+        plan={state.plan}
+        today={today}
+        onMeals={(mealsPerWeek) => dispatch({ type: 'setMeals', mealsPerWeek })}
+        onSwap={(slotIndex) => dispatch({ type: 'swap', slotIndex })}
+        onSkip={(recipe) => {
+          dispatch({ type: 'skip', recipe: recipe.name });
+          showToast(`${withJosa(recipe.name, eun)} 건너뛰었어요`);
+        }}
+        onClearRejected={() => dispatch({ type: 'clearRejected' })}
+        onConfirm={(recipe) => {
+          const at = new Date().toISOString();
+          dispatch({ type: 'confirmMeal', recipe, today, at });
+          showToast(`${recipe.name}에 쓴 재료를 냉장고에서 뺐어요`, {
+            label: '되돌리기',
+            run: () => undoMeal(recipe.name, at),
+          });
+        }}
+        onUndo={(at) => {
+          const name = state.plan.doneMeals.find((d) => d.at === at)?.recipe;
+          if (name) undoMeal(name, at);
         }}
       />
     );
@@ -107,8 +145,19 @@ export function App() {
         />
       )}
       {toast && (
-        <div className="toast" role="status">
-          {toast}
+        <div className={`toast ${toast.action ? 'with-action' : ''}`} role="status">
+          <span>{toast.msg}</span>
+          {toast.action && (
+            <button
+              onClick={() => {
+                const run = toast.action!.run;
+                setToast(null);
+                run();
+              }}
+            >
+              {toast.action.label}
+            </button>
+          )}
         </div>
       )}
     </>
