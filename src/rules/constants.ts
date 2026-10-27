@@ -80,6 +80,10 @@ export const UNIT_ALIASES: Record<string, string> = {
   모: '모',
 };
 
+/** 개수 범위 (글 입력 읽기, 확인 화면·재료 시트의 ± 버튼) */
+export const COUNT_MIN = 1;
+export const COUNT_MAX = 30;
+
 /** 글 입력 읽기: 항목을 나누는 말 */
 export const ITEM_SEPARATORS: readonly string[] = ['\n', ',', '그리고'];
 

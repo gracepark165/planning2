@@ -7,6 +7,7 @@ import { initialState, newItemFromCatalog, reducer } from '../state/store';
 import { AddView } from './AddView';
 import { HomeView } from './HomeView';
 import { ItemSheet } from './ItemSheet';
+import { OrderView } from './OrderView';
 import { PlanView } from './PlanView';
 import { TabBar, type TabKey } from './TabBar';
 import { newId } from './id';
@@ -18,9 +19,8 @@ interface Toast {
   action?: { label: string; run: () => void };
 }
 
-/** 아직 만들지 않은 탭 (5~6단계에서 채운다) */
-const COMING: Record<Exclude<TabKey, 'home' | 'plan'>, { title: string; step: number; emoji: string }> = {
-  order: { title: '장보기 올리기', step: 5, emoji: '🧾' },
+/** 아직 만들지 않은 탭 (6단계에서 채운다) */
+const COMING: Record<Exclude<TabKey, 'home' | 'plan' | 'order'>, { title: string; step: number; emoji: string }> = {
   video: { title: '영상 확인', step: 6, emoji: '🎬' },
 };
 
@@ -112,6 +112,18 @@ export function App() {
         }}
       />
     );
+  } else if (screen === 'order') {
+    view = (
+      <OrderView
+        today={today}
+        onPickCatalog={() => go('add')}
+        onAdd={(items) => {
+          dispatch({ type: 'addItems', items });
+          go('plan');
+          showToast('냉장고에 넣었어요. 이번 주 먹을 순서예요');
+        }}
+      />
+    );
   } else if (screen === 'add') {
     view = <AddView items={state.items} onBack={() => go(prevScreen)} onAdd={addFromCatalog} />;
   } else {
@@ -141,6 +153,17 @@ export function App() {
             setSheetId(null);
             const what = withJosa(sheetItem.name, eul);
             showToast(action === 'eat' ? `${what} 다 먹은 걸로 기록했어요` : `${what} 버린 걸로 기록했어요`);
+          }}
+          onLocation={(location) => dispatch({ type: 'setLocation', id: sheetItem.id, location })}
+          onCount={(delta) => dispatch({ type: 'shiftCount', id: sheetItem.id, delta })}
+          onRemove={() => {
+            const removed = sheetItem;
+            dispatch({ type: 'removeItem', id: removed.id });
+            setSheetId(null);
+            showToast(`${withJosa(removed.name, eul)} 지웠어요`, {
+              label: '되돌리기',
+              run: () => dispatch({ type: 'addItems', items: [removed] }),
+            });
           }}
         />
       )}

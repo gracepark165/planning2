@@ -127,3 +127,31 @@ input[type=text]:focus,select:focus{border-color:var(--accent)}
 .toast.with-action button{flex:none;color:var(--accent);font-weight:700;font-size:14px;padding:4px 2px}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .toast.with-action button{color:#1b64da}}
 :root[data-theme="dark"] .toast.with-action button{color:#1b64da}
+
+/* ---- 장보기 올리기: 글 입력 ---- */
+textarea.text-input{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--card);border:2px solid transparent;border-radius:14px;padding:14px 16px;outline:none;resize:vertical;margin-top:8px;line-height:1.5}
+textarea.text-input:focus{border-color:var(--accent)}
+.draft{padding:16px 0;border-bottom:1px solid var(--line)}
+.draft.warn{background:linear-gradient(90deg,var(--red-bg),transparent 70%);margin:0 -16px;padding:16px}
+.draft-top{display:flex;align-items:center;gap:12px}
+.draft-top .main{flex:1;min-width:0}
+.draft-name{font-weight:700;font-size:16px;text-align:left}
+.draft-name span{color:var(--sub);font-size:13px;font-weight:500}
+.draft .tags{margin:10px 0 0}
+.name-edit{margin-top:8px}
+.name-input{display:flex;gap:8px;align-items:center}
+.name-input input{padding:10px 14px!important;font-size:15px!important}
+.name-input .small-btn{flex:none;white-space:nowrap}
+.name-input .small-btn[disabled]{opacity:.4}
+.fields{display:flex;flex-direction:column;gap:8px;margin-top:12px;font-size:14px}
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.field>span{color:var(--sub);flex:none}
+.mini-step{display:flex;align-items:center;gap:10px}
+.mini-step button{width:34px;height:34px;border-radius:10px;background:var(--card);font-size:18px;font-weight:700}
+.mini-step button[disabled]{opacity:.35;cursor:default}
+.mini-step b{min-width:44px;text-align:center}
+.seg.mini{margin:0;flex:0 1 210px}
+.seg.mini button{padding:7px 0;font-size:13px}
+.field .chip{padding:6px 12px;font-size:13px}
+.field .chips .chip{flex:none}
+.stepper button[disabled]{opacity:.35;cursor:default}

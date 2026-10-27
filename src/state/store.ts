@@ -5,7 +5,8 @@ import { makeSampleInventory } from '../data/sampleInventory';
 import { autoExpiresAt, defaultLocation, shiftExpiry } from '../rules/expiry';
 import { findItem, portionQty } from '../rules/plan';
 import { stateOf } from '../rules/status';
-import type { CatalogEntry, DateKey, Item, MealLog, Plan, Recipe, Remaining } from '../rules/types';
+import { COUNT_MAX, COUNT_MIN } from '../rules/constants';
+import type { CatalogEntry, DateKey, Item, Location, MealLog, Plan, Recipe, Remaining } from '../rules/types';
 
 export interface AppState {
   items: Item[];
@@ -19,6 +20,10 @@ export type Action =
   | { type: 'setRemaining'; id: string; remaining: Remaining }
   | { type: 'finishItem'; id: string; action: MealLog['action']; at: string }
   | { type: 'reset'; today: DateKey }
+  // 저장한 뒤에 고치기
+  | { type: 'removeItem'; id: string }
+  | { type: 'setLocation'; id: string; location: Location }
+  | { type: 'shiftCount'; id: string; delta: number }
   // 이번 주 플랜
   | { type: 'setMeals'; mealsPerWeek: number }
   | { type: 'swap'; slotIndex: number }
@@ -78,6 +83,17 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case 'reset':
       return initialState(action.today);
+    case 'removeItem':
+      // "잘못 넣었어요": 기록 없이 지운다 (버린 것으로 세지 않음)
+      return { ...state, items: state.items.filter((i) => i.id !== action.id) };
+    case 'setLocation':
+      return updateItem(state, action.id, (i) => ({ ...i, location: action.location }));
+    case 'shiftCount':
+      return updateItem(state, action.id, (i) => {
+        if (!i.portioned) return i;
+        const count = Math.min(COUNT_MAX, Math.max(COUNT_MIN, (i.count ?? 1) + action.delta));
+        return count === i.count ? i : withCount(i, count);
+      });
     case 'setMeals':
       return { ...state, plan: { ...state.plan, mealsPerWeek: action.mealsPerWeek, swapIndex: {} } };
     case 'swap': {

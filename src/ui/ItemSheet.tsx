@@ -2,11 +2,11 @@
 
 import { useEffect } from 'react';
 import { findCatalog } from '../data';
-import { REMAINING_LEVELS } from '../rules/constants';
+import { COUNT_MAX, COUNT_MIN, LOCATIONS, REMAINING_LEVELS } from '../rules/constants';
 import { formatMonthDay } from '../rules/date';
 import { expiryBasisText, usualShelfText } from '../rules/expiry';
 import { dDayLabel, daysLeft, daysSinceEntered, stateOf } from '../rules/status';
-import type { DateKey, Item, Remaining } from '../rules/types';
+import type { DateKey, Item, Location, Remaining } from '../rules/types';
 import { StateBadge } from './parts';
 
 interface Props {
@@ -16,9 +16,12 @@ interface Props {
   onShift: (delta: number) => void;
   onRemaining: (r: Remaining) => void;
   onFinish: (action: 'eat' | 'discard') => void;
+  onLocation: (l: Location) => void;
+  onCount: (delta: number) => void;
+  onRemove: () => void;
 }
 
-export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish }: Props) {
+export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish, onLocation, onCount, onRemove }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -80,7 +83,41 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
           ))}
         </div>
 
-        <div className="ctas">
+        {item.portioned && (
+          <>
+            <div className="eyebrow" style={{ marginTop: 14 }}>
+              남은 개수 (소분)
+            </div>
+            <div className="stepper" style={{ margin: '8px 0 4px' }}>
+              한 끼에 하나씩 써요
+              <div>
+                <button aria-label="하나 빼기" disabled={(item.count ?? 1) <= COUNT_MIN} onClick={() => onCount(-1)}>
+                  −
+                </button>
+                <b>
+                  {item.count ?? 1}
+                  {item.unit ?? '개'}
+                </b>
+                <button aria-label="하나 더하기" disabled={(item.count ?? 1) >= COUNT_MAX} onClick={() => onCount(1)}>
+                  +
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        <div className="eyebrow" style={{ marginTop: 14 }}>
+          보관 위치
+        </div>
+        <div className="seg">
+          {LOCATIONS.map((l) => (
+            <button key={l} className={item.location === l ? 'on' : ''} onClick={() => onLocation(l)}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div className="ctas" style={{ marginTop: 16 }}>
           <button
             className="btn-soft"
             style={{ background: 'var(--accent-bg)', color: 'var(--accent)' }}
@@ -98,6 +135,9 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
         </div>
         <button className="cta ghost" onClick={onClose}>
           닫기
+        </button>
+        <button className="note" style={{ textDecoration: 'underline', display: 'block', margin: '14px auto 0' }} onClick={onRemove}>
+          잘못 넣었어요 (지우기)
         </button>
       </div>
     </div>

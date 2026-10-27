@@ -163,3 +163,33 @@ describe('이번 주 플랜 상태', () => {
     expect(back.items[0]).toMatchObject({ id: 'p1', count: 2, qty: '소분 2덩이' });
   });
 });
+
+describe('저장한 뒤에 고치기', () => {
+  it('잘못 넣었어요: 지우기만 하고 기록은 남기지 않는다', () => {
+    const s = reducer(initialState(today), { type: 'removeItem', id: 'sample-1' });
+    expect(s.items.map((i) => i.id)).not.toContain('sample-1');
+    expect(s.logs).toEqual([]);
+  });
+
+  it('보관 위치 바꾸기', () => {
+    const s = reducer(initialState(today), { type: 'setLocation', id: 'sample-1', location: '냉동' });
+    expect(s.items[0].location).toBe('냉동');
+  });
+
+  it('소분 개수 ±: 1~30 안에서만, 수량 글자도 같이 바뀐다', () => {
+    const portion = { ...initialState(today).items[6] }; // 대파 소분 1봉
+    expect(portion).toMatchObject({ name: '대파', portioned: true, count: 1 });
+    let s = initialState(today);
+    s = reducer(s, { type: 'shiftCount', id: portion.id, delta: -1 });
+    expect(s.items[6].count).toBe(1); // 1보다 작아지지 않음
+    s = reducer(s, { type: 'shiftCount', id: portion.id, delta: 2 });
+    expect(s.items[6]).toMatchObject({ count: 3, qty: '소분 3봉' });
+    s = reducer(s, { type: 'shiftCount', id: portion.id, delta: 100 });
+    expect(s.items[6].count).toBe(30);
+  });
+
+  it('소분이 아닌 재료는 개수를 바꾸지 않는다', () => {
+    const s0 = initialState(today);
+    expect(reducer(s0, { type: 'shiftCount', id: 'sample-1', delta: 1 })).toEqual(s0);
+  });
+});
