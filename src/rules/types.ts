@@ -95,6 +95,8 @@ export interface Retailer {
   name: string;
   /** 주문일 + 이 값 = 입고일 */
   checkinDays: number;
+  /** 이 시각(0~23시) 이후 주문은 입고일이 하루 늦어진다. 없으면 시각과 무관. */
+  cutoffHour?: number;
   description: string;
 }
 
