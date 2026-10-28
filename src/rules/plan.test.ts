@@ -119,6 +119,17 @@ describe('규칙 세부', () => {
     expect(leftover).toEqual([]);
   });
 
+  it('소분 품목이 여러 끼에 쓰이면 메뉴가 겹치지 않게 다른 레시피 먼저', () => {
+    const items = [item('닭가슴살', 90, 0, { portioned: true, count: 3, unit: '봉', qty: '소분 3봉' })];
+    const recipes = [rec('볶음밥', ['닭가슴살']), rec('카레', ['닭가슴살']), rec('샐러드', ['닭가슴살'])];
+    const { slots } = makePlan(items, recipes, planOf({ mealsPerWeek: 3 }), today);
+    expect(slots.map((s) => s.recipe?.name)).toEqual(['볶음밥', '카레', '샐러드']);
+    // 이미 확정한 메뉴도 뒤로 간다
+    const done = [{ recipe: '볶음밥', usedItems: [], soonUsed: [], at: '' }];
+    const after = makePlan(items, recipes, planOf({ mealsPerWeek: 3, doneMeals: done }), today);
+    expect(after.slots.map((s) => s.recipe?.name)).toEqual(['카레', '샐러드']);
+  });
+
   it('이미 확정한 끼니 수만큼 앞 끼니는 건너뛴다', () => {
     const done = [{ recipe: 'x', usedItems: [], soonUsed: [], at: '' }];
     const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, doneMeals: done }), today);

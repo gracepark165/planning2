@@ -127,6 +127,8 @@ export interface SubstituteGroup {
   core: Core;
   members: string[];
   note?: string;
+  /** 대체를 제안할 때 같이 보여줄 안내 (예: 짠맛·매운 정도 차이) */
+  tip?: string;
 }
 
 export interface SubstituteTable {

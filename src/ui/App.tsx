@@ -9,6 +9,7 @@ import { HomeView } from './HomeView';
 import { ItemSheet } from './ItemSheet';
 import { OrderView } from './OrderView';
 import { PlanView } from './PlanView';
+import { VideoView } from './VideoView';
 import { TabBar, type TabKey } from './TabBar';
 import { newId } from './id';
 
@@ -19,10 +20,6 @@ interface Toast {
   action?: { label: string; run: () => void };
 }
 
-/** 아직 만들지 않은 탭 (6단계에서 채운다) */
-const COMING: Record<Exclude<TabKey, 'home' | 'plan' | 'order'>, { title: string; step: number; emoji: string }> = {
-  video: { title: '영상 확인', step: 6, emoji: '🎬' },
-};
 
 export function App() {
   const today = todayKey();
@@ -127,14 +124,7 @@ export function App() {
   } else if (screen === 'add') {
     view = <AddView items={state.items} onBack={() => go(prevScreen)} onAdd={addFromCatalog} />;
   } else {
-    const c = COMING[screen];
-    view = (
-      <div className="soon-box">
-        <div className="e">{c.emoji}</div>
-        <h1>{c.title}</h1>
-        <p className="lead">{c.step}단계에서 만들어요.</p>
-      </div>
-    );
+    view = <VideoView items={state.items} today={today} />;
   }
 
   return (

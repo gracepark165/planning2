@@ -3,6 +3,7 @@
 // - 끼니 N개. 끼니 i의 날짜 = 오늘 + floor(i*7/N)
 // - 후보: 필요한 재료(쓰는 것+상비)가 모두 (시뮬레이션) 재고에 있고, 쓰는 재료의 남은 일수 ≥ 그날, 건너뛴 레시피 제외
 // - 정렬: 쓰는 재료 중 가장 급한 것(남은 일수 최소) → 급함 점수 합 높은 순. 쓰는 재료가 없는 레시피는 맨 뒤
+// - 이번 주에 이미 고른(확정 포함) 레시피는 다른 후보 뒤로 보낸다 (소분 품목이 같은 메뉴만 반복되지 않게)
 // - 고른 레시피의 쓰는 재료는 시뮬레이션 재고에서 뺀다 (소분 품목은 한 끼에 1개씩)
 // - "바꾸기"는 같은 끼니의 다음 후보로 넘긴다
 
@@ -59,6 +60,7 @@ export function makePlan(items: readonly Item[], recipes: readonly Recipe[], pla
   const has = (name: string) => (sim.get(name)?.count ?? 0) > 0;
   const left = (name: string) => daysLeft(sim.get(name)!.item, today);
 
+  const picked = new Set(plan.doneMeals.map((m) => m.recipe));
   const slots: PlanSlot[] = [];
   for (let i = plan.doneMeals.length; i < n; i++) {
     const d = slotDay(i, n);
@@ -72,9 +74,15 @@ export function makePlan(items: readonly Item[], recipes: readonly Recipe[], pla
       cands.push({ r, minLeft, score });
     }
     cands.sort((a, b) => a.minLeft - b.minLeft || b.score - a.score);
-    const list = [...cands.filter((c) => c.r.uses.length), ...cands.filter((c) => !c.r.uses.length)];
+    const withUses = cands.filter((c) => c.r.uses.length);
+    const list = [
+      ...withUses.filter((c) => !picked.has(c.r.name)),
+      ...withUses.filter((c) => picked.has(c.r.name)),
+      ...cands.filter((c) => !c.r.uses.length),
+    ];
     const pick = list.length ? list[(plan.swapIndex[i] ?? 0) % list.length] : undefined;
     if (pick) {
+      picked.add(pick.r.name);
       for (const u of pick.r.uses) {
         const e = sim.get(u)!;
         e.count -= 1;

@@ -115,8 +115,6 @@ input[type=text]:focus,select:focus{border-color:var(--accent)}
 
 /* ---- 앱에서 추가 ---- */
 #app{max-width:480px;margin:0 auto}
-.soon-box{padding:72px 0;text-align:center}
-.soon-box .e{font-size:48px}
 .sheet h1{margin-top:12px}
 .basis .usual{color:var(--sub);font-size:12.5px}
 /* 시트 바깥 누르면 닫기: iOS Safari는 cursor:pointer가 없으면 div에 click을 보내지 않을 수 있다 */
