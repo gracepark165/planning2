@@ -1,19 +1,25 @@
-// 영상 확인(FR-29/30): 링크 → 메뉴·재료 읽기(AI 연결 전까지 예시) → 확인 → 냉장고와 비교·대체 제안
+// 영상 확인(FR-29/30): 링크 → 메뉴·재료 읽기(AI, 예시 링크는 예시 결과) → 확인 → 냉장고와 비교·대체 제안
+// AI는 영상을 보지 못하고 제목·설명란을 읽는다. 못 읽으면 직접 입력(FR-30).
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { youtubeIdOf } from '../../api/read';
+import { AI_FAILURE_TEXT, readVideo } from '../ai/client';
+import { videoMenusOf, type VideoMenu } from '../ai/convert';
 import { SUBSTITUTES, VIDEO_EXAMPLES } from '../data';
 import { dDayLabel, daysLeft, stateOf } from '../rules/status';
 import type { DateKey, Item } from '../rules/types';
 import { checkIngredients, splitManualIngredients, subQuestion, subReason, videoHeadline } from '../rules/videoCheck';
 import { BackButton, StateBadge, Tile } from './parts';
 
-interface Recipe {
-  title: string;
-  names: string[];
-  skipped: string[];
+interface Recipe extends VideoMenu {
+  /** AI가 읽은 결과인지 (아니면 예시·직접 입력) */
+  fromAi?: boolean;
+  /** 설명란에 재료가 없어서 메뉴 이름으로 짐작했는지 */
+  guessed?: boolean;
 }
 
-type Step = 'input' | 'loading' | 'confirm' | 'result' | 'unknown' | 'manual';
+// loading = 예시 읽는 척, reading = AI가 읽는 중, pick = 메뉴가 여러 개
+type Step = 'input' | 'loading' | 'reading' | 'pick' | 'confirm' | 'result' | 'unknown' | 'manual';
 
 export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
   const [step, setStep] = useState<Step>('input');
@@ -22,6 +28,10 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
   const [manualTitle, setManualTitle] = useState('');
   const [manualIngredients, setManualIngredients] = useState('');
   const [manualError, setManualError] = useState('');
+  /** 못 읽은 이유 (없으면 AI 연결 전) */
+  const [failText, setFailText] = useState<string | null>(null);
+  const [menus, setMenus] = useState<Recipe[]>([]);
+  const round = useRef(0);
 
   useEffect(() => {
     if (step !== 'loading') return;
@@ -30,6 +40,7 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
   }, [step]);
 
   const reset = () => {
+    round.current++;
     setStep('input');
     setRecipe(null);
     window.scrollTo(0, 0);
@@ -42,10 +53,58 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
     setStep('loading');
   };
 
-  const check = () => {
+  const fail = (text: string | null) => {
+    setFailText(text);
+    setStep('unknown');
+  };
+
+  const check = async () => {
     const v = VIDEO_EXAMPLES.find((x) => x.url === url.trim());
-    if (v) readExample(v.id);
-    else setStep('unknown');
+    if (v) {
+      readExample(v.id);
+      return;
+    }
+    if (!youtubeIdOf(url)) {
+      fail(AI_FAILURE_TEXT['not-youtube']);
+      return;
+    }
+    const my = ++round.current;
+    setStep('reading');
+    const res = await readVideo(url.trim());
+    if (my !== round.current) return;
+    if (!res.ok) {
+      fail(res.reason === 'no-key' ? null : AI_FAILURE_TEXT[res.reason]);
+      return;
+    }
+    const found: Recipe[] = videoMenusOf(res.data, SUBSTITUTES).map((m) => ({
+      ...m,
+      fromAi: true,
+      guessed: res.data.basis === 'title',
+    }));
+    if (!found.length) {
+      setManualTitle(res.data.videoTitle.slice(0, 40));
+      fail('영상 제목과 설명란에서 재료를 찾지 못했어요. 메뉴와 재료를 직접 적어 주세요.');
+      return;
+    }
+    if (found.length === 1) {
+      setRecipe(found[0]);
+      setStep('confirm');
+    } else {
+      setMenus(found);
+      setStep('pick');
+    }
+  };
+
+  /** "아니에요": AI 결과는 고칠 수 있게 직접 입력 화면에 채워 준다 */
+  const notThis = (r: Recipe) => {
+    if (!r.fromAi) {
+      reset();
+      return;
+    }
+    setManualTitle(r.title);
+    setManualIngredients([...r.names, ...r.skipped].join(', '));
+    setStep('manual');
+    window.scrollTo(0, 0);
   };
 
   const examples = VIDEO_EXAMPLES.map((v) => (
@@ -69,29 +128,58 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
           placeholder="유튜브 쇼츠 링크"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && url.trim() && check()}
+          onKeyDown={(e) => e.key === 'Enter' && url.trim() && void check()}
           autoComplete="off"
           aria-label="유튜브 쇼츠 링크"
         />
-        <button className="cta" disabled={!url.trim()} onClick={check}>
+        <button className="cta" disabled={!url.trim()} onClick={() => void check()}>
           확인하기
         </button>
         <button className="note" style={{ textDecoration: 'underline', display: 'block', marginTop: 12 }} onClick={() => setStep('manual')}>
           링크 없이 직접 입력하기
         </button>
-        <div className="eyebrow">AI 연결 전이라 예시 영상만 읽을 수 있어요</div>
+        <p className="note">쇼츠도 긴 영상도 돼요. AI가 영상 제목과 설명란을 읽어요.</p>
+        <div className="eyebrow">예시 영상으로 해보기</div>
         {examples}
       </>
     );
   }
 
-  if (step === 'loading') {
+  if (step === 'loading' || step === 'reading') {
     return (
       <div className="pulse">
         <div className="spin" />
         <b style={{ color: 'var(--fg)', fontSize: 18 }}>영상에서 재료를 읽고 있어요</b>
-        <span>잠깐만 기다려 주세요</span>
+        <span>{step === 'reading' ? '제목과 설명란을 보고 있어요' : '잠깐만 기다려 주세요'}</span>
+        {step === 'reading' && (
+          <button className="cta ghost" style={{ marginTop: 16 }} onClick={reset}>
+            그만두기
+          </button>
+        )}
       </div>
+    );
+  }
+
+  if (step === 'pick') {
+    return (
+      <>
+        <BackButton onClick={reset} />
+        <h1>어떤 메뉴를 볼까요?</h1>
+        <p className="lead">이 영상에 메뉴가 {menus.length}개 있어요.</p>
+        {menus.map((m) => (
+          <button
+            key={m.title}
+            className="sample-btn"
+            onClick={() => {
+              setRecipe(m);
+              setStep('confirm');
+            }}
+          >
+            {m.title}
+            <small>{m.names.slice(0, 5).join(', ')}{m.names.length > 5 ? ' …' : ''}</small>
+          </button>
+        ))}
+      </>
     );
   }
 
@@ -99,8 +187,8 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
     return (
       <>
         <BackButton onClick={reset} />
-        <h1>이 링크는 아직 못 읽어요</h1>
-        <p className="lead">AI 연결 전이라 예시 영상 {VIDEO_EXAMPLES.length}개만 확인할 수 있어요.</p>
+        <h1>{failText ? '영상을 읽지 못했어요' : '이 링크는 아직 못 읽어요'}</h1>
+        <p className="lead">{failText ?? `AI 연결 전이라 예시 영상 ${VIDEO_EXAMPLES.length}개만 확인할 수 있어요.`}</p>
         {examples}
         <button className="cta" onClick={() => setStep('manual')}>
           직접 입력하기
@@ -170,7 +258,11 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
       <>
         <BackButton onClick={reset} />
         <h1>‘{r.title}’ 영상이 맞나요?</h1>
-        <p className="lead">영상에서 이런 재료를 읽었어요.</p>
+        <p className="lead">
+          {r.guessed
+            ? '설명란에 재료가 없어서, 메뉴 이름으로 흔히 쓰는 재료를 짐작했어요.'
+            : '영상에서 이런 재료를 읽었어요.'}
+        </p>
         <div className="tags" style={{ gap: 8 }}>
           {r.names.map((n) => (
             <span key={n} className="tag" style={{ fontSize: 14, padding: '6px 12px' }}>
@@ -179,8 +271,8 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
           ))}
         </div>
         <div className="ctas">
-          <button className="cta ghost" onClick={reset}>
-            아니에요
+          <button className="cta ghost" onClick={() => notThis(r)}>
+            {r.fromAi ? '고칠게요' : '아니에요'}
           </button>
           <button className="cta" onClick={() => setStep('result')}>
             맞아요

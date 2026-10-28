@@ -172,3 +172,6 @@ textarea.text-input:focus{border-color:var(--accent)}
 .row .dday{flex:none;font-size:16px;font-weight:700;color:var(--fg);white-space:nowrap}
 .row .dday.hot{color:var(--red)}
 .row .dday.bur{color:var(--amber)}
+
+/* 예시 결과를 보여주는 이유 (AI 연결 전·실패) */
+.example-why{margin:8px 0 0;padding:10px 12px;border-radius:12px;background:var(--card);color:var(--sub);font-size:13px}
