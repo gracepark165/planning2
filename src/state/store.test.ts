@@ -76,6 +76,13 @@ describe('기기 안 저장', () => {
     expect(loadState(st)).toEqual(s);
   });
 
+  it('예전에 다른 이름(달걀)으로 넣은 재료는 대표 이름으로 맞춰 불러온다', () => {
+    const st = memory();
+    const s = initialState(today);
+    saveState({ ...s, items: s.items.map((i) => (i.name === '계란' ? { ...i, name: '달걀' } : i)) }, st);
+    expect(loadState(st)).toEqual(s);
+  });
+
   it('없거나 깨진 값이면 null', () => {
     const st = memory();
     expect(loadState(st)).toBeNull();

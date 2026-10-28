@@ -9,6 +9,7 @@ import {
   RETAILERS,
   SUBSTITUTES,
   VIDEO_EXAMPLES,
+  canonicalName,
   findCatalog,
 } from './index';
 import { SAMPLE_SEEDS, makeSampleInventory } from './sampleInventory';
@@ -61,6 +62,21 @@ describe('재료 사전', () => {
     ]);
     const missing = [...used].filter((n) => !findCatalog(n));
     expect(missing).toEqual([]);
+  });
+});
+
+describe('다른 이름 (aliases)', () => {
+  it('다른 이름은 대표 이름이나 다른 다른 이름과 겹치지 않는다', () => {
+    const all = CATALOG.flatMap((c) => [c.name, ...(c.aliases ?? [])].map((n) => n.replace(/\s+/g, '')));
+    expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('다른 이름으로 찾아도 대표 이름', () => {
+    expect(canonicalName('달걀')).toBe('계란');
+    expect(canonicalName('쇠고기')).toBe('소고기');
+    expect(canonicalName('불고기용 소고기')).toBe('소고기 불고기용');
+    expect(findCatalog('앞다리살')?.name).toBe('돼지고기 앞다리살');
+    expect(canonicalName('연어')).toBe('연어');
   });
 });
 

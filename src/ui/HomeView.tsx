@@ -7,6 +7,7 @@ import {
   daysSinceEntered,
   groupForHome,
   homeHeadline,
+  sameAsAbove,
   stateOf,
 } from '../rules/status';
 import type { DateKey, Item, ItemState, Location, MealLog } from '../rules/types';
@@ -56,20 +57,21 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset }:
 
   const { title, lead } = homeHeadline(countByState(items, today));
   const locCount = (l: LocFilter) => (l === '전체' ? items.length : items.filter((i) => i.location === l).length);
+  // 상태 필터칩을 고르면 그 상태 재료만 먼저 거른다 (같은 이름 재료를 다른 구역에서 끌어오지 않게)
   const groups = groupForHome(
-    items.filter((i) => loc === '전체' || i.location === loc),
+    items.filter((i) => (loc === '전체' || i.location === loc) && (filter === '전체' || stateOf(i, today) === filter)),
     today,
-  ).filter((g) => filter === '전체' || g.state === filter);
+  );
   // 상태 필터칩으로 한 상태만 볼 때는 구역 제목 없이 다 펼친다
   const sectioned = filter === '전체';
 
-  const row = (i: Item) => {
+  const row = (i: Item, n: number, list: Item[]) => {
     const st = stateOf(i, today);
     const dday = dDayLabel(daysLeft(i, today));
     // 오른쪽 큰 글씨는 "왜 이 구역에 있는지": 잊혀지는 중이면 들어온 지 며칠째, 아니면 남은 기한
     const buried = st === 'buried';
     return (
-      <button key={i.id} className="row" onClick={() => onOpen(i.id)}>
+      <button key={i.id} className={`row ${sameAsAbove(list, n) ? 'same' : ''}`} onClick={() => onOpen(i.id)}>
         <Tile name={i.name} core={i.core} />
         <div className="main">
           <div className="nm">{i.name}</div>
@@ -126,7 +128,7 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset }:
                 {sectioned && (
                   <div className={`sec-head s-${g.state}`}>
                     <span>
-                      {STATE_META[g.state].icon} {STATE_META[g.state].label} <b>{g.items.length}</b>
+                      {STATE_META[g.state].icon} {STATE_META[g.state].label} <b>{g.count}</b>
                     </span>
                     {g.state === 'ok' && (
                       <button onClick={toggleOk} aria-expanded={okOpen}>
@@ -158,7 +160,7 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset }:
       <p className="note">
         상태는 소비기한 {SOON_DAYS}일 이내({STATE_META.soon.label}), 들어온 지 {BURIED_AGO}일 이상(
         {STATE_META.buried.label}) 같은 규칙으로 계산해요. {STATE_META.soon.label} → {STATE_META.buried.label} →{' '}
-        {STATE_META.ok.label} 순서로 묶고, 같은 묶음 안은 기한이 가까운 순서예요. 기본 기간표로 정한 소비기한은 식약처 기준으로 검증하기 전이라 ‘임시’예요.
+        {STATE_META.ok.label} 순서로 묶고, 같은 묶음 안은 기한이 가까운 순서예요. 이름이 같은 재료는 가장 급한 것 아래에 붙여서 보여줘요. 기본 기간표로 정한 소비기한은 식약처 기준으로 검증하기 전이라 ‘임시’예요.
       </p>
       <button
         className="note"

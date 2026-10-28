@@ -76,8 +76,8 @@ function findNames(text: string, catalog: readonly CatalogEntry[]): NameHit[] {
     compact += text[i];
   }
   const hits: NameHit[] = [];
-  for (const entry of catalog) {
-    const key = entry.name.replace(/\s+/g, '');
+  for (const entry of catalog) for (const name of [entry.name, ...(entry.aliases ?? [])]) {
+    const key = name.replace(/\s+/g, '');
     for (let at = compact.indexOf(key); at >= 0; at = compact.indexOf(key, at + 1)) {
       const start = idx[at];
       const end = idx[at + key.length - 1] + 1;

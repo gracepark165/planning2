@@ -5,6 +5,7 @@ import {
   countByState,
   dDayLabel,
   groupForHome,
+  sameAsAbove,
   daysLeft,
   daysSinceEntered,
   homeHeadline,
@@ -126,6 +127,17 @@ describe('홈 정렬과 헤드라인', () => {
       ['buried', ['만두', '새우살']],
       ['ok', ['삼겹살', '대파', '삼겹 베이컨', '양파', '계란', '버터', '카레가루', '스파게티면']],
     ]);
+  });
+
+  it('이름이 같은 재료는 가장 급한 것 바로 아래에 붙인다 (구역이 달라도)', () => {
+    const it2 = (name: string, left: number, ago: number) => ({ name, ...at(left, ago) });
+    const items = [it2('우유', 10, 1), it2('달걀', 2, 1), it2('우유', 3, 1), it2('대파', 5, 1)];
+    const groups = groupForHome(items, today);
+    expect(groups.map((g) => [g.state, g.items.map((i) => `${i.name}${daysLeft(i, today)}`), g.count])).toEqual([
+      ['soon', ['달걀2', '우유3', '우유10'], 2],
+      ['ok', ['대파5'], 1],
+    ]);
+    expect(groups[0].items.map((_, n, l) => sameAsAbove(l, n))).toEqual([false, false, true]);
   });
 
   it('빈 구역은 빠진다', () => {

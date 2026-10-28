@@ -90,6 +90,11 @@ describe('대체 규칙 (CLAUDE.md 10장)', () => {
     expect(rows[0].kind === 'have' && daysOf(rows[0].item)).toBe(2);
   });
 
+  it('다른 이름도 같은 재료로 본다 (달걀 = 계란, 쇠고기 국거리 → 같은 묶음 대체)', () => {
+    const rows = checkIngredients(['달걀', '쇠고기 국거리'], [item('계란', 10, 1), item('양지', 5, 1)], today, SUBSTITUTES);
+    expect(summary(rows)).toEqual(['달걀:있어요', '쇠고기 국거리→양지']);
+  });
+
   it('기본 양념은 확인에서 뺀다', () => {
     const rows = checkIngredients(['소금', '닭안심', '간장', '물'], inv, today, SUBSTITUTES);
     expect(rows.map((r) => r.name)).toEqual(['닭안심']);

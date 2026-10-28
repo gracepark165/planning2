@@ -67,7 +67,7 @@ export function renameRow(row: DraftRow, name: string, today: DateKey, lookup: L
   const entry = lookup(trimmed);
   const next: DraftRow = {
     ...row,
-    name: trimmed,
+    name: entry?.name ?? trimmed, // 다른 이름이면 대표 이름으로 (달걀 → 계란)
     catalogName: entry?.name,
     nameChecked: true,
     // 이름이 바뀌면 이전 이름 기준으로 고른 소비기한은 버린다

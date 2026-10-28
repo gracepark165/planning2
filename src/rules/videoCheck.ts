@@ -5,6 +5,7 @@
 // 3. 필요한 양은 비교하지 않는다. 기본 양념은 확인에서 뺀다.
 // 4. "제안하지 않는 쌍"은 대체로 보지 않는다.
 
+import { canonicalName } from '../data';
 import { iga, ro } from './josa';
 import { findItem } from './plan';
 import { HOME_SECTION_ORDER, daysLeft, stateOf } from './status';
@@ -30,10 +31,11 @@ const byUrgency = (today: DateKey) => (a: Item, b: Item) =>
 
 /** 대체 후보 (급한 순). 같은 묶음 안에서, 이름이 다른 재료만. */
 export function substitutesFor(name: string, items: readonly Item[], today: DateKey, table: SubstituteTable): Item[] {
-  const group = groupOf(name, table);
+  const want = canonicalName(name);
+  const group = groupOf(want, table);
   if (!group) return [];
   return items
-    .filter((i) => i.name !== name && group.members.includes(i.name) && !isNeverPair(name, i.name, table))
+    .filter((i) => i.name !== want && group.members.includes(i.name) && !isNeverPair(want, i.name, table))
     .sort(byUrgency(today));
 }
 
@@ -46,10 +48,12 @@ export function checkIngredients(
   return names
     .filter((n) => !table.basicSeasonings.includes(n))
     .map((name): VideoRow => {
-      const item = findItem(items, name, today);
+      // 다른 이름(달걀)도 대표 이름(계란)으로 찾는다. 화면에는 영상에 나온 이름 그대로 보여준다.
+      const want = canonicalName(name);
+      const item = findItem(items, want, today);
       if (item) return { name, kind: 'have', item };
-      const cands = substitutesFor(name, items, today, table);
-      if (cands.length) return { name, kind: 'sub', sub: cands[0], candidateCount: cands.length, group: groupOf(name, table)! };
+      const cands = substitutesFor(want, items, today, table);
+      if (cands.length) return { name, kind: 'sub', sub: cands[0], candidateCount: cands.length, group: groupOf(want, table)! };
       return { name, kind: 'none' };
     });
 }

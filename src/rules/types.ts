@@ -68,6 +68,8 @@ export interface DoneMeal {
 /** 재료 사전 한 줄 */
 export interface CatalogEntry {
   name: string;
+  /** 같은 재료의 다른 이름 (달걀 → 계란). 읽을 때 name으로 바꾼다. */
+  aliases?: string[];
   emoji?: string;
   core: Core;
   /** 기본 기간(일) — 입고일 + 이 값 = 소비기한 */

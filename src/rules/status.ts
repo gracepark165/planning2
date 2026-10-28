@@ -73,13 +73,35 @@ export function sortForHome<T extends Dated>(items: readonly T[], today: DateKey
   return keyed.map((k) => k.i);
 }
 
-/** 홈 목록을 상태별 구역으로 묶는다. 구역 안은 sortForHome 순서. 빈 구역은 뺀다. */
-export function groupForHome<T extends Dated>(items: readonly T[], today: DateKey): { state: ItemState; items: T[] }[] {
-  const sorted = sortForHome(items, today);
-  return HOME_SECTION_ORDER.map((state) => ({ state, items: sorted.filter((i) => stateOf(i, today) === state) })).filter(
-    (g) => g.items.length > 0,
-  );
+/**
+ * 홈 목록을 상태별 구역으로 묶는다. 구역 안은 sortForHome 순서. 빈 구역은 뺀다.
+ * 이름이 같은 재료(산 날이 다른 우유 두 개 등)는 떨어뜨리지 않고, 가장 앞에 오는 것 바로 아래에 붙인다.
+ * 그래서 붙은 재료는 자기 상태와 다른 구역에 있을 수 있다. count는 구역 상태와 같은 재료 수(헤드라인과 맞춤).
+ */
+export function groupForHome<T extends Dated>(
+  items: readonly T[],
+  today: DateKey,
+): { state: ItemState; items: T[]; count: number }[] {
+  const clusters: T[][] = [];
+  const byName = new Map<string, T[]>();
+  for (const i of sortForHome(items, today)) {
+    const same = i.name !== undefined ? byName.get(i.name) : undefined;
+    if (same) same.push(i);
+    else {
+      const c = [i];
+      clusters.push(c);
+      if (i.name !== undefined) byName.set(i.name, c);
+    }
+  }
+  return HOME_SECTION_ORDER.map((state) => {
+    const list = clusters.filter((c) => stateOf(c[0], today) === state).flat();
+    return { state, items: list, count: list.filter((i) => stateOf(i, today) === state).length };
+  }).filter((g) => g.items.length > 0);
 }
+
+/** 바로 위 줄과 이름이 같은 재료인지 (홈에서 붙여 보여주는 줄) */
+export const sameAsAbove = (list: readonly Dated[], index: number) =>
+  index > 0 && list[index].name !== undefined && list[index - 1].name === list[index].name;
 
 export function countByState(items: readonly Dated[], today: DateKey): Record<ItemState, number> {
   const cnt: Record<ItemState, number> = { soon: 0, buried: 0, ok: 0 };

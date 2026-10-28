@@ -22,9 +22,16 @@ export const VIDEO_EXAMPLES = examplesJson.videos as VideoExample[];
 export const ORDER_EXAMPLE_ITEMS = examplesJson.orderItems as OrderExampleItem[];
 export const SUBSTITUTES = substitutesJson as SubstituteTable;
 
-const byName = new Map(CATALOG.map((c) => [c.name, c]));
+const nameKey = (name: string) => name.replace(/\s+/g, '');
+const byName = new Map<string, CatalogEntry>();
+for (const c of CATALOG) for (const n of [c.name, ...(c.aliases ?? [])]) byName.set(nameKey(n), c);
 
-/** 이름이 정확히 같은 사전 항목 */
+/** 이름(또는 다른 이름)이 같은 사전 항목. 띄어쓰기는 무시한다. */
 export function findCatalog(name: string): CatalogEntry | undefined {
-  return byName.get(name);
+  return byName.get(nameKey(name));
+}
+
+/** 대표 이름: 사전에 있으면 사전 이름(달걀 → 계란), 없으면 그대로 */
+export function canonicalName(name: string): string {
+  return findCatalog(name)?.name ?? name.trim();
 }
