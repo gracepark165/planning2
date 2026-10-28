@@ -68,7 +68,8 @@ const updateItem = (state: AppState, id: string, fn: (i: Item) => Item): AppStat
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'addItems':
-      return { ...state, items: [...state.items, ...action.items] };
+      // 재고가 바뀌면 이번 주 추천을 첫 후보부터 다시 (프로토타입과 같음)
+      return { ...state, items: [...state.items, ...action.items], plan: { ...state.plan, swapIndex: {} } };
     case 'shiftExpiry':
       return updateItem(state, action.id, (i) => shiftExpiry(i, action.delta));
     case 'setRemaining':

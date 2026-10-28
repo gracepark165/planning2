@@ -28,6 +28,7 @@ export function App() {
   const [prevScreen, setPrevScreen] = useState<Screen>('home');
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
+  const [orderRound, setOrderRound] = useState(0);
   const toastTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => saveState(state), [state]);
@@ -66,7 +67,7 @@ export function App() {
   const sheetItem = state.items.find((i) => i.id === sheetId);
   const closeSheet = useCallback(() => setSheetId(null), []);
 
-  let view: ReactNode;
+  let view: ReactNode = null;
   if (screen === 'home') {
     view = (
       <HomeView
@@ -109,27 +110,32 @@ export function App() {
         }}
       />
     );
-  } else if (screen === 'order') {
-    view = (
-      <OrderView
-        today={today}
-        onPickCatalog={() => go('add')}
-        onAdd={(items) => {
-          dispatch({ type: 'addItems', items });
-          go('plan');
-          showToast('냉장고에 넣었어요. 이번 주 먹을 순서예요');
-        }}
-      />
-    );
   } else if (screen === 'add') {
     view = <AddView items={state.items} onBack={() => go(prevScreen)} onAdd={addFromCatalog} />;
-  } else {
-    view = <VideoView items={state.items} today={today} />;
   }
 
   return (
     <>
-      <div id="app">{view}</div>
+      <div id="app">
+        {view}
+        {/* 영상 확인·장보기 올리기는 진행 중인 단계를 기억하도록 다른 탭에 가도 화면을 숨기기만 한다 */}
+        <div hidden={screen !== 'video'}>
+          <VideoView items={state.items} today={today} />
+        </div>
+        <div hidden={screen !== 'order'}>
+          <OrderView
+            key={orderRound}
+            today={today}
+            onPickCatalog={() => go('add')}
+            onAdd={(items) => {
+              dispatch({ type: 'addItems', items });
+              setOrderRound((n) => n + 1); // 넣고 나면 다음에는 처음 화면부터
+              go('plan');
+              showToast('냉장고에 넣었어요. 이번 주 먹을 순서예요');
+            }}
+          />
+        </div>
+      </div>
       <TabBar active={screen === 'add' ? 'home' : screen} onChange={go} />
       {sheetItem && (
         <ItemSheet

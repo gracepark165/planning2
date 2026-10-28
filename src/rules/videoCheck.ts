@@ -8,7 +8,7 @@
 import { canonicalName } from '../data';
 import { iga, ro } from './josa';
 import { findItem } from './plan';
-import { HOME_SECTION_ORDER, daysLeft, stateOf } from './status';
+import { HOME_SECTION_ORDER, dDayLabel, daysLeft, stateOf } from './status';
 import type { DateKey, Item, SubstituteGroup, SubstituteTable } from './types';
 
 export type VideoRow =
@@ -61,17 +61,18 @@ export function checkIngredients(
 /** 제안 문구: "닭다리살 말고 닭안심으로 대체하는 건 어때요?" */
 export const subQuestion = (want: string, sub: string) => `${want} 말고 ${sub}${ro(sub)} 대체하는 건 어때요?`;
 
-/** 제안 근거 문구 */
-export function subReason(row: Extract<VideoRow, { kind: 'sub' }>, today: DateKey): string {
-  const st = stateOf(row.sub, today);
+/** 제안 근거 문구 (프로토타입과 같음): "냉장고에 닭안심(D-1)이 있어요." + 상태 강조 줄 */
+export function subReason(
+  row: Extract<VideoRow, { kind: 'sub' }>,
+  today: DateKey,
+): { text: string; emphasis?: { state: 'soon' | 'buried'; text: string } } {
   const n = row.sub.name;
-  const base =
-    st === 'soon'
-      ? `냉장고에 ${n}${iga(n)} 있는데, 지금 가장 급한 재료예요`
-      : st === 'buried'
-        ? `냉장고에 ${n}${iga(n)} 오래 숨어 있었어요`
-        : `냉장고에 ${n}${iga(n)} 있어요`;
-  return row.candidateCount > 1 ? `${base} · 같은 종류 중 소비기한이 더 가까운 걸 골랐어요` : base;
+  const many = row.candidateCount > 1 ? ' · 같은 종류 중 소비기한이 더 가까운 걸 골랐어요' : '';
+  const text = `냉장고에 ${n}(${dDayLabel(daysLeft(row.sub, today))})${iga(n)} 있어요${many}.`;
+  const st = stateOf(row.sub, today);
+  if (st === 'soon') return { text, emphasis: { state: st, text: '지금 가장 급한 재료예요' } };
+  if (st === 'buried') return { text, emphasis: { state: st, text: '오래 숨어 있던 재료예요' } };
+  return { text };
 }
 
 /** 직접 입력(FR-30): 쉼표·줄바꿈으로 나누고 기본 양념은 따로 뺀다 */

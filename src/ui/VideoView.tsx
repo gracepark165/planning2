@@ -221,6 +221,7 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
             );
           }
           if (x.kind === 'sub') {
+            const reason = subReason(x, today);
             return (
               <div key={x.name} className="row" style={{ display: 'block' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -232,9 +233,10 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
                 </div>
                 <div className="sub-card">
                   <b>{subQuestion(x.name, x.sub.name)}</b>
-                  <span>
-                    {subReason(x, today)} ({dDayLabel(daysLeft(x.sub, today))})
-                  </span>
+                  <span>{reason.text}</span>
+                  {reason.emphasis && (
+                    <span className={`sub-em ${reason.emphasis.state}`}>{reason.emphasis.text}</span>
+                  )}
                   {x.group.tip && <span>{x.group.tip}</span>}
                 </div>
               </div>

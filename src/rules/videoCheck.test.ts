@@ -38,9 +38,10 @@ describe('예시 영상 × 샘플 재고', () => {
     expect(summary(rows)).toEqual(['닭다리살→닭안심', '카레가루:있어요', '우유:있어요', '양파:있어요', '버터:있어요']);
     expect(videoHeadline(rows)).toBe('5개 중 4개가 냉장고에 있어요');
     expect(subQuestion('닭다리살', '닭안심')).toBe('닭다리살 말고 닭안심으로 대체하는 건 어때요?');
-    expect(subReason(rows[0] as Extract<VideoRow, { kind: 'sub' }>, today)).toBe(
-      '냉장고에 닭안심이 있는데, 지금 가장 급한 재료예요',
-    );
+    expect(subReason(rows[0] as Extract<VideoRow, { kind: 'sub' }>, today)).toEqual({
+      text: '냉장고에 닭안심(D-1)이 있어요.',
+      emphasis: { state: 'soon', text: '지금 가장 급한 재료예요' },
+    });
   });
 
   it('제육볶음: 앞다리살 대신 삼겹살 (같은 돼지고기라도 삼겹 베이컨은 가공육 묶음이라 제외)', () => {
@@ -73,7 +74,9 @@ describe('대체 규칙 (CLAUDE.md 10장)', () => {
     ]);
     const [row] = checkIngredients(['닭다리살'], items, today, SUBSTITUTES);
     expect(row).toMatchObject({ kind: 'sub', candidateCount: 4 });
-    expect(subReason(row as Extract<VideoRow, { kind: 'sub' }>, today)).toContain('같은 종류 중 소비기한이 더 가까운 걸 골랐어요');
+    expect(subReason(row as Extract<VideoRow, { kind: 'sub' }>, today).text).toBe(
+      '냉장고에 닭안심(D-2)이 있어요 · 같은 종류 중 소비기한이 더 가까운 걸 골랐어요.',
+    );
   });
 
   it('제안하지 않는 쌍은 같은 묶음이어도 빼고 본다', () => {
@@ -109,9 +112,12 @@ describe('대체 규칙 (CLAUDE.md 10장)', () => {
 
   it('제안 근거 문구: 묻힘 / 정상', () => {
     const [buried] = checkIngredients(['닭다리살'], [item('닭정육', 30, 20)], today, SUBSTITUTES);
-    expect(subReason(buried as Extract<VideoRow, { kind: 'sub' }>, today)).toBe('냉장고에 닭정육이 오래 숨어 있었어요');
+    expect(subReason(buried as Extract<VideoRow, { kind: 'sub' }>, today)).toEqual({
+      text: '냉장고에 닭정육(D-30)이 있어요.',
+      emphasis: { state: 'buried', text: '오래 숨어 있던 재료예요' },
+    });
     const [ok] = checkIngredients(['닭다리살'], [item('닭가슴살', 30, 1)], today, SUBSTITUTES);
-    expect(subReason(ok as Extract<VideoRow, { kind: 'sub' }>, today)).toBe('냉장고에 닭가슴살이 있어요');
+    expect(subReason(ok as Extract<VideoRow, { kind: 'sub' }>, today)).toEqual({ text: '냉장고에 닭가슴살(D-30)이 있어요.' });
   });
 });
 

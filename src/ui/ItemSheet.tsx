@@ -42,7 +42,7 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
         <StateBadge state={stateOf(item, today)} />
         <h1>{item.name}</h1>
         <p className="lead" style={{ marginBottom: 0 }}>
-          {item.qty} · {item.location} · 들어온 지 {daysSinceEntered(item, today)}일
+          {item.qty} · {item.location} · {enteredText(daysSinceEntered(item, today))}
         </p>
 
         <div className="basis">
@@ -143,3 +143,6 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
     </div>
   );
 }
+
+/** 입고일 문구. 도착 예정(입고일이 미래)이면 음수가 되지 않게 */
+const enteredText = (ago: number) => (ago >= 0 ? `들어온 지 ${ago}일` : `${-ago}일 뒤 들어와요`);

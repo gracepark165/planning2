@@ -64,6 +64,9 @@ input[type=text]:focus,select:focus{border-color:var(--accent)}
 .sub-card{margin-top:10px;background:var(--accent-bg);border-radius:14px;padding:12px 14px}
 .sub-card b{display:block;font-size:15px}
 .sub-card span{display:block;color:var(--sub);font-size:13px;margin-top:2px}
+.sub-card .sub-em{font-weight:700}
+.sub-card .sub-em.soon{color:var(--red)}
+.sub-card .sub-em.buried{color:var(--amber)}
 .note{color:var(--sub);font-size:12.5px;margin:14px 0 0}
 .pulse{display:flex;flex-direction:column;align-items:center;gap:16px;padding:80px 0;color:var(--sub)}
 .spin{width:36px;height:36px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--accent);animation:sp 1s linear infinite}

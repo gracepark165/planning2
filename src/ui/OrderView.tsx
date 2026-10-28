@@ -79,7 +79,8 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
 
   if (step === 'capture') {
     const r = RETAILERS.find((x) => x.name === retailer)!;
-    const orderDate = addDays(today, -1); // 예시: 어제 주문
+    // 예시: 이틀 전 주문. 어느 마트를 골라도 입고일이 오늘보다 늦지 않게 (이미 받은 주문을 올리는 것이므로)
+    const orderDate = addDays(today, -Math.max(...RETAILERS.map((x) => x.checkinDays)));
     const inDate = checkinDate(orderDate, r);
     return (
       <>
