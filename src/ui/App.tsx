@@ -3,7 +3,8 @@ import { findCatalog } from '../data';
 import { todayKey } from '../rules/date';
 import { eul, eun, withJosa } from '../rules/josa';
 import { loadState, saveState } from '../state/persist';
-import { initialState, newItemFromCatalog, reducer } from '../state/store';
+import { withMyFoods } from '../state/myFoods';
+import { initialState, newItemFromPick, reducer, type AddPick } from '../state/store';
 import { AddView } from './AddView';
 import { HomeView } from './HomeView';
 import { ItemSheet } from './ItemSheet';
@@ -47,16 +48,12 @@ export function App() {
     window.scrollTo(0, 0);
   };
 
-  const addFromCatalog = (names: string[]) => {
-    const owned = new Set(state.items.map((i) => i.name));
-    const items = names
-      .filter((n) => !owned.has(n))
-      .map((n) => findCatalog(n))
-      .filter((c) => c !== undefined)
-      .map((c) => newItemFromCatalog(c, today, newId()));
+  const addFromPicks = (picks: AddPick[]) => {
+    const lookup = withMyFoods(findCatalog, state.myFoods);
+    const items = picks.map((p) => newItemFromPick(p, today, newId(), lookup)).filter((i) => i !== undefined);
     dispatch({ type: 'addItems', items });
-    go('plan');
-    showToast(`${items.length}개를 담았어요. 이번 주 먹을 순서예요`);
+    go('home');
+    showToast(`${items.length}개를 냉장고에 넣었어요`);
   };
 
   const undoMeal = (recipeName: string, at: string) => {
@@ -119,7 +116,7 @@ export function App() {
       />
     );
   } else if (screen === 'add') {
-    view = <AddView items={state.items} onBack={() => go(prevScreen)} onAdd={addFromCatalog} />;
+    view = <AddView items={state.items} onBack={() => go(prevScreen)} onAdd={addFromPicks} />;
   }
 
   return (

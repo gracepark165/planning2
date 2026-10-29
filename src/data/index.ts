@@ -2,6 +2,7 @@
 
 import type {
   CatalogEntry,
+  FoodCategory,
   FoodKind,
   OrderExampleItem,
   Recipe,
@@ -18,6 +19,8 @@ import kindsJson from './kinds.json';
 
 export const CATALOG = catalogJson.items as CatalogEntry[];
 export const PICKER_CATALOG = CATALOG.filter((c) => c.picker);
+/** 재료 추가 화면의 큰 분류 9개 */
+export const CATEGORIES = catalogJson.categories as FoodCategory[];
 export const PLAN_RECIPES = recipesJson.recipes as Recipe[];
 export const RETAILERS = retailersJson.retailers as Retailer[];
 export const VIDEO_EXAMPLES = examplesJson.videos as VideoExample[];

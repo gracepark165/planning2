@@ -86,6 +86,19 @@ export interface CatalogEntry {
   picker?: boolean;
   /** 재료 사전이 아니라 "지난번 값"(기기에 기억한 내 재료)에서 온 항목 */
   mine?: boolean;
+  /** 재료 추가 화면의 큰 분류 id (지난번 값 항목에는 없음) */
+  category?: string;
+  /** 종류별 기본 기간표에서 기간을 가져온 항목이면 그 종류 id */
+  kind?: string;
+}
+
+/** 재료 추가 화면의 큰 분류 (육류, 채소 …) */
+export interface FoodCategory {
+  id: string;
+  label: string;
+  emoji: string;
+  /** 목록에 없는 재료를 이 분류에서 직접 적으면 쓰는 종류 (종류별 기본 기간표 id) */
+  customKind: string;
 }
 
 /** 종류별 기본 기간표의 한 줄 (사전에 없는 재료를 AI가 이 종류로 분류한다) */

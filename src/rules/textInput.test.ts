@@ -64,7 +64,7 @@ describe('한 항목 읽기 (문서 4장 예시)', () => {
     expect(parseItem('대파 양파 1개', CATALOG).nameCandidates).toEqual(['대파', '양파']);
     expect(parseItem('두부과자 1개', CATALOG).nameCandidates).toEqual(['두부']);
     expect(parseItem('적양파 2개', CATALOG).nameCandidates).toEqual(['적양파']);
-    expect(parseItem('연어 2팩', CATALOG).nameCandidates).toEqual([]);
+    expect(parseItem('가리비 2팩', CATALOG).nameCandidates).toEqual([]);
   });
 
   it('원래 입력을 raw로 보관한다', () => {

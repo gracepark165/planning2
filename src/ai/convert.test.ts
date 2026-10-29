@@ -19,14 +19,14 @@ describe('주문 화면 결과 → 확인 화면 줄', () => {
       { name: '닭다리살', product: '[국산] 무항생제 닭다리살 400g', count: 2, unit: '팩', weight: '400g' },
       { name: '달걀', count: 1, unit: '구' },
       { name: '두부', expiresOn: '2026-11-05' },
-      { name: '연어', count: 99 },
+      { name: '가리비', count: 99 },
       { name: '  ' },
     ],
   };
   const rows = orderToDrafts(ai, '2026-10-28', today, key, findCatalog);
 
   it('사전 이름으로 맞추고, 빈 이름은 뺀다', () => {
-    expect(rows.map((r) => r.name)).toEqual(['닭다리살', '계란', '두부', '연어']);
+    expect(rows.map((r) => r.name)).toEqual(['닭다리살', '계란', '두부', '가리비']);
     expect(rows[0]).toMatchObject({ raw: '[국산] 무항생제 닭다리살 400g', count: 2, unit: '팩', note: '400g', byAi: true, source: 'order' });
   });
 
@@ -60,8 +60,8 @@ describe('사전에 없는 재료: AI가 고른 종류로 소비기한 자동 (�
   const rows = orderToDrafts(
     {
       items: [
-        { name: '요거트', kind: 'dairy', storage: '냉장' },
-        { name: '오리고기', kind: 'rawMeat', storage: '냉동' },
+        { name: '케피어', kind: 'dairy', storage: '냉장' },
+        { name: '양고기', kind: 'rawMeat', storage: '냉동' },
         { name: '모르는 것', kind: 'nope' },
         { name: '우유', kind: 'deli', storage: '실온' }, // 사전에 있으면 AI 분류는 안 씀
       ],
@@ -86,8 +86,8 @@ describe('사전에 없는 재료: AI가 고른 종류로 소비기한 자동 (�
   });
 
   it('글 입력도 사전에 없는 줄은 종류를 받는다', () => {
-    const d = draftFromParsed(parseItem('훈제연어 2팩', CATALOG), key(), today, findCatalog);
-    const [m] = mergeTextAi([d], [d.key], { lines: [{ index: 0, name: '훈제연어', kind: 'rawSeafood' }] }, today, findCatalog);
+    const d = draftFromParsed(parseItem('훈제송어 2팩', CATALOG), key(), today, findCatalog);
+    const [m] = mergeTextAi([d], [d.key], { lines: [{ index: 0, name: '훈제송어', kind: 'rawSeafood' }] }, today, findCatalog);
     expect(m).toMatchObject({ kind: 'rawSeafood', expiryBasis: 'kind', expiresAt: '2026-10-30', byAi: true });
   });
 
@@ -105,12 +105,12 @@ describe('글 입력: 규칙이 못 읽은 줄만 AI로 채운다', () => {
 
   it('보낼 줄 고르기', () => {
     expect(needsAiHelp(draft('계란 한판'))).toBe(true); // 개수 못 읽음
-    expect(needsAiHelp(draft('연어 2팩'))).toBe(true); // 사전에 없음
+    expect(needsAiHelp(draft('가리비 2팩'))).toBe(true); // 사전에 없음
     expect(needsAiHelp(draft('우유 2개'))).toBe(false);
   });
 
   it('빈 곳만 채우고, 규칙이 읽은 값은 그대로', () => {
-    const rows = [draft('계란 한판'), draft('우유 2개'), draft('훈제오리 두팩')];
+    const rows = [draft('계란 한판'), draft('우유 2개'), draft('양갈비 두팩')];
     const targets = [rows[0].key, rows[2].key];
     const merged = mergeTextAi(
       rows,
@@ -118,7 +118,7 @@ describe('글 입력: 규칙이 못 읽은 줄만 AI로 채운다', () => {
       {
         lines: [
           { index: 0, name: '계란', count: 30, unit: '구' },
-          { index: 1, name: '오리고기', count: 5 }, // 사전에 없는 이름 → 이름은 그대로, 개수도 이미 읽었으니 그대로
+          { index: 1, name: '양고기', count: 5 }, // 사전에 없는 이름 → 이름은 그대로, 개수도 이미 읽었으니 그대로
           { index: 7, name: '버터' }, // 없는 줄 번호는 무시
         ],
       },

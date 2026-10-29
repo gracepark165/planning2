@@ -34,9 +34,9 @@ describe('확인 화면의 한 줄', () => {
 
   it('확인할 것이 남은 줄', () => {
     expect(issuesOf(draft('대파 소분'))).toEqual(['count']);
-    expect(issuesOf(draft('연어 2팩'))).toEqual(['expiry']);
+    expect(issuesOf(draft('가리비 2팩'))).toEqual(['expiry']);
     expect(issuesOf(draft('냉동새우살 1kg 소분 4봉'))).toEqual(['name']);
-    expect(issuesOf(draft('연어 소분'))).toEqual(['count', 'expiry']);
+    expect(issuesOf(draft('가리비 소분'))).toEqual(['count', 'expiry']);
   });
 });
 
@@ -75,7 +75,7 @@ describe('고치기', () => {
   });
 
   it('소비기한은 오늘보다 앞으로 가지 않는다', () => {
-    const r = chooseExpiryDays(draft('연어 2팩'), 0, today);
+    const r = chooseExpiryDays(draft('가리비 2팩'), 0, today);
     expect(shiftDraftExpiry(r, -1, today).expiresAt).toBe(today);
   });
 
@@ -87,7 +87,7 @@ describe('고치기', () => {
   });
 
   it('사전에 없는 재료는 소비기한을 고르면 넣을 수 있다', () => {
-    const r = chooseExpiryDays(draft('연어 2팩'), 3, today);
+    const r = chooseExpiryDays(draft('가리비 2팩'), 3, today);
     expect(r).toMatchObject({ expiresAt: '2026-10-30', expiryBasis: 'user' });
     expect(issuesOf(r)).toEqual([]);
   });

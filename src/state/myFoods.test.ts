@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG, findCatalog } from '../data';
+import { CATALOG, CATEGORIES, findCatalog, findKind } from '../data';
 import { parseItem } from '../rules/textInput';
 import { stateOf } from '../rules/status';
 import type { Item } from '../rules/types';
 import { rememberItems, withMyFoods } from './myFoods';
-import { initialState, reducer } from './store';
+import { initialState, newItemFromPick, reducer } from './store';
 import { draftFromParsed, draftToItem, setDraftLocation, type DraftRow } from './textDraft';
 
 const today = '2026-10-28';
 const item = (over: Partial<Item>): Item => ({
   id: 'x',
-  name: '요거트',
+  name: '케피어',
   qty: '1개',
   core: '',
   location: '냉장',
@@ -31,24 +31,24 @@ describe('지난번 값 기억하기', () => {
       item({ id: 'z', name: '두유', expiryBasis: 'label' }),
       item({ id: 'w', name: '어묵', portioned: true }),
     ]);
-    expect(mine).toEqual({ 요거트: { name: '요거트', shelfDays: 10, location: '냉장', group: 'dairy' } });
+    expect(mine).toEqual({ 케피어: { name: '케피어', shelfDays: 10, location: '냉장', group: 'dairy' } });
   });
 
   it('다음에 같은 이름이 나오면 사전 항목처럼 채운다 (띄어쓰기 무시)', () => {
-    const lookup = withMyFoods(findCatalog, { 그릭요거트: { name: '그릭요거트', shelfDays: 10, location: '냉장', group: 'dairy' } });
-    expect(lookup('그릭 요거트')).toMatchObject({ name: '그릭요거트', shelfDays: 10, mine: true });
+    const lookup = withMyFoods(findCatalog, { 그래놀라: { name: '그래놀라', shelfDays: 10, location: '냉장', group: 'dairy' } });
+    expect(lookup('그래 놀라')).toMatchObject({ name: '그래놀라', shelfDays: 10, mine: true });
     expect(lookup('우유')?.mine).toBeUndefined(); // 사전이 먼저
-    const row = draftFromParsed(parseItem('그릭 요거트 2개', CATALOG), 'k', today, lookup);
-    expect(row).toMatchObject({ name: '그릭요거트', expiresAt: '2026-11-07', expiryBasis: 'mine', nameChecked: true });
+    const row = draftFromParsed(parseItem('그래 놀라 2개', CATALOG), 'k', today, lookup);
+    expect(row).toMatchObject({ name: '그래놀라', expiresAt: '2026-11-07', expiryBasis: 'mine', nameChecked: true });
     expect(draftToItem(row, today, 'id', lookup).group).toBe('dairy');
   });
 
   it('넣을 때, 냉장고에서 기한·위치를 고칠 때 기억한다', () => {
-    let s = reducer(initialState(today), { type: 'addItems', items: [item({ id: 'n1', name: '훈제오리', group: 'meat' })] });
-    expect(s.myFoods['훈제오리'].shelfDays).toBe(10);
+    let s = reducer(initialState(today), { type: 'addItems', items: [item({ id: 'n1', name: '양갈비', group: 'meat' })] });
+    expect(s.myFoods['양갈비'].shelfDays).toBe(10);
     s = reducer(s, { type: 'shiftExpiry', id: 'n1', delta: 2 });
     s = reducer(s, { type: 'setLocation', id: 'n1', location: '냉동' });
-    expect(s.myFoods['훈제오리']).toMatchObject({ shelfDays: 12, location: '냉동', group: 'meat' });
+    expect(s.myFoods['양갈비']).toMatchObject({ shelfDays: 12, location: '냉동', group: 'meat' });
   });
 });
 
@@ -56,8 +56,8 @@ describe('종류로 정한 줄: 보관 위치를 바꾸면 기간도 다시', ()
   it('생고기 냉장 3일 → 냉동 90일', () => {
     const row: DraftRow = {
       key: 'k',
-      raw: '오리고기',
-      name: '오리고기',
+      raw: '양고기',
+      name: '양고기',
       nameCandidates: [],
       portioned: false,
       count: 1,
@@ -75,20 +75,44 @@ describe('종류로 정한 줄: 보관 위치를 바꾸면 기간도 다시', ()
 describe('사전에 없는 상비 재료도 잊혀지는 중에서 뺀다', () => {
   it('저장된 품목군으로 판단', () => {
     const old = { enteredAt: '2026-09-01', expiresAt: '2027-03-01' };
-    expect(stateOf({ ...old, name: '부침가루', group: 'sauce' }, today)).toBe('ok');
-    expect(stateOf({ ...old, name: '부침가루' }, today)).toBe('buried');
+    expect(stateOf({ ...old, name: '튀김가루', group: 'sauce' }, today)).toBe('ok');
+    expect(stateOf({ ...old, name: '튀김가루' }, today)).toBe('buried');
   });
 });
 
 describe('냉장고 비우기', () => {
   it('재료·기록·이번 주 확정을 지우고, 집밥 횟수와 지난번 값은 남긴다', () => {
     let s = reducer(initialState(today), { type: 'setMeals', mealsPerWeek: 6 });
-    s = reducer(s, { type: 'addItems', items: [item({ id: 'n1', name: '훈제오리', group: 'meat' })] });
+    s = reducer(s, { type: 'addItems', items: [item({ id: 'n1', name: '양갈비', group: 'meat' })] });
     s = reducer(s, { type: 'finishItem', id: s.items[0].id, action: 'eat', at: 't' });
     s = reducer(s, { type: 'clearAll' });
     expect(s.items).toEqual([]);
     expect(s.logs).toEqual([]);
     expect(s.plan).toMatchObject({ mealsPerWeek: 6, doneMeals: [], rejectedRecipes: [] });
-    expect(s.myFoods['훈제오리']).toBeDefined();
+    expect(s.myFoods['양갈비']).toBeDefined();
+  });
+});
+
+describe('재료 추가 화면에서 고른 것 → 재고', () => {
+  it('사전 재료는 사전 값, 지난번 값은 지난번 값, 직접 적은 재료는 분류의 종류 기본 기간', () => {
+    const lookup = withMyFoods(findCatalog, { 청경채: { name: '청경채', shelfDays: 6, location: '냉장', group: 'veg' } });
+    expect(newItemFromPick({ name: '사과' }, today, 'a', lookup)).toMatchObject({ name: '사과', expiresAt: '2026-11-04', expiryBasis: 'table' });
+    expect(newItemFromPick({ name: '청경채', customKind: 'leafVeg' }, today, 'b', lookup)).toMatchObject({ expiresAt: '2026-11-03', expiryBasis: 'mine', group: 'veg' });
+    expect(newItemFromPick({ name: ' 케일 ', customKind: 'leafVeg' }, today, 'c', lookup)).toMatchObject({
+      name: '케일',
+      location: '냉장',
+      expiresAt: '2026-11-02',
+      expiryBasis: 'kind',
+      group: 'veg',
+    });
+    expect(newItemFromPick({ name: '케일' }, today, 'd', lookup)).toBeUndefined();
+  });
+
+  it('모든 재료에 분류가 있고, 분류마다 재료가 있다', () => {
+    for (const c of CATALOG) expect(CATEGORIES.map((x) => x.id), c.name).toContain(c.category);
+    for (const cat of CATEGORIES) {
+      expect(CATALOG.filter((c) => c.category === cat.id).length, cat.label).toBeGreaterThanOrEqual(5);
+      expect(findKind(cat.customKind), cat.label).toBeDefined();
+    }
   });
 });

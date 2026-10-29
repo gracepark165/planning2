@@ -49,8 +49,8 @@ h1{font-size:24px;line-height:1.35;font-weight:700;margin:20px 0 6px;letter-spac
 .cta.ghost{background:var(--card);color:var(--fg)}
 .cta[disabled]{opacity:.4;cursor:default}
 .ctas{display:flex;gap:8px}.ctas .cta{flex:1}
-input[type=text],select{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--card);border:2px solid transparent;border-radius:14px;padding:15px 16px;outline:none}
-input[type=text]:focus,select:focus{border-color:var(--accent)}
+input[type=text],input[type=search],select{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--card);border:2px solid transparent;border-radius:14px;padding:15px 16px;outline:none}
+input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--accent)}
 .tabbar{position:fixed;left:0;right:0;bottom:0;padding:0 max(12px,env(safe-area-inset-right,0px)) calc(10px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));pointer-events:none}
 .tabbar div{max-width:456px;margin:0 auto;display:flex;background:var(--bg);border:1px solid var(--line);border-radius:28px;padding:4px;box-shadow:var(--shadow);pointer-events:auto}
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;font-size:11px;font-weight:500;color:var(--sub)}
@@ -108,6 +108,9 @@ input[type=text]:focus,select:focus{border-color:var(--accent)}
 .gi.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:700}
 .gi[disabled]{opacity:.45;cursor:default}
 .gi small{font-size:10px;color:var(--sub)}
+.grid.cats{grid-template-columns:repeat(3,minmax(0,1fr))}
+.gi small.cnt{color:var(--accent);font-weight:700}
+.card .chip{background:var(--bg);color:var(--fg)}
 .stepper{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:16px;padding:10px 12px 10px 16px;margin:16px 0 12px;font-size:14px;color:var(--sub)}
 .stepper div{display:flex;align-items:center;gap:14px}
 .stepper button{width:40px;height:40px;border-radius:12px;background:var(--bg);font-size:20px;font-weight:700}

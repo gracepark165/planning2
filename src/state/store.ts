@@ -1,7 +1,9 @@
 // 앱 상태와 상태를 바꾸는 규칙(리듀서). 화면과 무관한 순수 함수다.
 // "오늘"·시각·새 id는 액션에 담아서 넘긴다 (리듀서 안에서 만들지 않음).
 
+import { findKind } from '../data';
 import { makeSampleInventory } from '../data/sampleInventory';
+import { addDays } from '../rules/date';
 import { autoExpiresAt, defaultLocation, shiftExpiry } from '../rules/expiry';
 import { findItem, portionQty } from '../rules/plan';
 import { stateOf } from '../rules/status';
@@ -58,7 +60,43 @@ export function newItemFromCatalog(entry: CatalogEntry, today: DateKey, id: stri
     location: defaultLocation(entry, false),
     enteredAt: today,
     expiresAt: autoExpiresAt(today, entry, false) as DateKey,
-    expiryBasis: 'table',
+    expiryBasis: entry.mine ? 'mine' : 'table',
+    ...(entry.mine ? { group: entry.group } : {}),
+    remaining: '넉넉해요',
+    source: 'manual',
+    portioned: false,
+  };
+}
+
+/** 재료 추가 화면에서 고른 것: 사전(또는 지난번 값) 이름, 또는 목록에 없어서 직접 적은 이름 + 그 분류의 종류 */
+export interface AddPick {
+  name: string;
+  /** 직접 적은 재료면 분류의 종류 id (종류별 기본 기간표로 소비기한) */
+  customKind?: string;
+}
+
+/** 고른 것 → 재고. 사전·지난번 값에 있으면 그 값, 없으면 분류의 종류 기본 기간. 둘 다 없으면 undefined. */
+export function newItemFromPick(
+  pick: AddPick,
+  today: DateKey,
+  id: string,
+  lookup: (name: string) => CatalogEntry | undefined,
+): Item | undefined {
+  const entry = lookup(pick.name);
+  if (entry) return newItemFromCatalog(entry, today, id);
+  const kind = findKind(pick.customKind);
+  const name = pick.name.trim();
+  if (!kind || !name) return undefined;
+  return {
+    id,
+    name,
+    qty: '1개',
+    core: '',
+    location: kind.location,
+    enteredAt: today,
+    expiresAt: addDays(today, kind.days),
+    expiryBasis: 'kind',
+    group: kind.group,
     remaining: '넉넉해요',
     source: 'manual',
     portioned: false,
