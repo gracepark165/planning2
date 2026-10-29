@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { AI_MODEL, LIMITS, handleRead, parseRequest, resetRateLimit, youtubeIdOf } from './read';
+import { AI_MODEL, LIMITS, anthropicErrorOf, handleRead, parseRequest, resetRateLimit, youtubeIdOf } from './read';
 
 describe('유튜브 주소 → 영상 번호 (쇼츠·롱폼 모두)', () => {
   const id = 'dQw4w9WgXcQ';
@@ -149,11 +149,26 @@ describe('서버 함수', () => {
 
   it('AI 오류는 ai-failed, AI 쪽 429는 too-many', async () => {
     const down = fakeFetch({ [ANTHROPIC]: () => new Response('err', { status: 500 }) });
-    expect((await handleRead({ kind: 'text', lines: ['x'] }, deps(down.fn))).body).toEqual({ ok: false, error: 'ai-failed' });
+    expect((await handleRead({ kind: 'text', lines: ['x'] }, deps(down.fn))).body).toEqual({ ok: false, error: 'ai-failed', detail: '500' });
     const busy = fakeFetch({ [ANTHROPIC]: () => new Response('err', { status: 429 }) });
-    expect((await handleRead({ kind: 'text', lines: ['x'] }, deps(busy.fn))).body).toEqual({ ok: false, error: 'too-many' });
+    expect((await handleRead({ kind: 'text', lines: ['x'] }, deps(busy.fn))).body).toMatchObject({ ok: false, error: 'too-many' });
     const odd = fakeFetch({ [ANTHROPIC]: () => Response.json({ content: [{ type: 'text', text: '음…' }] }) });
     expect((await handleRead({ kind: 'text', lines: ['x'] }, deps(odd.fn))).body).toEqual({ ok: false, error: 'ai-failed' });
+  });
+
+  it('Anthropic이 거절한 이유를 알려 준다 (키 값은 넣지 않음)', async () => {
+    const say = (status: number, type: string, message: string) =>
+      fakeFetch({ [ANTHROPIC]: () => Response.json({ type: 'error', error: { type, message } }, { status }) });
+    const bad = say(401, 'authentication_error', 'invalid x-api-key');
+    expect((await handleRead({ kind: 'text', lines: ['x'] }, deps(bad.fn))).body).toEqual({
+      ok: false,
+      error: 'ai-key',
+      detail: '401 authentication_error invalid x-api-key',
+    });
+    expect(anthropicErrorOf(400, { error: { type: 'invalid_request_error', message: 'Your credit balance is too low' } }).code).toBe('ai-credit');
+    expect(anthropicErrorOf(404, { error: { type: 'not_found_error', message: 'model: claude-x' } }).code).toBe('ai-model');
+    expect(anthropicErrorOf(403, { error: { type: 'permission_error', message: 'no access' } }).code).toBe('ai-failed');
+    expect(anthropicErrorOf(500, null).detail).toBe('500');
   });
 
   it('한 사람이 너무 자주 부르면 잠깐 막는다', async () => {

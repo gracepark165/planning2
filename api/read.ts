@@ -34,6 +34,9 @@ export type ReadErrorCode =
   | 'too-many'
   | 'not-youtube'
   | 'video-not-found'
+  | 'ai-key' // Anthropic이 키를 거절 (틀린 키·지운 키)
+  | 'ai-credit' // 크레딧·결제 문제
+  | 'ai-model' // 이 키로 쓸 수 없는 모델
   | 'ai-failed';
 
 export type ReadRequest =
@@ -81,7 +84,7 @@ export type ReadResponse =
   | { ok: true; kind: 'order'; data: OrderAiResult }
   | { ok: true; kind: 'video'; data: VideoAiResult }
   | { ok: true; kind: 'text'; data: TextAiResult }
-  | { ok: false; error: ReadErrorCode };
+  | { ok: false; error: ReadErrorCode; detail?: string };
 
 // ───────────────────────── 유튜브 ─────────────────────────
 
@@ -133,9 +136,25 @@ async function fetchVideoText(id: string, deps: Deps): Promise<{ title: string; 
 // ───────────────────────── Claude 호출 ─────────────────────────
 
 class ReadError extends Error {
-  constructor(readonly code: ReadErrorCode) {
+  constructor(
+    readonly code: ReadErrorCode,
+    readonly detail?: string,
+  ) {
     super(code);
   }
+}
+
+/** Anthropic이 거절한 이유 → 오류 코드. 이유 문구(키 값은 들어 있지 않음)는 원인을 찾을 수 있게 같이 돌려준다. */
+export function anthropicErrorOf(status: number, body: unknown): ReadError {
+  const err = (body as { error?: { type?: unknown; message?: unknown } } | null)?.error;
+  const type = typeof err?.type === 'string' ? err.type : '';
+  const message = typeof err?.message === 'string' ? err.message : '';
+  const detail = `${status} ${type} ${message}`.replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (status === 429) return new ReadError('too-many', detail);
+  if (status === 401 || type === 'authentication_error') return new ReadError('ai-key', detail);
+  if (/credit|billing|balance/i.test(message)) return new ReadError('ai-credit', detail);
+  if (status === 404 || type === 'not_found_error' || /model/i.test(message)) return new ReadError('ai-model', detail);
+  return new ReadError('ai-failed', detail);
 }
 
 interface Tool {
@@ -165,7 +184,11 @@ async function callClaude(deps: Deps, system: string, content: Content[], tool: 
       messages: [{ role: 'user', content }],
     }),
   });
-  if (!res.ok) throw new ReadError(res.status === 429 ? 'too-many' : 'ai-failed');
+  if (!res.ok) {
+    const error = anthropicErrorOf(res.status, await res.json().catch(() => null));
+    console.error('Anthropic 거절:', error.detail);
+    throw error;
+  }
   const data = (await res.json()) as { content?: { type: string; name?: string; input?: unknown }[] };
   const block = data.content?.find((b) => b.type === 'tool_use' && b.name === tool.name);
   if (!block) throw new ReadError('ai-failed');
@@ -380,7 +403,9 @@ export async function handleRead(body: unknown, deps: Deps): Promise<{ status: n
     );
     return { status: 200, body: { ok: true, kind: 'text', data: input as TextAiResult } };
   } catch (e) {
-    return fail(502, e instanceof ReadError ? e.code : 'ai-failed');
+    if (e instanceof ReadError) return { status: 502, body: { ok: false, error: e.code, ...(e.detail ? { detail: e.detail } : {}) } };
+    console.error('AI 읽기 실패:', e);
+    return fail(502, 'ai-failed');
   }
 }
 

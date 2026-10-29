@@ -122,5 +122,8 @@ export const AI_FAILURE_TEXT: Record<AiFailure, string> = {
   'bad-request': '이 파일은 읽을 수 없어요',
   'not-youtube': '유튜브 영상 링크가 아니에요',
   'video-not-found': '영상을 찾지 못했어요. 비공개거나 지워진 영상일 수 있어요',
+  'ai-key': 'AI 키가 맞지 않아요. 관리자에게 키 설정을 확인해 달라고 해 주세요',
+  'ai-credit': 'AI 사용 크레딧이 부족해요. 관리자에게 알려 주세요',
+  'ai-model': '이 AI 키로는 쓸 수 없는 모델이에요. 관리자에게 알려 주세요',
   'ai-failed': 'AI가 읽지 못했어요. 다시 해 보거나 직접 입력해 주세요',
 };
