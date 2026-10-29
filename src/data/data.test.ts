@@ -92,9 +92,9 @@ describe('다른 데이터 파일', () => {
     }
   });
 
-  it('입고일 규칙: 컬리 다음 날, B마트 당일', () => {
+  it('입고일 규칙: 컬리 다음 날, B마트 당일, 그 밖의 온라인몰 다음 날, 오프라인 마트 당일', () => {
     const days = Object.fromEntries(RETAILERS.map((r) => [r.name, r.checkinDays]));
-    expect(days).toMatchObject({ 컬리: 1, B마트: 0 });
+    expect(days).toMatchObject({ 컬리: 1, B마트: 0, '온라인 마트': 1, '오프라인 마트': 0 });
   });
 });
 

@@ -209,7 +209,11 @@ const ORDER_TOOL: Tool = {
   input_schema: {
     type: 'object',
     properties: {
-      retailer: { type: 'string', enum: ['컬리', 'B마트', '쿠팡', '모름'] },
+      retailer: {
+        type: 'string',
+        enum: ['컬리', 'B마트', '쿠팡', '온라인 마트', '오프라인 마트', '모름'],
+        description: "컬리·B마트·쿠팡이 아닌 온라인몰 주문 화면이면 '온라인 마트', 매장 영수증이면 '오프라인 마트'",
+      },
       orderDate: { type: 'string', description: '주문일 YYYY-MM-DD. 안 보이면 빈 문자열.' },
       items: {
         type: 'array',
@@ -357,7 +361,7 @@ export async function handleRead(body: unknown, deps: Deps): Promise<{ status: n
             (data): Content => ({ type: 'image', source: { type: 'base64', media_type: req.mediaType, data } }),
           ),
           text(
-            `장보기 앱(컬리·B마트·쿠팡 등) 주문 내역 화면이에요. 오늘은 ${req.today}예요.\n` +
+            `장보기 앱(컬리·B마트·쿠팡 등) 주문 내역 화면이나 마트 영수증이에요. 오늘은 ${req.today}예요.\n` +
               (req.images.length > 1 ? '긴 화면을 위에서부터 차례로 자른 조각들이라, 경계에서 겹친 상품은 한 번만 세요.\n' : '') +
               '식재료만 골라 주세요 (휴지·세제 같은 생활용품, 배송비·할인 줄은 빼요). 같은 상품이 여러 줄이면 한 줄로 합쳐 수량을 더해요.\n' +
               `${UNIT_HINT}\n${vocabText(req.vocabulary)}`,

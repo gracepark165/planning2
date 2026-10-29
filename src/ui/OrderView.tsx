@@ -125,7 +125,7 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
     return (
       <>
         <div className="eyebrow">어디서 주문했나요?</div>
-        <div className="seg">
+        <div className="seg wrap">
           {RETAILERS.map((x) => (
             <button key={x.name} className={retailer === x.name ? 'on' : ''} onClick={() => onPick(x.name)}>
               {x.name}
@@ -135,7 +135,7 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
         <p className="note" style={{ marginTop: 6 }}>
           {r.description}
           <br />
-          {formatMonthDay(od)} 주문 → <b>{formatMonthDay(inDate)}</b>에 냉장고에 들어온 걸로 계산해요.
+          {formatMonthDay(od)} {r.name === '오프라인 마트' ? '구매' : '주문'} → <b>{formatMonthDay(inDate)}</b>에 냉장고에 들어온 걸로 계산해요.
         </p>
       </>
     );

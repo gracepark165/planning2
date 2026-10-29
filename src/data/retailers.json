@@ -1,9 +1,11 @@
 {
   "version": 1,
-  "note": "입고일 규칙(FR-17). 주문일 + checkinDays = 입고일. cutoffHour 이후 주문은 하루 더 늦게 들어온다. 쿠팡은 원래 메일의 도착 보장일을 쓰지만, 메일 읽기 전까지 프로토타입 값(2일)을 쓴다.",
+  "note": "입고일 규칙(FR-17). 주문일 + checkinDays = 입고일. cutoffHour 이후 주문은 하루 더 늦게 들어온다. 쿠팡은 원래 메일의 도착 보장일을 쓰지만, 메일 읽기 전까지 프로토타입 값(2일)을 쓴다. 온라인 마트(그 밖의 온라인몰)는 다음 날, 오프라인 마트는 산 날 (임시 가정).",
   "retailers": [
     { "name": "컬리", "checkinDays": 1, "cutoffHour": 23, "description": "23시 전 주문 → 다음 날 아침 7시 도착" },
     { "name": "B마트", "checkinDays": 0, "description": "주문한 날 바로 도착" },
-    { "name": "쿠팡", "checkinDays": 2, "description": "메일에 적힌 도착 보장일 기준" }
+    { "name": "쿠팡", "checkinDays": 2, "description": "메일에 적힌 도착 보장일 기준" },
+    { "name": "온라인 마트", "checkinDays": 1, "description": "컬리·B마트·쿠팡 말고 다른 온라인몰. 보통 다음 날 도착하는 걸로 봐요" },
+    { "name": "오프라인 마트", "checkinDays": 0, "description": "마트·시장에서 직접 산 날 바로 들어온 걸로 봐요" }
   ]
 }
