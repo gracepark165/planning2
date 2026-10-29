@@ -2,6 +2,7 @@
 
 import type {
   CatalogEntry,
+  FoodKind,
   OrderExampleItem,
   Recipe,
   Retailer,
@@ -13,6 +14,7 @@ import recipesJson from './recipes.json';
 import retailersJson from './retailers.json';
 import examplesJson from './examples.json';
 import substitutesJson from './substitutes.json';
+import kindsJson from './kinds.json';
 
 export const CATALOG = catalogJson.items as CatalogEntry[];
 export const PICKER_CATALOG = CATALOG.filter((c) => c.picker);
@@ -21,8 +23,15 @@ export const RETAILERS = retailersJson.retailers as Retailer[];
 export const VIDEO_EXAMPLES = examplesJson.videos as VideoExample[];
 export const ORDER_EXAMPLE_ITEMS = examplesJson.orderItems as OrderExampleItem[];
 export const SUBSTITUTES = substitutesJson as SubstituteTable;
+/** 종류별 기본 기간표 (사전에 없는 재료용, 임시) */
+export const KINDS = kindsJson.kinds as FoodKind[];
 
-const nameKey = (name: string) => name.replace(/\s+/g, '');
+export function findKind(id: string | undefined): FoodKind | undefined {
+  return id ? KINDS.find((k) => k.id === id) : undefined;
+}
+
+/** 이름 비교용 키: 띄어쓰기를 무시한다 */
+export const nameKey = (name: string) => name.replace(/\s+/g, '');
 const byName = new Map<string, CatalogEntry>();
 for (const c of CATALOG) for (const n of [c.name, ...(c.aliases ?? [])]) byName.set(nameKey(n), c);
 

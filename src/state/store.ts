@@ -6,12 +6,15 @@ import { autoExpiresAt, defaultLocation, shiftExpiry } from '../rules/expiry';
 import { findItem, portionQty } from '../rules/plan';
 import { stateOf } from '../rules/status';
 import { COUNT_MAX, COUNT_MIN } from '../rules/constants';
+import { rememberItems, type MyFoods } from './myFoods';
 import type { CatalogEntry, DateKey, Item, Location, MealLog, Plan, Recipe, Remaining } from '../rules/types';
 
 export interface AppState {
   items: Item[];
   logs: MealLog[];
   plan: Plan;
+  /** 사전에 없는 재료를 넣을 때 정한 값 (다음에 자동으로 채운다) */
+  myFoods: MyFoods;
 }
 
 export type Action =
@@ -40,7 +43,7 @@ export function emptyPlan(): Plan {
 
 /** 처음 열었을 때 / 처음 상태로 되돌리기 */
 export function initialState(today: DateKey): AppState {
-  return { items: makeSampleInventory(today), logs: [], plan: emptyPlan() };
+  return { items: makeSampleInventory(today), logs: [], plan: emptyPlan(), myFoods: {} };
 }
 
 /** 직접 추가(FR-07): 사전 항목으로 재료 하나를 만든다. 소비기한은 자동. */
@@ -65,13 +68,25 @@ const updateItem = (state: AppState, id: string, fn: (i: Item) => Item): AppStat
   items: state.items.map((i) => (i.id === id ? fn(i) : i)),
 });
 
+/** 고친 재료가 사전에 없는 재료면 고친 값을 기억한다 (다음에 같은 재료를 넣을 때 씀) */
+const updateAndRemember = (state: AppState, id: string, fn: (i: Item) => Item): AppState => {
+  const next = updateItem(state, id, fn);
+  const item = next.items.find((i) => i.id === id);
+  return item ? { ...next, myFoods: rememberItems(next.myFoods, [item]) } : next;
+};
+
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'addItems':
       // 재고가 바뀌면 이번 주 추천을 첫 후보부터 다시 (프로토타입과 같음)
-      return { ...state, items: [...state.items, ...action.items], plan: { ...state.plan, swapIndex: {} } };
+      return {
+        ...state,
+        items: [...state.items, ...action.items],
+        plan: { ...state.plan, swapIndex: {} },
+        myFoods: rememberItems(state.myFoods, action.items),
+      };
     case 'shiftExpiry':
-      return updateItem(state, action.id, (i) => shiftExpiry(i, action.delta));
+      return updateAndRemember(state, action.id, (i) => shiftExpiry(i, action.delta));
     case 'setRemaining':
       return updateItem(state, action.id, (i) => ({ ...i, remaining: action.remaining }));
     case 'finishItem': {
@@ -88,7 +103,7 @@ export function reducer(state: AppState, action: Action): AppState {
       // "잘못 넣었어요": 기록 없이 지운다 (버린 것으로 세지 않음)
       return { ...state, items: state.items.filter((i) => i.id !== action.id) };
     case 'setLocation':
-      return updateItem(state, action.id, (i) => ({ ...i, location: action.location }));
+      return updateAndRemember(state, action.id, (i) => ({ ...i, location: action.location }));
     case 'shiftCount':
       return updateItem(state, action.id, (i) => {
         if (!i.portioned) return i;
@@ -137,7 +152,7 @@ function confirmMeal(state: AppState, recipe: Recipe, today: DateKey, at: string
     logs.push({ itemId: it.id, action: 'eat', at });
   }
   const doneMeals = [...state.plan.doneMeals, { recipe: recipe.name, usedItems, soonUsed, at }];
-  return { items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };
+  return { ...state, items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };
 }
 
 /** 확정 되돌리기(확정 시각으로 찾음): 뺀 재료를 다시 넣고 그때 남긴 기록을 지운다. 이미 되돌렸으면 무시. */
@@ -154,5 +169,5 @@ function undoMeal(state: AppState, at: string): AppState {
   const usedIds = new Set(done.usedItems.map((i) => i.id));
   const logs = state.logs.filter((l) => !(l.at === done.at && l.action === 'eat' && usedIds.has(l.itemId)));
   const doneMeals = state.plan.doneMeals.filter((d) => d !== done);
-  return { items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };
+  return { ...state, items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };
 }

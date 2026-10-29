@@ -3,7 +3,7 @@
 
 import type { OrderAiResult, ReadErrorCode, ReadResponse, TextAiResult, VideoAiResult } from '../../api/read';
 import { CATALOG } from '../data';
-import { vocabularyOf } from './convert';
+import { kindListOf, vocabularyOf } from './convert';
 
 export type AiFailure = ReadErrorCode | 'offline';
 export type AiResult<T> = { ok: true; data: T } | { ok: false; reason: AiFailure };
@@ -11,14 +11,23 @@ export type AiResult<T> = { ok: true; data: T } | { ok: false; reason: AiFailure
 const ENDPOINT = '/api/read';
 const TIMEOUT_MS = 60_000;
 
-async function post<T>(body: object, kind: string): Promise<AiResult<T>> {
+/**
+ * extraNames: 재료 사전 말고도 AI가 맞춰 줬으면 하는 이름 (지난번에 넣은 내 재료)
+ * 주문 화면·글 입력은 종류 목록도 보내서, 사전에 없는 재료를 종류로 분류하게 한다.
+ */
+async function post<T>(body: object, kind: string, extraNames: string[] = []): Promise<AiResult<T>> {
   const ctrl = new AbortController();
   const timer = window.setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(ENDPOINT, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...body, kind, vocabulary: vocabularyOf(CATALOG) }),
+      body: JSON.stringify({
+        ...body,
+        kind,
+        vocabulary: [...vocabularyOf(CATALOG), ...extraNames].slice(0, 400),
+        ...(kind === 'video' ? {} : { kinds: kindListOf() }),
+      }),
       signal: ctrl.signal,
     });
     let json: ReadResponse;
@@ -99,19 +108,19 @@ export async function prepareImage(file: File): Promise<string[]> {
 
 // ───────────────────────── 읽기 ─────────────────────────
 
-export async function readOrderImage(file: File, today: string): Promise<AiResult<OrderAiResult>> {
+export async function readOrderImage(file: File, today: string, extraNames: string[] = []): Promise<AiResult<OrderAiResult>> {
   let images: string[];
   try {
     images = await prepareImage(file);
   } catch {
     return { ok: false, reason: 'bad-request' };
   }
-  return post<OrderAiResult>({ images, mediaType: 'image/jpeg', today }, 'order');
+  return post<OrderAiResult>({ images, mediaType: 'image/jpeg', today }, 'order', extraNames);
 }
 
 export const readVideo = (url: string) => post<VideoAiResult>({ url }, 'video');
 
-export const readTextLines = (lines: string[]) => post<TextAiResult>({ lines }, 'text');
+export const readTextLines = (lines: string[], extraNames: string[] = []) => post<TextAiResult>({ lines }, 'text', extraNames);
 
 /** 실패 이유 → 화면 문구 */
 export const AI_FAILURE_TEXT: Record<AiFailure, string> = {

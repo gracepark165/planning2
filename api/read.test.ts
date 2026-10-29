@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { AI_MODEL, LIMITS, anthropicErrorOf, handleRead, parseRequest, resetRateLimit, youtubeIdOf } from './read';
+import { AI_MODEL, LIMITS, anthropicErrorOf, handleRead, kindIdsOf, parseRequest, resetRateLimit, youtubeIdOf } from './read';
 
 describe('유튜브 주소 → 영상 번호 (쇼츠·롱폼 모두)', () => {
   const id = 'dQw4w9WgXcQ';
@@ -33,7 +33,9 @@ describe('요청 검사', () => {
       kind: 'text',
       lines: ['계란 한판'],
       vocabulary: ['계란'],
+      kinds: [],
     });
+    expect(parseRequest({ kind: 'text', lines: ['x'], kinds: 'dairy' })).toBe('bad-request');
   });
 
   it('너무 크면 too-large', () => {
@@ -107,6 +109,20 @@ describe('서버 함수', () => {
     const content = (sent.body?.messages as { content: { type: string; text?: string }[] }[])[0].content;
     expect(content.filter((c) => c.type === 'image')).toHaveLength(2);
     expect(content.at(-2)?.text).toContain('닭다리살');
+  });
+
+  it('주문 화면: 종류 목록을 보내면 사전에 없는 재료의 종류·보관 방법도 묻는다', async () => {
+    const { fn, calls } = fakeFetch({ [ANTHROPIC]: claudeSays('report_order', { items: [] }) });
+    await handleRead(
+      { kind: 'order', images: ['A'], mediaType: 'image/jpeg', today: '2026-10-28', kinds: ['dairy: 우유·요거트 (예: 요거트)', 'tofu: 두부·묵'] },
+      deps(fn),
+    );
+    const body = calls[0].body as { tools: { input_schema: { properties: { items: { items: { properties: Record<string, { enum?: string[] }> } } } } }[] };
+    const props = body.tools[0].input_schema.properties.items.items.properties;
+    expect(props.kind.enum).toEqual(['dairy', 'tofu', '']);
+    expect(props.storage.enum).toEqual(['냉장', '냉동', '실온', '']);
+    expect(JSON.stringify(calls[0].body)).toContain('dairy: 우유·요거트');
+    expect(kindIdsOf(['rawMeat: 생고기', '이상한 줄'])).toEqual(['rawMeat']);
   });
 
   it('영상: 유튜브 키가 있으면 설명란까지 읽는다', async () => {

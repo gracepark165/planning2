@@ -2,17 +2,18 @@
 // 글 입력과 AI가 읽은 주문 화면이 같이 쓴다.
 
 import { type ReactNode, useState } from 'react';
-import { findCatalog } from '../data';
+import { findCatalog, findKind } from '../data';
 import { COUNT_MAX, COUNT_MIN, LOCATIONS } from '../rules/constants';
 import { formatMonthDay } from '../rules/date';
 import { dDayLabel, daysLeft } from '../rules/status';
-import type { DateKey } from '../rules/types';
+import type { CatalogEntry, DateKey } from '../rules/types';
 import {
   EXPIRY_CHOICES,
   ISSUE_TEXT,
   chooseExpiryDays,
   issuesOf,
   renameRow,
+  setDraftLocation,
   shiftDraftCount,
   shiftDraftExpiry,
   togglePortion,
@@ -32,19 +33,21 @@ interface Props {
   header?: ReactNode;
   /** 맨 아래 안내 문구 */
   footnote?: string;
+  /** 이름 → 사전 항목 (기본: 재료 사전. 장보기 올리기는 지난번 값까지) */
+  lookup?: (name: string) => CatalogEntry | undefined;
 }
 
 const DEFAULT_FOOTNOTE =
   '소비기한은 입고일(오늘) + 기본 기간표(임시)로 정했어요. 소분한 재료는 소분 기간표(임시)를 써요. 넣은 뒤에도 냉장고에서 고칠 수 있어요.';
 
-export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, header, footnote }: Props) {
+export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, header, footnote, lookup = findCatalog }: Props) {
   const [editing, setEditing] = useState<string | null>(null);
   const [typed, setTyped] = useState('');
 
   const update = (key: string, fn: (r: DraftRow) => DraftRow) => onChange(rows.map((r) => (r.key === key ? fn(r) : r)));
   const remove = (key: string) => onChange(rows.filter((r) => r.key !== key));
   const rename = (key: string, name: string) => {
-    update(key, (r) => renameRow(r, name, today, findCatalog));
+    update(key, (r) => renameRow(r, name, today, lookup));
     setEditing(null);
     setTyped('');
   };
@@ -81,10 +84,14 @@ export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, he
               </button>
             </div>
 
-            {(issues.length > 0 || r.byAi) && (
+            {(issues.length > 0 || r.byAi || r.expiryBasis === 'kind' || r.expiryBasis === 'mine') && (
               <div className="tags">
                 {r.byAi && <span className="badge b-info">AI가 읽었어요</span>}
                 {r.expiryBasis === 'label' && <span className="badge b-ok">소비기한 표기 읽음</span>}
+                {r.expiryBasis === 'kind' && (
+                  <span className="badge b-info">비슷한 종류: {findKind(r.kind)?.label}</span>
+                )}
+                {r.expiryBasis === 'mine' && <span className="badge b-ok">지난번 값</span>}
                 {issues.map((i) => (
                   <span key={i} className={`badge ${i === 'name' ? 'b-buried' : 'b-soon'}`}>
                     {ISSUE_TEXT[i]}
@@ -149,7 +156,7 @@ export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, he
                 <button
                   className={`chip ${r.portioned ? 'on' : ''}`}
                   aria-pressed={r.portioned}
-                  onClick={() => update(r.key, (x) => togglePortion(x, today, findCatalog))}
+                  onClick={() => update(r.key, (x) => togglePortion(x, today, lookup))}
                 >
                   {r.portioned ? '소분했어요' : '소분 안 함'}
                 </button>
@@ -158,7 +165,7 @@ export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, he
                 <span>보관</span>
                 <div className="seg mini">
                   {LOCATIONS.map((l) => (
-                    <button key={l} className={r.location === l ? 'on' : ''} onClick={() => update(r.key, (x) => ({ ...x, location: l }))}>
+                    <button key={l} className={r.location === l ? 'on' : ''} onClick={() => update(r.key, (x) => setDraftLocation(x, l, today, lookup))}>
                       {l}
                     </button>
                   ))}

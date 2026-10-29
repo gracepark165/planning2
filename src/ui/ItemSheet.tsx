@@ -60,7 +60,11 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
             <span>근거</span>
             <b>{expiryBasisText(item)}</b>
           </div>
-          <div className="usual">{usualShelfText(findCatalog(item.name), item.portioned)}</div>
+          <div className="usual">
+            {findCatalog(item.name)
+              ? usualShelfText(findCatalog(item.name), item.portioned)
+              : '재료 사전에 없는 재료예요. 고친 기한·보관 위치는 기억해 두었다가 다음에 같은 재료를 넣을 때 써요.'}
+          </div>
           <div className="acts">
             <span style={{ alignSelf: 'center' }}>기한 고치기</span>
             <button className="small-btn alt" onClick={() => onShift(-1)}>

@@ -2,7 +2,7 @@
 // (가) 주문 화면 올리기: AI가 읽어서 확인 화면으로. AI 연결 전이거나 실패하면 예시 결과.
 // (나) 글로 입력해서 올리기: 규칙으로 읽고, 규칙이 못 읽은 줄만 AI가 보완 (AI가 없으면 그대로).
 
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { AI_FAILURE_TEXT, readOrderImage, readTextLines, type AiFailure } from '../ai/client';
 import { mergeTextAi, needsAiHelp, orderDateOf, orderToDrafts, retailerOf } from '../ai/convert';
 import { CATALOG, ORDER_EXAMPLE_ITEMS, RETAILERS, findCatalog } from '../data';
@@ -10,6 +10,7 @@ import { addDays, formatMonthDay } from '../rules/date';
 import { autoExpiresAt, checkinDate, defaultLocation } from '../rules/expiry';
 import { parseTextInput } from '../rules/textInput';
 import type { DateKey, Item } from '../rules/types';
+import { withMyFoods, type MyFoods } from '../state/myFoods';
 import { draftFromParsed, draftToItem, setDraftEnteredAt, type DraftRow } from '../state/textDraft';
 import { newId } from './id';
 import { BackButton, Tile } from './parts';
@@ -20,13 +21,18 @@ type Step = 'start' | 'text' | 'textReading' | 'loading' | 'capture' | 'aiReadin
 
 interface Props {
   today: DateKey;
+  /** 지난번에 넣은 내 재료 (사전에 없는 재료의 기간·보관 위치를 자동으로 채움) */
+  myFoods: MyFoods;
   onAdd: (items: Item[]) => void;
   onPickCatalog: () => void;
 }
 
 const PLACEHOLDER = '예) 닭가슴살 세봉지 소분, 우유 2개\n대파 소분 한봉지';
 
-export function OrderView({ today, onAdd, onPickCatalog }: Props) {
+export function OrderView({ today, myFoods, onAdd, onPickCatalog }: Props) {
+  /** 재료 사전 → 지난번 값 순으로 찾는다 */
+  const lookup = useMemo(() => withMyFoods(findCatalog, myFoods), [myFoods]);
+  const myNames = useMemo(() => Object.values(myFoods).map((m) => m.name), [myFoods]);
   const [step, setStep] = useState<Step>('start');
   const [text, setText] = useState('');
   const [rows, setRows] = useState<DraftRow[]>([]);
@@ -51,7 +57,7 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
   };
 
   const readText = async () => {
-    const parsed = parseTextInput(text, CATALOG).map((l) => draftFromParsed(l, newId(), today, findCatalog));
+    const parsed = parseTextInput(text, CATALOG).map((l) => draftFromParsed(l, newId(), today, lookup));
     const targets = parsed.filter(needsAiHelp);
     window.scrollTo(0, 0);
     if (!targets.length) {
@@ -61,10 +67,10 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
     }
     const my = ++round.current;
     setStep('textReading');
-    const res = await readTextLines(targets.map((r) => r.raw));
+    const res = await readTextLines(targets.map((r) => r.raw), myNames);
     if (my !== round.current) return;
     // AI가 없거나 실패해도 규칙으로 읽은 결과는 그대로 보여준다
-    setRows(res.ok ? mergeTextAi(parsed, targets.map((r) => r.key), res.data, today, findCatalog) : parsed);
+    setRows(res.ok ? mergeTextAi(parsed, targets.map((r) => r.key), res.data, today, lookup) : parsed);
     setStep('text');
   };
 
@@ -86,7 +92,7 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
 
     const my = ++round.current;
     setStep('aiReading');
-    const res = await readOrderImage(file, today);
+    const res = await readOrderImage(file, today, myNames);
     if (my !== round.current) return;
     if (!res.ok) {
       showExample(captureFailText(res.reason));
@@ -94,7 +100,7 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
     }
     const r = retailerOf(res.data, RETAILERS) ?? RETAILERS.find((x) => x.name === retailer)!;
     const od = orderDateOf(res.data, today) ?? today;
-    const drafts = orderToDrafts(res.data, checkinDate(od, r), today, newId, findCatalog);
+    const drafts = orderToDrafts(res.data, checkinDate(od, r), today, newId, lookup);
     if (!drafts.length) {
       showExample('주문 화면에서 식재료를 찾지 못했어요. 아래는 예시 결과예요. 글로 입력해도 돼요.');
       return;
@@ -110,11 +116,11 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
     setRetailer(name);
     const r = RETAILERS.find((x) => x.name === name)!;
     const inDate = checkinDate(orderDate, r);
-    setRows((rs) => rs.map((row) => setDraftEnteredAt(row, inDate, findCatalog)));
+    setRows((rs) => rs.map((row) => setDraftEnteredAt(row, inDate, lookup)));
   };
 
   const submitRows = () => {
-    onAdd(rows.map((r) => draftToItem(r, today, newId(), findCatalog)));
+    onAdd(rows.map((r) => draftToItem(r, today, newId(), lookup)));
     setText('');
     setRows([]);
     setStep('start');
@@ -142,13 +148,14 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
   };
 
   if (step === 'text') {
-    return <TextConfirm rows={rows} today={today} onChange={setRows} onBack={back} onSubmit={submitRows} />;
+    return <TextConfirm lookup={lookup} rows={rows} today={today} onChange={setRows} onBack={back} onSubmit={submitRows} />;
   }
 
   if (step === 'aiConfirm') {
     const inDate = checkinDate(orderDate, RETAILERS.find((x) => x.name === retailer)!);
     return (
       <TextConfirm
+        lookup={lookup}
         rows={rows}
         today={today}
         onChange={setRows}
@@ -161,7 +168,7 @@ export function OrderView({ today, onAdd, onPickCatalog }: Props) {
             {retailerPicker(inDate, orderDate, pickRetailer)}
           </>
         }
-        footnote="AI가 주문 화면을 읽은 결과예요. 화면에 소비기한이 적혀 있으면 그 날짜를, 없으면 입고일 + 기본 기간표(임시)를 썼어요. 넣은 뒤에도 냉장고에서 고칠 수 있어요."
+        footnote="AI가 주문 화면을 읽은 결과예요. 화면에 소비기한이 적혀 있으면 그 날짜를, 없으면 입고일 + 기본 기간표(임시)를 썼어요. 사전에 없는 재료는 AI가 고른 종류의 기본 기간(임시)이나 지난번에 정한 값을 써요. 넣은 뒤에도 냉장고에서 고칠 수 있어요."
       />
     );
   }

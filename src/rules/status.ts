@@ -14,11 +14,11 @@ import { daysBetween } from './date';
 import type { DateKey, Item, ItemState } from './types';
 
 /** 상태 판정에 필요한 것: 날짜 두 개 (+ 상비 재료인지 보려면 이름) */
-type Dated = Pick<Item, 'enteredAt' | 'expiresAt'> & { name?: string };
+type Dated = Pick<Item, 'enteredAt' | 'expiresAt'> & { name?: string; group?: Item['group'] };
 
-/** 상비 재료(양념·소스, 면·곡물)인지: 재료 사전의 품목군으로 본다 */
-export function isStaple(name: string | undefined): boolean {
-  const group = name ? findCatalog(name)?.group : undefined;
+/** 상비 재료(양념·소스, 면·곡물)인지: 재료 사전의 품목군으로 본다. 사전에 없는 재료는 저장된 품목군으로. */
+export function isStaple(name: string | undefined, own?: Item['group']): boolean {
+  const group = (name ? findCatalog(name)?.group : undefined) ?? own;
   return group !== undefined && BURIED_EXCLUDE_GROUPS.includes(group);
 }
 
@@ -35,7 +35,7 @@ export function daysSinceEntered(item: Dated, today: DateKey): number {
 /** 곧 상할 → 묻힘 후보 → 정상 순서로 검사한다. 상비 재료는 묻힘 후보가 되지 않는다. */
 export function stateOf(item: Dated, today: DateKey): ItemState {
   if (daysLeft(item, today) <= SOON_DAYS) return 'soon';
-  if (daysSinceEntered(item, today) >= BURIED_AGO && !isStaple(item.name)) return 'buried';
+  if (daysSinceEntered(item, today) >= BURIED_AGO && !isStaple(item.name, item.group)) return 'buried';
   return 'ok';
 }
 

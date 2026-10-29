@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG, RETAILERS, SUBSTITUTES, findCatalog } from '../data';
+import { KINDS, CATALOG, RETAILERS, SUBSTITUTES, findCatalog } from '../data';
+import { LIMITS, kindIdsOf } from '../../api/read';
 import { issuesOf } from '../state/textDraft';
 import { draftFromParsed } from '../state/textDraft';
 import { parseItem } from '../rules/textInput';
 import { slicePlan } from './client';
-import { mergeTextAi, needsAiHelp, orderDateOf, orderToDrafts, retailerOf, videoMenusOf, vocabularyOf } from './convert';
+import { kindListOf, mergeTextAi, needsAiHelp, orderDateOf, orderToDrafts, retailerOf, videoMenusOf, vocabularyOf } from './convert';
 
 const today = '2026-10-28';
 let n = 0;
@@ -52,6 +53,50 @@ describe('주문 화면 결과 → 확인 화면 줄', () => {
     expect(orderDateOf({ items: [], orderDate: '2026-11-30' }, today)).toBeUndefined(); // 미래
     expect(orderDateOf({ items: [], orderDate: '2025-01-01' }, today)).toBeUndefined(); // 너무 오래됨
     expect(orderDateOf({ items: [], orderDate: '어제' }, today)).toBeUndefined();
+  });
+});
+
+describe('사전에 없는 재료: AI가 고른 종류로 소비기한 자동 (종류별 기본 기간표)', () => {
+  const rows = orderToDrafts(
+    {
+      items: [
+        { name: '요거트', kind: 'dairy', storage: '냉장' },
+        { name: '오리고기', kind: 'rawMeat', storage: '냉동' },
+        { name: '모르는 것', kind: 'nope' },
+        { name: '우유', kind: 'deli', storage: '실온' }, // 사전에 있으면 AI 분류는 안 씀
+      ],
+    },
+    '2026-10-28',
+    today,
+    key,
+    findCatalog,
+  );
+
+  it('종류 기본 기간, 냉동이면 냉동 기간', () => {
+    expect(rows[0]).toMatchObject({ kind: 'dairy', location: '냉장', expiresAt: '2026-11-04', expiryBasis: 'kind' });
+    expect(rows[1]).toMatchObject({ kind: 'rawMeat', location: '냉동', expiresAt: '2027-01-26', expiryBasis: 'kind' });
+    expect(issuesOf(rows[0])).toEqual([]);
+  });
+
+  it('모르는 종류면 사용자가 고른다, 사전 재료는 사전 값', () => {
+    expect(rows[2].kind).toBeUndefined();
+    expect(issuesOf(rows[2])).toEqual(['expiry']);
+    expect(rows[3]).toMatchObject({ name: '우유', location: '냉장', expiryBasis: 'table' });
+    expect(rows[3].kind).toBeUndefined();
+  });
+
+  it('글 입력도 사전에 없는 줄은 종류를 받는다', () => {
+    const d = draftFromParsed(parseItem('훈제연어 2팩', CATALOG), key(), today, findCatalog);
+    const [m] = mergeTextAi([d], [d.key], { lines: [{ index: 0, name: '훈제연어', kind: 'rawSeafood' }] }, today, findCatalog);
+    expect(m).toMatchObject({ kind: 'rawSeafood', expiryBasis: 'kind', expiresAt: '2026-10-30', byAi: true });
+  });
+
+  it('보낼 종류 목록', () => {
+    const list = kindListOf();
+    expect(list).toHaveLength(KINDS.length);
+    expect(list.every((k) => k.length <= LIMITS.kindChars)).toBe(true);
+    expect(list.length).toBeLessThanOrEqual(LIMITS.kinds);
+    expect(kindIdsOf(list)).toEqual(KINDS.map((k) => k.id));
   });
 });
 

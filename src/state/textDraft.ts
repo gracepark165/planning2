@@ -3,7 +3,8 @@
 
 import { COUNT_MAX, COUNT_MIN } from '../rules/constants';
 import { addDays, daysBetween } from '../rules/date';
-import { autoExpiresAt, defaultLocation } from '../rules/expiry';
+import { findKind } from '../data';
+import { autoExpiresAt, defaultLocation, kindLocation, kindShelfDays } from '../rules/expiry';
 import { portionQty } from '../rules/plan';
 import type { ParsedLine } from '../rules/textInput';
 import type { CatalogEntry, DateKey, ExpiryBasis, Item, ItemSource, Location } from '../rules/types';
@@ -33,6 +34,10 @@ export interface DraftRow {
   source?: ItemSource;
   /** AI가 읽은 줄이면 true (확인 화면에 "AI가 읽었어요" 표시) */
   byAi?: boolean;
+  /** 사전에 없는 재료를 AI가 분류한 종류 (종류별 기본 기간표의 id). 소비기한은 그 표로 계산한다. */
+  kind?: string;
+  /** 고른 보관 위치 (AI가 읽은 보관 방법, 또는 사용자가 누른 것). 없으면 사전·종류의 기본 위치. */
+  locationPick?: Location;
 }
 
 export type DraftIssue = 'name' | 'count' | 'expiry';
@@ -43,28 +48,47 @@ export const EXPIRY_CHOICES = [3, 7, 14, 30, 60];
 /** 소비기한 계산의 기준일 */
 const baseDate = (row: DraftRow, today: DateKey) => row.enteredAt ?? today;
 
-/** 사전 기준으로 보관 위치·소비기한을 다시 정한다. 사용자가 고친 값·주문 화면에서 읽은 값은 그대로 둔다. */
+/**
+ * 보관 위치·소비기한을 다시 정한다. 사용자가 고친 값·주문 화면에서 읽은 소비기한은 그대로 둔다.
+ * 순서: 재료 사전(또는 지난번 값) → AI가 고른 종류(종류별 기본 기간표) → 없음(사용자가 고름)
+ */
 export function refresh(row: DraftRow, today: DateKey, lookup: Lookup): DraftRow {
   const entry = row.catalogName ? lookup(row.catalogName) : undefined;
-  const location = defaultLocation(entry, row.portioned);
+  const kind = entry ? undefined : findKind(row.kind);
+  const location = kind
+    ? kindLocation(kind, row.portioned, row.locationPick)
+    : (row.locationPick ?? defaultLocation(entry, row.portioned));
   if (row.expiryBasis === 'user' || row.expiryBasis === 'label') return { ...row, location };
-  return { ...row, location, expiresAt: autoExpiresAt(baseDate(row, today), entry, row.portioned), expiryBasis: 'table' };
+  const base = baseDate(row, today);
+  if (entry) {
+    return { ...row, location, expiresAt: autoExpiresAt(base, entry, row.portioned), expiryBasis: entry.mine ? 'mine' : 'table' };
+  }
+  if (kind) {
+    return { ...row, location, expiresAt: addDays(base, kindShelfDays(kind, location, row.portioned)), expiryBasis: 'kind' };
+  }
+  return { ...row, location, expiresAt: undefined, expiryBasis: 'table' };
 }
 
-/** 입고일 바꾸기 (주문 화면에서 마트를 바꿨을 때). 기본 기간표로 정한 소비기한만 다시 계산한다. */
+/** 보관 위치 고르기. 종류로 정한 소비기한은 위치에 따라 다시 계산한다 (냉동이면 더 길게). */
+export function setDraftLocation(row: DraftRow, location: Location, today: DateKey, lookup: Lookup): DraftRow {
+  return refresh({ ...row, locationPick: location }, today, lookup);
+}
+
+/** 입고일 바꾸기 (주문 화면에서 마트를 바꿨을 때). 자동으로 정한 소비기한만 다시 계산한다. */
 export function setDraftEnteredAt(row: DraftRow, enteredAt: DateKey, lookup: Lookup): DraftRow {
-  const entry = row.catalogName ? lookup(row.catalogName) : undefined;
   const next = { ...row, enteredAt };
-  if (row.expiryBasis !== 'table') return next;
-  return { ...next, expiresAt: autoExpiresAt(enteredAt, entry, row.portioned) };
+  if (row.expiryBasis === 'user' || row.expiryBasis === 'label') return next;
+  return refresh(next, enteredAt, lookup);
 }
 
 export function draftFromParsed(line: ParsedLine, key: string, today: DateKey, lookup: Lookup): DraftRow {
+  // 사전에 없는 이름이어도 지난번에 넣은 적이 있으면 그 값으로
+  const mine = line.catalogName ? undefined : lookup(line.name);
   const row: DraftRow = {
     key,
     raw: line.raw,
-    name: line.name,
-    catalogName: line.catalogName,
+    name: mine?.name ?? line.name,
+    catalogName: line.catalogName ?? mine?.name,
     nameCandidates: line.nameCandidates,
     portioned: line.portioned,
     count: line.count,
@@ -72,7 +96,7 @@ export function draftFromParsed(line: ParsedLine, key: string, today: DateKey, l
     note: line.note,
     location: '냉장',
     expiryBasis: 'table',
-    nameChecked: !line.needs.includes('name'),
+    nameChecked: !line.needs.includes('name') || !!mine,
   };
   return refresh(row, today, lookup);
 }
@@ -143,11 +167,14 @@ export function draftQty(row: Pick<DraftRow, 'portioned' | 'count' | 'unit' | 'n
 export function draftToItem(row: DraftRow, today: DateKey, id: string, lookup: Lookup): Item {
   if (issuesOf(row).length) throw new Error(`확인이 안 끝난 줄이에요: ${row.raw}`);
   const entry = row.catalogName ? lookup(row.catalogName) : undefined;
+  // 사전에 없는 재료는 품목군을 같이 저장한다 (상비 재료 제외에 씀)
+  const group = entry ? (entry.mine ? entry.group : undefined) : findKind(row.kind)?.group;
   return {
     id,
     name: row.name,
     qty: draftQty(row),
     core: entry?.core ?? '',
+    ...(group ? { group } : {}),
     location: row.location,
     enteredAt: baseDate(row, today),
     expiresAt: row.expiresAt!,

@@ -18,6 +18,9 @@ export const LIMITS = {
   imageChars: 3_500_000, // 사진 전체 base64 글자 수 (약 2.6MB). 앱이 미리 줄여서 보낸다.
   images: 4, // 긴 캡처는 앱이 여러 조각으로 잘라 보낸다
   vocabulary: 400,
+  /** 종류별 기본 기간표의 종류 수 ("id: 이름 (예: …)" 한 줄씩) */
+  kinds: 40,
+  kindChars: 120,
   wordChars: 40,
   lines: 20,
   lineChars: 120,
@@ -40,9 +43,9 @@ export type ReadErrorCode =
   | 'ai-failed';
 
 export type ReadRequest =
-  | { kind: 'order'; images: string[]; mediaType: string; vocabulary: string[]; today: string }
+  | { kind: 'order'; images: string[]; mediaType: string; vocabulary: string[]; kinds: string[]; today: string }
   | { kind: 'video'; url: string; vocabulary: string[] }
-  | { kind: 'text'; lines: string[]; vocabulary: string[] };
+  | { kind: 'text'; lines: string[]; vocabulary: string[]; kinds: string[] };
 
 export interface OrderAiItem {
   name: string;
@@ -54,6 +57,10 @@ export interface OrderAiItem {
   weight?: string;
   /** 사진에 소비기한이 적혀 있으면 YYYY-MM-DD */
   expiresOn?: string;
+  /** 재료 사전에 없는 재료의 종류 (앱이 보낸 종류 id 중 하나) */
+  kind?: string;
+  /** 보관 방법: 화면·상품명에 적힌 값, 없으면 보통 두는 곳 */
+  storage?: '냉장' | '냉동' | '실온' | '';
 }
 export interface OrderAiResult {
   retailer?: '컬리' | 'B마트' | '쿠팡';
@@ -75,6 +82,8 @@ export interface TextAiLine {
   count?: number;
   unit?: string;
   portioned?: boolean;
+  kind?: string;
+  storage?: '냉장' | '냉동' | '실온' | '';
 }
 export interface TextAiResult {
   lines: TextAiLine[];
@@ -203,7 +212,26 @@ const vocabText = (vocabulary: string[]) =>
 
 const UNIT_HINT = '단위는 봉, 덩이, 개, 팩, 통, 구, 단, 모 중 하나로 맞춰 주세요.';
 
-const ORDER_TOOL: Tool = {
+/** 사전에 없는 재료의 종류·보관 방법 (종류 목록을 받았을 때만) */
+const kindProps = (kindIds: string[]) =>
+  kindIds.length
+    ? {
+        kind: { type: 'string', enum: [...kindIds, ''], description: '재료 사전에 없는 재료면 가장 가까운 종류 id. 사전에 있거나 모르겠으면 빈 문자열.' },
+        storage: {
+          type: 'string',
+          enum: ['냉장', '냉동', '실온', ''],
+          description: '화면·상품명에 보관 방법(냉장·냉동·실온)이 적혀 있으면 그 값, 없으면 이 재료를 보통 두는 곳. 모르겠으면 빈 문자열.',
+        },
+      }
+    : {};
+
+/** "id: 이름 (예: …)" → id */
+export const kindIdsOf = (kinds: string[]) => kinds.map((k) => k.split(':')[0].trim()).filter((id) => /^[A-Za-z]+$/.test(id));
+
+const kindText = (kinds: string[]) =>
+  kinds.length ? `\n재료 사전에 없는 재료는 kind에 아래 종류 중 가장 가까운 것의 id를 적어 주세요:\n${kinds.join('\n')}` : '';
+
+const orderTool = (kindIds: string[]): Tool => ({
   name: 'report_order',
   description: '주문 화면에서 읽은 식재료 목록을 보고한다.',
   input_schema: {
@@ -226,6 +254,7 @@ const ORDER_TOOL: Tool = {
             unit: { type: 'string' },
             weight: { type: 'string', description: '무게·부피 (예: 400g, 900ml). 없으면 빈 문자열.' },
             expiresOn: { type: 'string', description: '화면에 소비기한이 적혀 있으면 YYYY-MM-DD, 없으면 빈 문자열' },
+            ...kindProps(kindIds),
           },
           required: ['name'],
         },
@@ -233,7 +262,7 @@ const ORDER_TOOL: Tool = {
     },
     required: ['items'],
   },
-};
+});
 
 const VIDEO_TOOL: Tool = {
   name: 'report_recipe',
@@ -263,7 +292,7 @@ const VIDEO_TOOL: Tool = {
   },
 };
 
-const TEXT_TOOL: Tool = {
+const textTool = (kindIds: string[]): Tool => ({
   name: 'report_lines',
   description: '사용자가 적은 장보기 줄을 재료로 읽은 결과를 보고한다.',
   input_schema: {
@@ -279,6 +308,7 @@ const TEXT_TOOL: Tool = {
             count: { type: 'integer', description: '개수. 모르면 빼 주세요.' },
             unit: { type: 'string' },
             portioned: { type: 'boolean', description: '"소분"처럼 나눠 담았다는 뜻이 있으면 true' },
+            ...kindProps(kindIds),
           },
           required: ['index', 'name'],
         },
@@ -286,7 +316,7 @@ const TEXT_TOOL: Tool = {
     },
     required: ['lines'],
   },
-};
+});
 
 const SYSTEM =
   '당신은 1인 가구 냉장고 정리 앱의 "읽기" 도우미예요. 보이는 것만 정확히 읽고, 없는 정보는 지어내지 말고 비워 두세요. ' +
@@ -304,6 +334,8 @@ export function parseRequest(body: unknown): ReadRequest | ReadErrorCode {
   const b = body as Record<string, unknown>;
   const vocabulary = b.vocabulary === undefined ? [] : strList(b.vocabulary, LIMITS.vocabulary, LIMITS.wordChars);
   if (!vocabulary) return 'bad-request';
+  const kinds = b.kinds === undefined ? [] : strList(b.kinds, LIMITS.kinds, LIMITS.kindChars);
+  if (!kinds) return 'bad-request';
   switch (b.kind) {
     case 'order':
       if (!Array.isArray(b.images) || !b.images.length || !b.images.every((x) => typeof x === 'string' && x)) {
@@ -313,14 +345,14 @@ export function parseRequest(body: unknown): ReadRequest | ReadErrorCode {
       if ((b.images as string[]).reduce((a, x) => a + x.length, 0) > LIMITS.imageChars) return 'too-large';
       if (!isStr(b.mediaType, 40) || !/^image\/(jpeg|png|webp|gif)$/.test(b.mediaType)) return 'bad-request';
       if (!isStr(b.today, 10)) return 'bad-request';
-      return { kind: 'order', images: b.images as string[], mediaType: b.mediaType, vocabulary, today: b.today };
+      return { kind: 'order', images: b.images as string[], mediaType: b.mediaType, vocabulary, kinds, today: b.today };
     case 'video':
       if (!isStr(b.url, LIMITS.urlChars)) return 'bad-request';
       return { kind: 'video', url: b.url, vocabulary };
     case 'text': {
       const lines = strList(b.lines, LIMITS.lines, LIMITS.lineChars);
       if (!lines || !lines.length) return 'bad-request';
-      return { kind: 'text', lines, vocabulary };
+      return { kind: 'text', lines, vocabulary, kinds };
     }
     default:
       return 'bad-request';
@@ -364,10 +396,10 @@ export async function handleRead(body: unknown, deps: Deps): Promise<{ status: n
             `장보기 앱(컬리·B마트·쿠팡 등) 주문 내역 화면이나 마트 영수증이에요. 오늘은 ${req.today}예요.\n` +
               (req.images.length > 1 ? '긴 화면을 위에서부터 차례로 자른 조각들이라, 경계에서 겹친 상품은 한 번만 세요.\n' : '') +
               '식재료만 골라 주세요 (휴지·세제 같은 생활용품, 배송비·할인 줄은 빼요). 같은 상품이 여러 줄이면 한 줄로 합쳐 수량을 더해요.\n' +
-              `${UNIT_HINT}\n${vocabText(req.vocabulary)}`,
+              `${UNIT_HINT}\n${vocabText(req.vocabulary)}${kindText(req.kinds)}`,
           ),
         ],
-        ORDER_TOOL,
+        orderTool(kindIdsOf(req.kinds)),
       );
       return { status: 200, body: { ok: true, kind: 'order', data: input as OrderAiResult } };
     }
@@ -400,11 +432,11 @@ export async function handleRead(body: unknown, deps: Deps): Promise<{ status: n
         text(
           '사용자가 장 본 재료를 한 줄씩 적었는데, 규칙으로 읽지 못한 줄이에요. 줄마다 재료 이름과 개수를 읽어 주세요.\n' +
             '"한판"은 계란 30구, "두세봉"처럼 애매하면 개수를 빼 주세요.\n' +
-            `${UNIT_HINT}\n${vocabText(req.vocabulary)}\n\n` +
+            `${UNIT_HINT}\n${vocabText(req.vocabulary)}${kindText(req.kinds)}\n\n` +
             req.lines.map((l, i) => `${i}: ${l}`).join('\n'),
         ),
       ],
-      TEXT_TOOL,
+      textTool(kindIdsOf(req.kinds)),
     );
     return { status: 200, body: { ok: true, kind: 'text', data: input as TextAiResult } };
   } catch (e) {

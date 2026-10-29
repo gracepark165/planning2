@@ -126,6 +126,7 @@ export function App() {
           <OrderView
             key={orderRound}
             today={today}
+            myFoods={state.myFoods}
             onPickCatalog={() => go('add')}
             onAdd={(items) => {
               dispatch({ type: 'addItems', items });

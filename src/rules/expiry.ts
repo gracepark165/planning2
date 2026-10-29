@@ -3,7 +3,7 @@
 
 import { PORTION_FREEZE_GROUPS, PORTION_SHELF_DAYS, SHELF_TABLE_IS_PROVISIONAL } from './constants';
 import { addDays, daysBetween } from './date';
-import type { CatalogEntry, DateKey, Item, Location, Retailer } from './types';
+import type { CatalogEntry, DateKey, FoodKind, Item, Location, Retailer } from './types';
 
 /** 기본 기간(일). 소분이면 소분 기간표, 표에 없는 품목군이면 품목 기본 기간. 사전에 없으면 undefined. */
 export function shelfDaysFor(entry: CatalogEntry | undefined, portioned: boolean): number | undefined {
@@ -47,6 +47,20 @@ export function defaultLocation(entry: CatalogEntry | undefined, portioned: bool
   return entry.location;
 }
 
+/** 사전에 없는 재료를 종류로 분류했을 때의 보관 위치: 고른 위치(AI가 읽은 보관 방법·사용자) → 소분 냉동 → 종류 기본 */
+export function kindLocation(kind: FoodKind, portioned: boolean, picked?: Location): Location {
+  if (picked) return picked;
+  if (portioned && PORTION_FREEZE_GROUPS.includes(kind.group)) return '냉동';
+  return kind.location;
+}
+
+/** 종류별 기본 기간(일). 소분이면 소분 기간표, 냉동 보관이면 냉동 기간을 쓴다. */
+export function kindShelfDays(kind: FoodKind, location: Location, portioned: boolean): number {
+  if (portioned) return PORTION_SHELF_DAYS[kind.group] ?? kind.days;
+  if (location === '냉동' && kind.location !== '냉동') return kind.freezerDays ?? kind.days;
+  return kind.days;
+}
+
 /**
  * 입고일(FR-17): 주문일 + 마트별 일수. 마감 시각 이후 주문은 하루 늦게.
  * orderHour를 모르면 마감 전 주문으로 본다.
@@ -67,6 +81,12 @@ export function expiryBasisText(item: Pick<Item, 'enteredAt' | 'expiresAt' | 'ex
       const tag = SHELF_TABLE_IS_PROVISIONAL ? '기본 기간표(임시)' : '기본 기간표';
       return `${tag} · 입고일 + ${daysBetween(item.enteredAt, item.expiresAt)}일`;
     }
+    case 'kind': {
+      const tag = SHELF_TABLE_IS_PROVISIONAL ? '비슷한 종류 기준(임시)' : '비슷한 종류 기준';
+      return `${tag} · 입고일 + ${daysBetween(item.enteredAt, item.expiresAt)}일`;
+    }
+    case 'mine':
+      return `지난번에 정한 기간 · 입고일 + ${daysBetween(item.enteredAt, item.expiresAt)}일`;
   }
 }
 

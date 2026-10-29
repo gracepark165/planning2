@@ -13,7 +13,9 @@ export type ItemState = 'soon' | 'buried' | 'ok';
 export type ExpiryBasis =
   | 'table' // 기본 기간표(임시)로 자동 계산
   | 'label' // 주문 화면 등에 적힌 소비기한
-  | 'user'; // 사용자가 ±1일로 고친 값 (항상 우선)
+  | 'user' // 사용자가 ±1일로 고친 값 (항상 우선)
+  | 'kind' // 재료 사전에 없어서, AI가 고른 종류의 기본 기간(종류별 기본 기간표, 임시)
+  | 'mine'; // 지난번에 같은 재료를 넣을 때 정한 기간 (기기에 기억)
 
 /** 품목군. 소분 기간표·소분 보관 위치를 정할 때 쓴다. */
 export type FoodGroup = 'meat' | 'seafood' | 'frozenFood' | 'veg' | 'dairy' | 'grain' | 'sauce' | 'etc';
@@ -32,6 +34,8 @@ export interface Item {
   expiryBasis: ExpiryBasis;
   remaining: Remaining;
   source: ItemSource;
+  /** 품목군. 재료 사전에 없는 재료만 저장한다 (있는 재료는 사전에서 본다). 상비 재료 제외에 쓴다. */
+  group?: FoodGroup;
   /** 소분 품목인지. 소분 품목은 count 단위로 재고에서 차감한다. */
   portioned: boolean;
   /** 소분 개수 (예: 3) */
@@ -80,6 +84,29 @@ export interface CatalogEntry {
   defaultQty?: string;
   /** 직접 추가 화면의 타일에 보이는지 */
   picker?: boolean;
+  /** 재료 사전이 아니라 "지난번 값"(기기에 기억한 내 재료)에서 온 항목 */
+  mine?: boolean;
+}
+
+/** 종류별 기본 기간표의 한 줄 (사전에 없는 재료를 AI가 이 종류로 분류한다) */
+export interface FoodKind {
+  id: string;
+  label: string;
+  examples: string;
+  /** 입고일 + 이 값 = 소비기한 (기본 보관 위치 기준) */
+  days: number;
+  location: Location;
+  group: FoodGroup;
+  /** 냉동 보관일 때의 기간. 없으면 days */
+  freezerDays?: number;
+}
+
+/** 사전에 없는 재료를 넣을 때 정한 값 (다음에 같은 재료가 나오면 자동으로 채운다) */
+export interface MyFood {
+  name: string;
+  shelfDays: number;
+  location: Location;
+  group: FoodGroup;
 }
 
 /** 이번 주 플랜 후보 레시피 */
