@@ -39,6 +39,11 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
     return () => window.clearTimeout(t);
   }, [step]);
 
+  // 재료 확인까지 끝났으면 링크는 지운다 (다음 영상을 바로 붙여 넣게). 못 읽었을 때는 고쳐서 다시 하게 남겨 둔다.
+  useEffect(() => {
+    if (step === 'result') setUrl('');
+  }, [step]);
+
   const reset = () => {
     round.current++;
     setStep('input');
