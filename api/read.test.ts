@@ -102,10 +102,11 @@ describe('서버 함수', () => {
     const sent = calls[0];
     expect(sent.headers?.['x-api-key']).toBe('test-key');
     expect(sent.body?.model).toBe(AI_MODEL);
-    expect(sent.body?.tool_choice).toEqual({ type: 'tool', name: 'report_order' });
+    expect(sent.body?.tool_choice).toEqual({ type: 'auto' });
+    expect(JSON.stringify(sent.body?.messages)).toContain('report_order 도구');
     const content = (sent.body?.messages as { content: { type: string; text?: string }[] }[])[0].content;
     expect(content.filter((c) => c.type === 'image')).toHaveLength(2);
-    expect(content.at(-1)?.text).toContain('닭다리살');
+    expect(content.at(-2)?.text).toContain('닭다리살');
   });
 
   it('영상: 유튜브 키가 있으면 설명란까지 읽는다', async () => {
@@ -153,7 +154,7 @@ describe('서버 함수', () => {
     const busy = fakeFetch({ [ANTHROPIC]: () => new Response('err', { status: 429 }) });
     expect((await handleRead({ kind: 'text', lines: ['x'] }, deps(busy.fn))).body).toMatchObject({ ok: false, error: 'too-many' });
     const odd = fakeFetch({ [ANTHROPIC]: () => Response.json({ content: [{ type: 'text', text: '음…' }] }) });
-    expect((await handleRead({ kind: 'text', lines: ['x'] }, deps(odd.fn))).body).toEqual({ ok: false, error: 'ai-failed' });
+    expect((await handleRead({ kind: 'text', lines: ['x'] }, deps(odd.fn))).body).toMatchObject({ ok: false, error: 'ai-failed' });
   });
 
   it('Anthropic이 거절한 이유를 알려 준다 (키 값은 넣지 않음)', async () => {

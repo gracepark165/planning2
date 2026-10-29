@@ -180,8 +180,9 @@ async function callClaude(deps: Deps, system: string, content: Content[], tool: 
       max_tokens: 2000,
       system,
       tools: [tool],
-      tool_choice: { type: 'tool', name: tool.name },
-      messages: [{ role: 'user', content }],
+      // 이 모델은 도구 강제 지정(type 'tool'·'any')을 지원하지 않아서, auto로 두고 지시문으로 도구를 쓰게 한다
+      tool_choice: { type: 'auto' },
+      messages: [{ role: 'user', content: [...content, { type: 'text', text: `답은 글로 쓰지 말고 ${tool.name} 도구를 한 번 불러서 주세요.` }] }],
     }),
   });
   if (!res.ok) {
@@ -191,7 +192,7 @@ async function callClaude(deps: Deps, system: string, content: Content[], tool: 
   }
   const data = (await res.json()) as { content?: { type: string; name?: string; input?: unknown }[] };
   const block = data.content?.find((b) => b.type === 'tool_use' && b.name === tool.name);
-  if (!block) throw new ReadError('ai-failed');
+  if (!block) throw new ReadError('ai-failed', `도구 답 없음 (stop: ${String((data as { stop_reason?: unknown }).stop_reason ?? '')})`);
   return block.input;
 }
 
