@@ -79,3 +79,16 @@ describe('사전에 없는 상비 재료도 잊혀지는 중에서 뺀다', () =
     expect(stateOf({ ...old, name: '부침가루' }, today)).toBe('buried');
   });
 });
+
+describe('냉장고 비우기', () => {
+  it('재료·기록·이번 주 확정을 지우고, 집밥 횟수와 지난번 값은 남긴다', () => {
+    let s = reducer(initialState(today), { type: 'setMeals', mealsPerWeek: 6 });
+    s = reducer(s, { type: 'addItems', items: [item({ id: 'n1', name: '훈제오리', group: 'meat' })] });
+    s = reducer(s, { type: 'finishItem', id: s.items[0].id, action: 'eat', at: 't' });
+    s = reducer(s, { type: 'clearAll' });
+    expect(s.items).toEqual([]);
+    expect(s.logs).toEqual([]);
+    expect(s.plan).toMatchObject({ mealsPerWeek: 6, doneMeals: [], rejectedRecipes: [] });
+    expect(s.myFoods['훈제오리']).toBeDefined();
+  });
+});

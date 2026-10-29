@@ -44,9 +44,11 @@ interface Props {
   onAdd: () => void;
   onPlan: () => void;
   onReset: () => void;
+  onClear: () => void;
+  onOrder: () => void;
 }
 
-export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset }: Props) {
+export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset, onClear, onOrder }: Props) {
   const [loc, setLoc] = useState<LocFilter>('전체');
   const [filter, setFilter] = useState<StateFilter>('전체');
   const [okOpen, setOkOpen] = useState(readOkOpen);
@@ -120,7 +122,20 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset }:
       </div>
 
       <div>
-        {groups.length ? (
+        {!items.length ? (
+          <div className="card" style={{ textAlign: 'center', padding: '28px 16px' }}>
+            <h3>냉장고가 비어 있어요</h3>
+            <p>장 본 주문 화면이나 영수증을 올리거나, 재료를 하나씩 추가해 주세요.</p>
+            <div className="ctas">
+              <button className="cta ghost" onClick={onAdd}>
+                재료 추가
+              </button>
+              <button className="cta" onClick={onOrder}>
+                장보기 올리기
+              </button>
+            </div>
+          </div>
+        ) : groups.length ? (
           groups.map((g) => {
             const folded = sectioned && g.state === 'ok' && !okOpen;
             return (
@@ -162,13 +177,16 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset }:
         {STATE_META.buried.label}) 같은 규칙으로 계산해요. {STATE_META.soon.label} → {STATE_META.buried.label} →{' '}
         {STATE_META.ok.label} 순서로 묶고, 같은 묶음 안은 기한이 가까운 순서예요. 이름이 같은 재료는 가장 급한 것 아래에 붙여서 보여줘요. 기본 기간표로 정한 소비기한은 식약처 기준으로 검증하기 전이라 ‘임시’예요.
       </p>
-      <button
-        className="note"
-        style={{ textDecoration: 'underline', display: 'block', marginTop: 4 }}
-        onClick={onReset}
-      >
-        처음 상태로 되돌리기
-      </button>
+      <div className="acts" style={{ gap: 16 }}>
+        {items.length > 0 && (
+          <button className="note" style={{ textDecoration: 'underline', marginTop: 4 }} onClick={onClear}>
+            냉장고 비우기
+          </button>
+        )}
+        <button className="note" style={{ textDecoration: 'underline', marginTop: 4 }} onClick={onReset}>
+          예시 재료로 되돌리기
+        </button>
+      </div>
       <button className="fab" onClick={onAdd}>
         + 재료 추가
       </button>

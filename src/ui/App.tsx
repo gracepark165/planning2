@@ -78,9 +78,17 @@ export function App() {
         onAdd={() => go('add')}
         onPlan={() => go('plan')}
         onReset={() => {
+          if (!window.confirm('지금 냉장고를 지우고 예시 재료로 되돌릴까요?')) return;
           dispatch({ type: 'reset', today });
-          showToast('처음 상태로 되돌렸어요');
+          showToast('예시 재료로 되돌렸어요');
         }}
+        onClear={() => {
+          const n = state.items.length;
+          if (!window.confirm(`냉장고에 있는 재료 ${n}개를 모두 지울까요?\n이번 주 기록도 같이 지워져요. 지난번에 정한 값은 남아요.`)) return;
+          dispatch({ type: 'clearAll' });
+          showToast('냉장고를 비웠어요. 내 재료로 채워 주세요');
+        }}
+        onOrder={() => go('order')}
       />
     );
   } else if (screen === 'plan') {

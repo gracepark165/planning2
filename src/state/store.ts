@@ -23,6 +23,8 @@ export type Action =
   | { type: 'setRemaining'; id: string; remaining: Remaining }
   | { type: 'finishItem'; id: string; action: MealLog['action']; at: string }
   | { type: 'reset'; today: DateKey }
+  /** 냉장고 비우기: 예시 재료를 지우고 내 재료로 처음부터 채울 때. 지난번 값(myFoods)과 집밥 횟수는 남긴다. */
+  | { type: 'clearAll' }
   // 저장한 뒤에 고치기
   | { type: 'removeItem'; id: string }
   | { type: 'setLocation'; id: string; location: Location }
@@ -99,6 +101,8 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case 'reset':
       return initialState(action.today);
+    case 'clearAll':
+      return { ...state, items: [], logs: [], plan: { ...emptyPlan(), mealsPerWeek: state.plan.mealsPerWeek } };
     case 'removeItem':
       // "잘못 넣었어요": 기록 없이 지운다 (버린 것으로 세지 않음)
       return { ...state, items: state.items.filter((i) => i.id !== action.id) };
