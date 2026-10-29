@@ -12,8 +12,16 @@ export function loadState(storage: Storage | undefined = globalThis.localStorage
     const data = JSON.parse(raw);
     if (!data || !Array.isArray(data.items) || !Array.isArray(data.logs) || !data.plan) return null;
     const state = { ...data, myFoods: data.myFoods && typeof data.myFoods === 'object' ? data.myFoods : {} } as AppState;
-    // 예전에 다른 이름(달걀)으로 넣은 재료는 대표 이름(계란)으로 맞춘다
-    return { ...state, items: state.items.map((i) => ({ ...i, name: canonicalName(i.name) })) };
+    // 예전에 다른 이름(달걀)으로 넣은 재료는 대표 이름(계란)으로 맞춘다.
+    // 예전에 저장한 예시 재료는 근거를 "주문 화면에 적힌 소비기한"으로 (예시 날짜는 기본 기간표 값이 아님)
+    return {
+      ...state,
+      items: state.items.map((i) => ({
+        ...i,
+        name: canonicalName(i.name),
+        ...(i.id.startsWith('sample-') && i.expiryBasis === 'table' ? { expiryBasis: 'label' as const } : {}),
+      })),
+    };
   } catch {
     return null;
   }

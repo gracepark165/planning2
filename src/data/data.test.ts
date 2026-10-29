@@ -102,6 +102,10 @@ describe('샘플 재고', () => {
   const today = '2026-10-27';
   const inv = makeSampleInventory(today);
 
+  it('예시 날짜는 기본 기간표 값이 아니라서 근거는 "주문 화면에 적힌 소비기한"', () => {
+    expect(inv.every((i) => i.expiryBasis === 'label')).toBe(true);
+  });
+
   it('날짜로 바꾼 뒤 다시 계산해도 프로토타입의 남은 일수·들어온 일수와 같다', () => {
     inv.forEach((item, i) => {
       expect(daysBetween(today, item.expiresAt), item.name).toBe(SAMPLE_SEEDS[i].left);
