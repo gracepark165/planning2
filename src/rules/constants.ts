@@ -19,6 +19,9 @@ export const STATE_META: Record<ItemState, { label: string; icon: string }> = {
   ok: { label: '싱싱해요', icon: '🌱' },
 };
 
+/** 버렸어요 → "왜 버리게 됐어요?" 칩 (B-4). 비난하지 않는 말로. 건너뛰기는 이유 없음(null) */
+export const DISCARD_REASONS: readonly string[] = ['상했어요', '맛·식감이 변했어요', '깜빡했어요', '너무 많이 샀어요', '기타'];
+
 /** 이번 주 집밥 횟수 고르기 범위 */
 export const MIN_MEALS_PER_WEEK = 2;
 export const MAX_MEALS_PER_WEEK = 7;

@@ -16,6 +16,7 @@ import {
   type AddPick,
 } from '../state/store';
 import { AddView } from './AddView';
+import { DiscardSheet } from './DiscardSheet';
 import { HomeView } from './HomeView';
 import { ItemSheet } from './ItemSheet';
 import { OpeningView } from './OpeningView';
@@ -40,6 +41,8 @@ export function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [prevScreen, setPrevScreen] = useState<Screen>('home');
   const [sheetId, setSheetId] = useState<string | null>(null);
+  /** 버렸어요 다음에 이유를 물을 기록 (B-4) */
+  const [discardAsk, setDiscardAsk] = useState<{ itemId: string; at: string; name: string } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [orderRound, setOrderRound] = useState(0);
   /** 장보기 올리기 글 입력칸에 미리 채울 글 (장보기 목록에서 산 재료) */
@@ -108,6 +111,10 @@ export function App() {
 
   const sheetItem = state.items.find((i) => i.id === sheetId);
   const closeSheet = useCallback(() => setSheetId(null), []);
+  const skipDiscardReason = useCallback(() => {
+    if (discardAsk) showToast(`${withJosa(discardAsk.name, eul)} 버린 걸로 기록했어요`);
+    setDiscardAsk(null);
+  }, [discardAsk, showToast]);
 
   // 처음 열었을 때 한 번만 오프닝 화면 (하단 탭 없이)
   if (showIntro(state)) return <OpeningView onStart={() => dispatch({ type: 'finishIntro' })} />;
@@ -229,10 +236,12 @@ export function App() {
           onShift={(delta) => dispatch({ type: 'shiftExpiry', id: sheetItem.id, delta })}
           onRemaining={(remaining) => dispatch({ type: 'setRemaining', id: sheetItem.id, remaining })}
           onFinish={(action) => {
-            dispatch({ type: 'finishItem', id: sheetItem.id, action, today, at: new Date().toISOString() });
+            const at = new Date().toISOString();
+            dispatch({ type: 'finishItem', id: sheetItem.id, action, today, at });
             setSheetId(null);
-            const what = withJosa(sheetItem.name, eul);
-            showToast(action === 'eat' ? `${what} 다 먹은 걸로 기록했어요` : `${what} 버린 걸로 기록했어요`);
+            // 버렸어요만 이유를 한 번 묻는다 (기록은 이미 남김, 건너뛰면 이유 없음)
+            if (action === 'discard') setDiscardAsk({ itemId: sheetItem.id, at, name: sheetItem.name });
+            else showToast(`${withJosa(sheetItem.name, eul)} 다 먹은 걸로 기록했어요`);
           }}
           onLocation={(location) => dispatch({ type: 'setLocation', id: sheetItem.id, location })}
           onCount={(delta) => dispatch({ type: 'shiftCount', id: sheetItem.id, delta })}
@@ -245,6 +254,17 @@ export function App() {
               run: () => dispatch({ type: 'addItems', items: [removed] }),
             });
           }}
+        />
+      )}
+      {discardAsk && (
+        <DiscardSheet
+          name={discardAsk.name}
+          onPick={(reason) => {
+            dispatch({ type: 'setDiscardReason', itemId: discardAsk.itemId, at: discardAsk.at, reason });
+            setDiscardAsk(null);
+            showToast(`${withJosa(discardAsk.name, eul)} 버린 걸로 기록했어요`);
+          }}
+          onSkip={skipDiscardReason}
         />
       )}
       {toast && (

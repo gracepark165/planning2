@@ -51,6 +51,8 @@ export interface Item {
 
 export interface MealLog {
   itemId: string;
+  /** 재료 이름 (기록 카드에 보여줄 때 씀). 예전 기록에는 없음 */
+  name?: string;
   action: 'eat' | 'discard';
   at: string; // ISO 시각
   /** 기록할 때 재료 상태. 저장 형식 v2 전에 쌓인 기록은 'unknown' */

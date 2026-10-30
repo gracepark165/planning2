@@ -41,6 +41,8 @@ export type Action =
   | { type: 'shiftExpiry'; id: string; delta: number }
   | { type: 'setRemaining'; id: string; remaining: Remaining }
   | { type: 'finishItem'; id: string; action: MealLog['action']; today: DateKey; at: string }
+  /** 버렸어요 다음에 고른 이유 (B-4). 기록은 재료 id + 시각으로 찾는다 */
+  | { type: 'setDiscardReason'; itemId: string; at: string; reason: string }
   | { type: 'reset'; today: DateKey }
   /** 냉장고 비우기: 예시 재료를 지우고 내 재료로 처음부터 채울 때. 지난번 값(myFoods)과 집밥 횟수는 남긴다. */
   | { type: 'clearAll' }
@@ -100,6 +102,7 @@ export function initialState(today: DateKey): AppState {
 /** 기록 한 줄. 기록할 때 재료 상태를 같이 남긴다 (이번 주 요약용) */
 const logOf = (item: Item, action: MealLog['action'], today: DateKey, at: string): MealLog => ({
   itemId: item.id,
+  name: item.name,
   action,
   at,
   stateAtAction: stateOf(item, today),
@@ -216,6 +219,11 @@ export function reducer(state: AppState, action: Action): AppState {
         items: state.items.filter((i) => i.id !== action.id),
         logs: [...state.logs, logOf(item, action.action, action.today, action.at)],
       };
+    }
+    case 'setDiscardReason': {
+      const log = state.logs.find((l) => l.itemId === action.itemId && l.at === action.at && l.action === 'discard');
+      if (!log) return state;
+      return { ...state, logs: state.logs.map((l) => (l === log ? { ...l, discardReason: action.reason } : l)) };
     }
     case 'reset':
       // 첫 사용 안내·알림 설정은 다시 묻지 않는다

@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { findCatalog } from '../data';
 import { loadState, saveState, STORAGE_KEY } from './persist';
+import { discardLabel } from '../rules/logs';
+import { DISCARD_REASONS } from '../rules/constants';
 import { initialState, newItemFromCatalog, reducer, showIntro, showOnboarding, showSamplePrompt } from './store';
 
 const today = '2026-10-27';
@@ -48,8 +50,8 @@ describe('재고 상태 바꾸기', () => {
     expect(s2.items).toHaveLength(12);
     expect(s2.logs).toEqual([
       // 기록할 때 상태를 같이 남긴다 (닭안심 D-1, 소고기 D-2 → 오늘 내일 해요)
-      { itemId: a.id, action: 'eat', at: 't1', stateAtAction: 'soon', discardReason: null },
-      { itemId: b.id, action: 'discard', at: 't2', stateAtAction: 'soon', discardReason: null },
+      { itemId: a.id, name: '닭안심', action: 'eat', at: 't1', stateAtAction: 'soon', discardReason: null },
+      { itemId: b.id, name: '소고기 불고기용', action: 'discard', at: 't2', stateAtAction: 'soon', discardReason: null },
     ]);
     // 없는 재료는 무시
     expect(reducer(s2, { type: 'finishItem', id: a.id, action: 'eat', today, at: 't3' })).toBe(s2);
@@ -80,7 +82,9 @@ describe('재고 상태 바꾸기', () => {
       today,
       at: 'T',
     });
-    expect(s.logs).toEqual([{ itemId: 'sample-1', action: 'eat', at: 'T', stateAtAction: 'soon', discardReason: null }]);
+    expect(s.logs).toEqual([
+      { itemId: 'sample-1', name: '닭안심', action: 'eat', at: 'T', stateAtAction: 'soon', discardReason: null },
+    ]);
   });
 });
 
@@ -349,5 +353,39 @@ describe('영상 메뉴 → 플랜·장보기 목록 (B-1)', () => {
     expect(s.shoppingList.map((i) => i.name)).not.toContain('고추장');
     s = reducer(s, { type: 'addItems', items: [newItemFromCatalog(findCatalog('감자')!, today, 'g1')] });
     expect(s.shoppingList.map((i) => i.name)).not.toContain('감자');
+  });
+});
+
+describe('폐기 이유 (B-4)', () => {
+  const discarded = () => reducer(initialState(today), { type: 'finishItem', id: 'sample-3', action: 'discard', today, at: 'T1' });
+
+  it('칩은 상했어요·맛·식감이 변했어요·깜빡했어요·너무 많이 샀어요·기타', () => {
+    expect(DISCARD_REASONS).toEqual(['상했어요', '맛·식감이 변했어요', '깜빡했어요', '너무 많이 샀어요', '기타']);
+  });
+
+  it('버렸어요 → 칩 하나로 이유를 붙인다', () => {
+    const s = reducer(discarded(), { type: 'setDiscardReason', itemId: 'sample-3', at: 'T1', reason: '깜빡했어요' });
+    expect(s.logs).toEqual([
+      { itemId: 'sample-3', name: '오이', action: 'discard', at: 'T1', stateAtAction: 'soon', discardReason: '깜빡했어요' },
+    ]);
+    expect(discardLabel(s.logs[0])).toBe('버렸어요 · 깜빡했어요');
+  });
+
+  it('건너뛰기(이유 없음)는 null', () => {
+    expect(discarded().logs[0].discardReason).toBeNull();
+    expect(discardLabel(discarded().logs[0])).toBe('버렸어요');
+  });
+
+  it('다 먹었어요 기록에는 이유를 붙이지 않는다', () => {
+    const s0 = reducer(initialState(today), { type: 'finishItem', id: 'sample-3', action: 'eat', today, at: 'T1' });
+    expect(reducer(s0, { type: 'setDiscardReason', itemId: 'sample-3', at: 'T1', reason: '기타' })).toBe(s0);
+  });
+
+  it('새로고침해도 유지된다', () => {
+    const m = new Map<string, string>();
+    const st = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) } as Storage;
+    const s = reducer(discarded(), { type: 'setDiscardReason', itemId: 'sample-3', at: 'T1', reason: '깜빡했어요' });
+    saveState(s, st);
+    expect(loadState(st)!.logs[0].discardReason).toBe('깜빡했어요');
   });
 });

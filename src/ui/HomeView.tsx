@@ -12,6 +12,7 @@ import {
 } from '../rules/status';
 import type { DateKey, Item, ItemState, Location, MealLog } from '../rules/types';
 import { formatDate } from '../rules/date';
+import { discardLabel } from '../rules/logs';
 import { Tile } from './parts';
 
 type LocFilter = '전체' | Location;
@@ -119,6 +120,8 @@ export function HomeView({
 
   const eaten = logs.filter((l) => l.action === 'eat').length;
   const discarded = logs.length - eaten;
+  // 최근에 버린 기록 3개 (이유와 함께)
+  const recentDiscards = logs.filter((l) => l.action === 'discard').slice(-3).reverse();
 
   return (
     <>
@@ -215,6 +218,16 @@ export function HomeView({
           <p>
             다 먹었어요 {eaten}개 · 버렸어요 {discarded}개
           </p>
+          {recentDiscards.length > 0 && (
+            <ul className="log-list">
+              {recentDiscards.map((l) => (
+                <li key={`${l.itemId}-${l.at}`}>
+                  {l.name && <b>{l.name}</b>}
+                  {discardLabel(l)}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
