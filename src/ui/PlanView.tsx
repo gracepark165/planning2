@@ -1,13 +1,22 @@
 // 이번 주(FR-20~28): 집밥 횟수 → 끼니 카드 → 이걸로 할게요 / 바꾸기 / 건너뛰기
 
 import { PLAN_RECIPES } from '../data';
-import { STATE_META } from '../rules/constants';
-import { findItem, makePlan, reasonOf, summarizePlan, type PlanSlot } from '../rules/plan';
+import { MAX_MEALS_PER_WEEK, MIN_MEALS_PER_WEEK, STATE_META } from '../rules/constants';
+import {
+  coverageText,
+  findItem,
+  makePlan,
+  minMealsToCover,
+  reasonOf,
+  summarizePlan,
+  uncoveredSoon,
+  type PlanSlot,
+} from '../rules/plan';
 import { formatDayLabel } from '../rules/date';
 import { dDayLabel, daysLeft, stateOf } from '../rules/status';
 import type { DateKey, Item, Plan, Recipe } from '../rules/types';
 
-const MEAL_CHOICES = [2, 3, 4, 5, 6, 7];
+const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
 
 interface Props {
   items: Item[];
@@ -25,6 +34,9 @@ export function PlanView({ items, plan, today, onMeals, onConfirm, onSwap, onSki
   const result = makePlan(items, PLAN_RECIPES, plan, today);
   const { soonTotal, soonSaved, buyAll, lost } = summarizePlan(result, items, plan, today);
   const owned = new Set(items.map((i) => i.name));
+  // 고른 집밥 횟수로 얼른 먹어야 할 재료를 다 못 쓰면 안내 (A-4)
+  const uncovered = uncoveredSoon(result, items, today);
+  const coverMeals = uncovered.length ? minMealsToCover(items, PLAN_RECIPES, plan, today) : null;
 
   const tagFor = (name: string) => {
     const it = findItem(items, name, today);
@@ -61,6 +73,17 @@ export function PlanView({ items, plan, today, onMeals, onConfirm, onSwap, onSki
           </button>
         ))}
       </div>
+
+      {uncovered.length > 0 && (
+        <div className="card warn">
+          <p>{coverageText(uncovered, coverMeals)}</p>
+          {coverMeals !== null && (
+            <button className="small-btn" onClick={() => onMeals(coverMeals)}>
+              {coverMeals}번으로 바꾸기
+            </button>
+          )}
+        </div>
+      )}
 
       <div style={{ marginTop: 8 }}>
         {plan.doneMeals.map((d) => (

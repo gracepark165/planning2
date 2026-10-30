@@ -43,6 +43,9 @@ h1{font-size:24px;line-height:1.35;font-weight:700;margin:20px 0 6px;letter-spac
 .b-info{background:var(--accent-bg);color:var(--accent)}
 .card{background:var(--card);border-radius:20px;padding:18px;margin:12px 0}
 .card.blue{background:var(--accent-bg)}
+.card.warn{background:var(--red-bg)}
+.card.warn p{color:var(--fg)}
+.card.warn .small-btn{margin-top:10px;min-height:44px;background:var(--bg);color:var(--red)}
 .card h3{margin:0 0 4px;font-size:16px}
 .card p{margin:0;color:var(--sub);font-size:14px}
 .cta{display:block;width:100%;background:var(--cta);color:var(--on-cta);font-weight:700;font-size:16px;padding:16px;border-radius:16px;margin-top:16px;text-align:center}

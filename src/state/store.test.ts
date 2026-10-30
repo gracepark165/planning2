@@ -154,7 +154,7 @@ describe('이번 주 플랜 상태', () => {
     expect(s1.items).toHaveLength(12);
     expect(s1.logs.map((l) => l.action)).toEqual(['eat', 'eat']);
     expect(s1.plan.doneMeals).toHaveLength(1);
-    expect(s1.plan.doneMeals[0]).toMatchObject({ recipe: '군만두와 오이무침', soonUsed: ['오이'], at: 'T1' });
+    expect(s1.plan.doneMeals[0]).toMatchObject({ recipe: '군만두와 오이무침', soonUsed: ['오이'], at: 'T1', date: today });
   });
 
   it('상비 재료는 빼지 않는다', () => {

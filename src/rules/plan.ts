@@ -1,12 +1,17 @@
 // 주간 소진 플랜 (FR-20~28). AI 없이 규칙으로 만든다.
 //
-// - 끼니 N개. 끼니 i의 날짜 = 오늘 + floor(i*7/N)
+// - 끼니 N개, 하루에 한 끼. 날짜는 두 단계로 정한다 (2026-10-30, 수정명세 v2 A-4)
+//   1) 급한 재료 먼저: 얼른 먹어야 할 재료(오늘 내일 해요)를 쓰는 후보가 있는 동안, 오늘부터 하루씩 채운다
+//   2) 남은 끼니는 남은 날에 고르게: 날짜 = 시작일 + floor(j*남은날/남은끼니)
+//   (오늘 이미 먹은 끼니가 있으면 내일부터. 급한 재료가 없으면 예전과 같이 floor(i*7/N))
 // - 후보: 필요한 재료(쓰는 것+상비)가 모두 (시뮬레이션) 재고에 있고, 쓰는 재료의 남은 일수 ≥ 그날, 건너뛴 레시피 제외
-// - 정렬: 쓰는 재료 중 가장 급한 것(남은 일수 최소) → 급함 점수 합 높은 순. 쓰는 재료가 없는 레시피는 맨 뒤
+// - 정렬: 쓰는 재료 중 가장 급한 것(남은 일수 최소) → 얼른 먹어야 할 재료를 많이 쓰는 순(가점)
+//   → 급함 점수 합 높은 순. 쓰는 재료가 없는 레시피는 맨 뒤
 // - 이번 주에 이미 고른(확정 포함) 레시피는 다른 후보 뒤로 보낸다 (소분 품목이 같은 메뉴만 반복되지 않게)
 // - 고른 레시피의 쓰는 재료는 시뮬레이션 재고에서 뺀다 (소분 품목은 한 끼에 1개씩)
 // - "바꾸기"는 같은 끼니의 다음 후보로 넘긴다
 
+import { MAX_MEALS_PER_WEEK } from './constants';
 import { addDays } from './date';
 import { iga } from './josa';
 import { daysLeft, daysSinceEntered, stateOf, urgencyOf } from './status';
@@ -29,8 +34,7 @@ export interface PlanResult {
   leftover: { item: Item; count: number }[];
 }
 
-/** 끼니 i의 날짜(오늘부터 며칠 뒤) */
-export const slotDay = (i: number, n: number) => Math.floor((i * 7) / n);
+const WEEK_DAYS = 7;
 
 /** 재고에서 같은 이름 중 가장 급한(소비기한이 가까운) 재료 */
 export function findItem(items: readonly Item[], name: string, today: DateKey): Item | undefined {
@@ -59,40 +63,90 @@ export function makePlan(items: readonly Item[], recipes: readonly Recipe[], pla
   }
   const has = (name: string) => (sim.get(name)?.count ?? 0) > 0;
   const left = (name: string) => daysLeft(sim.get(name)!.item, today);
+  const isSoon = (name: string) => stateOf(sim.get(name)!.item, today) === 'soon';
 
   const picked = new Set(plan.doneMeals.map((m) => m.recipe));
-  const slots: PlanSlot[] = [];
-  for (let i = plan.doneMeals.length; i < n; i++) {
-    const d = slotDay(i, n);
-    const cands: { r: Recipe; minLeft: number; score: number }[] = [];
+
+  /** 그날 끼니의 후보 (바꾸기 순서대로) */
+  const candidatesFor = (d: number) => {
+    const cands: { r: Recipe; minLeft: number; soon: number; score: number }[] = [];
     for (const r of recipes) {
       if (plan.rejectedRecipes.includes(r.name)) continue;
       if (![...r.uses, ...r.keeps].every(has)) continue;
       if (!r.uses.every((u) => left(u) >= d)) continue;
       const minLeft = r.uses.length ? Math.min(...r.uses.map(left)) : Infinity;
+      const soon = r.uses.filter(isSoon).length;
       const score = r.uses.reduce((a, u) => a + urgencyOf(sim.get(u)!.item, today), 0);
-      cands.push({ r, minLeft, score });
+      cands.push({ r, minLeft, soon, score });
     }
-    cands.sort((a, b) => a.minLeft - b.minLeft || b.score - a.score);
+    cands.sort((a, b) => a.minLeft - b.minLeft || b.soon - a.soon || b.score - a.score);
     const withUses = cands.filter((c) => c.r.uses.length);
-    const list = [
+    return [
       ...withUses.filter((c) => !picked.has(c.r.name)),
       ...withUses.filter((c) => picked.has(c.r.name)),
       ...cands.filter((c) => !c.r.uses.length),
     ];
+  };
+
+  const slots: PlanSlot[] = [];
+  const place = (i: number, d: number, list: ReturnType<typeof candidatesFor>) => {
     const pick = list.length ? list[(plan.swapIndex[i] ?? 0) % list.length] : undefined;
     if (pick) {
       picked.add(pick.r.name);
-      for (const u of pick.r.uses) {
-        const e = sim.get(u)!;
-        e.count -= 1;
-      }
+      for (const u of pick.r.uses) sim.get(u)!.count -= 1;
     }
     slots.push({ index: i, dayOffset: d, date: addDays(today, d), recipe: pick?.r ?? null, candidateCount: list.length });
+  };
+
+  let i = plan.doneMeals.length;
+  // 오늘 이미 먹은 끼니가 있으면 내일부터
+  let day = plan.doneMeals.some((m) => m.date === today) ? 1 : 0;
+
+  // 1) 급한 재료 먼저: 얼른 먹어야 할 재료를 쓰는 후보가 그날 있으면 가장 빠른 날에
+  for (; i < n && day < WEEK_DAYS; i++, day++) {
+    const list = candidatesFor(day);
+    if (!list.some((c) => c.soon > 0)) break;
+    place(i, day, list);
+  }
+
+  // 2) 남은 끼니는 남은 날에 고르게
+  const rest = n - i;
+  const span = WEEK_DAYS - day;
+  for (let j = 0; j < rest; j++, i++) {
+    const d = day + Math.floor((j * span) / rest);
+    place(i, d, candidatesFor(d));
   }
 
   const leftover = [...sim.values()].filter((e) => e.count > 0);
   return { slots, leftover };
+}
+
+/** 플랜이 쓰지 못하고 남는 얼른 먹어야 할 재료 이름 (중복 없이, 급한 순) */
+export function uncoveredSoon(result: PlanResult, items: readonly Item[], today: DateKey): string[] {
+  const used = new Set(result.slots.flatMap((s) => (s.recipe ? s.recipe.uses : [])));
+  const soon = items
+    .filter((i) => stateOf(i, today) === 'soon' && !used.has(i.name))
+    .sort((a, b) => daysLeft(a, today) - daysLeft(b, today));
+  return [...new Set(soon.map((i) => i.name))];
+}
+
+/**
+ * 얼른 먹어야 할 재료를 모두 쓰는 가장 적은 집밥 횟수 (지금 횟수부터 최대 7번까지 실제로 짜 본다).
+ * 지금 횟수로 충분하면 그 횟수, 7번으로도 안 되면 null.
+ */
+export function minMealsToCover(items: readonly Item[], recipes: readonly Recipe[], plan: Plan, today: DateKey): number | null {
+  for (let m = plan.mealsPerWeek; m <= MAX_MEALS_PER_WEEK; m++) {
+    // 횟수를 바꾸면 바꾸기 기록은 지워지므로(setMeals) 같은 조건으로 짜 본다
+    const p = m === plan.mealsPerWeek ? plan : { ...plan, mealsPerWeek: m, swapIndex: {} };
+    if (!uncoveredSoon(makePlan(items, recipes, p, today), items, today).length) return m;
+  }
+  return null;
+}
+
+/** 다 못 쓸 때 안내 문구 */
+export function coverageText(names: readonly string[], m: number | null): string {
+  const head = `얼른 먹어야 할 재료 ${names.length}개(${names.join(', ')})가 남아요.`;
+  return m === null ? `${head} 따로 챙겨 드세요.` : `${head} 집밥을 ${m}번으로 늘리면 모두 먹을 수 있어요.`;
 }
 
 /** 배치 이유 문장 (규칙으로 만든다) */

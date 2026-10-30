@@ -3,59 +3,148 @@ import { PLAN_RECIPES } from '../data';
 import { makeSampleInventory } from '../data/sampleInventory';
 import { emptyPlan } from '../state/store';
 import { addDays } from './date';
-import { makePlan, reasonOf, slotDay, summarizePlan } from './plan';
+import { daysLeft } from './status';
+import { coverageText, makePlan, minMealsToCover, reasonOf, summarizePlan, uncoveredSoon } from './plan';
 import type { Item, Plan, Recipe } from './types';
 
 const today = '2026-10-27';
 const inv = makeSampleInventory(today);
 const planOf = (p: Partial<Plan>): Plan => ({ ...emptyPlan(), ...p });
+const item = (name: string, left: number, ago: number, extra: Partial<Item> = {}): Item => ({
+  id: name,
+  name,
+  qty: '1개',
+  core: '',
+  location: '냉장',
+  enteredAt: addDays(today, -ago),
+  expiresAt: addDays(today, left),
+  expiryBasis: 'table',
+  remaining: '넉넉해요',
+  source: 'manual',
+  portioned: false,
+  ...extra,
+});
+const rec = (name: string, uses: string[], keeps: string[] = [], buy: string[] = []): Recipe => ({ name, uses, keeps, buy });
+
 const names = (n: number, p: Partial<Plan> = {}) =>
   makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: n, ...p }), today).slots.map((s) => s.recipe?.name ?? null);
 
-describe('끼니 날짜', () => {
-  it('끼니 i의 날짜 = floor(i*7/N)', () => {
-    expect([0, 1, 2, 3].map((i) => slotDay(i, 4))).toEqual([0, 1, 3, 5]);
-    expect([0, 1].map((i) => slotDay(i, 2))).toEqual([0, 3]);
-    expect([0, 1, 2, 3, 4, 5, 6].map((i) => slotDay(i, 7))).toEqual([0, 1, 2, 3, 4, 5, 6]);
+const CURRY = '닭안심 버터카레', MANDU = '군만두와 오이무침', BULGOGI = '소불고기 덮밥';
+const PASTA = '새우 크림 파스타', SAMGYUP = '삼겹살 구이', BACON = '베이컨 계란볶음밥';
+const days = (n: number, p: Partial<Plan> = {}) =>
+  makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: n, ...p }), today).slots.map((s) => s.dayOffset);
+
+// 샘플 재고의 얼른 먹어야 할 재료(남은 일수): 닭안심 1, 소고기 불고기용 2, 오이 2, 우유 3
+describe('급한 재료 먼저 (A-4)', () => {
+  it('집밥 4번: 얼른 먹어야 할 재료 4개를 모두, 급한 순서로 가장 빠른 날에', () => {
+    expect(names(4)).toEqual([CURRY, MANDU, BULGOGI, PASTA]);
+    expect(days(4)).toEqual([0, 1, 2, 3]);
+    // 재료별로 쓰는 날: 닭안심 → 소고기 불고기용·오이 → 우유
+    const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4 }), today);
+    const dayOf = (name: string) => slots.find((s) => s.recipe?.uses.includes(name))!.dayOffset;
+    expect(dayOf('닭안심')).toBe(0);
+    expect([dayOf('소고기 불고기용'), dayOf('오이')].sort()).toEqual([1, 2]);
+    expect(dayOf('우유')).toBe(3);
+  });
+
+  it('급한 재료를 다 배치한 뒤 남은 끼니는 남은 날에 고르게', () => {
+    expect(names(5)).toEqual([CURRY, MANDU, BULGOGI, PASTA, SAMGYUP]);
+    expect(days(5)).toEqual([0, 1, 2, 3, 4]);
+    expect(days(6)).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(names(7).slice(0, 6)).toEqual([CURRY, MANDU, BULGOGI, PASTA, SAMGYUP, BACON]);
+    expect(days(7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it('급한 재료가 없으면 예전처럼 한 주에 고르게 펴진다', () => {
+    const calm = inv.filter((i) => !['닭안심', '소고기 불고기용', '오이', '우유'].includes(i.name));
+    const d = (n: number) => makePlan(calm, PLAN_RECIPES, planOf({ mealsPerWeek: n }), today).slots.map((s) => s.dayOffset);
+    expect(d(4)).toEqual([0, 1, 3, 5]);
+    expect(d(2)).toEqual([0, 3]);
+    expect(d(7)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it('집밥이 적으면 급한 순서대로 채우고 남는 재료를 알려준다', () => {
+    expect(names(3)).toEqual([CURRY, MANDU, BULGOGI]);
+    expect(names(2)).toEqual([CURRY, MANDU]);
+  });
+
+  it('어떤 집밥 횟수·바꾸기에서도 소비기한이 지난 날에 그 재료를 쓰지 않는다', () => {
+    for (let n = 1; n <= 7; n++) {
+      for (const swap of [{}, { 0: 1 }, { 1: 1 }, { 2: 2 }, { 0: 3, 3: 1 }] as Record<number, number>[]) {
+        const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: n, swapIndex: swap }), today);
+        for (const s of slots)
+          for (const u of s.recipe?.uses ?? []) {
+            const left = Math.min(...inv.filter((i) => i.name === u).map((i) => daysLeft(i, today)));
+            expect(left, `${n}번 ${s.recipe!.name} ${u}`).toBeGreaterThanOrEqual(s.dayOffset);
+          }
+        // 하루에 한 끼
+        expect(new Set(slots.map((s) => s.dayOffset)).size).toBe(slots.length);
+      }
+    }
+  });
+
+  it('얼른 먹어야 할 재료 두 개를 같이 쓰는 레시피에 가점', () => {
+    const items = [item('A', 2, 0), item('Z1', 30, 20), item('Z2', 30, 20), item('B', 2, 0), item('C', 3, 0)];
+    // 급함 점수만 보면 A+Z1+Z2(8+5+5=18)가 B+C(8+7=15)보다 높지만, 얼른 먹어야 할 재료를 2개 쓰는 쪽을 먼저
+    const recipes = [rec('A요리', ['A', 'Z1', 'Z2']), rec('B+C요리', ['B', 'C'])];
+    const { slots } = makePlan(items, recipes, planOf({ mealsPerWeek: 1 }), today);
+    expect(slots[0].recipe?.name).toBe('B+C요리');
+  });
+
+  it('오늘 이미 먹은 끼니가 있으면 다음 끼니는 내일부터', () => {
+    const done = [{ recipe: CURRY, usedItems: [], soonUsed: ['닭안심'], at: 'T', date: today }];
+    const items = inv.filter((i) => i.name !== '닭안심');
+    const { slots } = makePlan(items, PLAN_RECIPES, planOf({ mealsPerWeek: 4, doneMeals: done }), today);
+    expect(slots.map((s) => s.dayOffset)).toEqual([1, 2, 3]);
+    expect(slots.map((s) => s.recipe?.name)).toEqual([MANDU, BULGOGI, PASTA]);
   });
 });
 
-// 기대값은 reference/fridge-prototype.html 의 makePlan·reasonOf를 같은 샘플 재고로 실행한 결과
-// (단, 정상 재료 문장은 사용자 요청으로 '○○을/를' → '○○이/가 넉넉할 때 써요'로 바꿈)
-describe('프로토타입과 같은 플랜', () => {
-  const CURRY = '닭안심 버터카레', MANDU = '군만두와 오이무침', BULGOGI = '소불고기 덮밥';
-  const PASTA = '새우 크림 파스타', SAMGYUP = '삼겹살 구이', BACON = '베이컨 계란볶음밥';
+describe('다 못 쓸 때 안내 (A-4)', () => {
+  const cover = (n: number, p: Partial<Plan> = {}) => {
+    const plan = planOf({ mealsPerWeek: n, ...p });
+    const result = makePlan(inv, PLAN_RECIPES, plan, today);
+    return { left: uncoveredSoon(result, inv, today), m: minMealsToCover(inv, PLAN_RECIPES, plan, today) };
+  };
 
-  it('집밥 2~7번', () => {
-    expect(names(2)).toEqual([CURRY, PASTA]);
-    expect(names(3)).toEqual([CURRY, MANDU, SAMGYUP]);
-    expect(names(4)).toEqual([CURRY, MANDU, PASTA, SAMGYUP]);
-    expect(names(5)).toEqual([CURRY, MANDU, BULGOGI, SAMGYUP, BACON]);
-    expect(names(6)).toEqual([CURRY, MANDU, BULGOGI, PASTA, SAMGYUP, BACON]);
-    expect(names(7)).toEqual([CURRY, MANDU, BULGOGI, PASTA, SAMGYUP, BACON, null]);
+  it('집밥 3번: 우유가 남고, 4번이면 모두 먹을 수 있다', () => {
+    expect(cover(3)).toEqual({ left: ['우유'], m: 4 });
+    expect(coverageText(['우유'], 4)).toBe('얼른 먹어야 할 재료 1개(우유)가 남아요. 집밥을 4번으로 늘리면 모두 먹을 수 있어요.');
   });
 
-  it('후보 수와 날짜', () => {
-    const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4 }), today);
-    expect(slots.map((s) => s.candidateCount)).toEqual([7, 6, 4, 3]);
-    expect(slots.map((s) => s.date)).toEqual([today, addDays(today, 1), addDays(today, 3), addDays(today, 5)]);
-    const seven = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 7 }), today).slots;
-    expect(seven[6].candidateCount).toBe(0);
+  it('집밥 2번: 두 개가 남는다', () => {
+    expect(cover(2)).toEqual({ left: ['소고기 불고기용', '우유'], m: 4 });
   });
 
+  it('집밥 4번 이상이면 안내하지 않는다', () => {
+    for (const n of [4, 5, 6, 7]) expect(cover(n).left).toEqual([]);
+    expect(cover(4).m).toBe(4);
+  });
+
+  it('7번으로도 안 되면 "따로 챙겨 드세요"만', () => {
+    expect(cover(4, { rejectedRecipes: [PASTA] })).toEqual({ left: ['우유'], m: null });
+    expect(coverageText(['우유', '오이'], null)).toBe('얼른 먹어야 할 재료 2개(우유, 오이)가 남아요. 따로 챙겨 드세요.');
+  });
+});
+
+describe('바꾸기·건너뛰기', () => {
   it('바꾸기: 그 끼니의 다음 후보', () => {
-    expect(names(4, { swapIndex: { 0: 1 } })).toEqual([MANDU, CURRY, PASTA, SAMGYUP]);
+    expect(names(4, { swapIndex: { 1: 1 } })).toEqual([CURRY, BULGOGI, MANDU, PASTA]);
   });
 
   it('바꾸기를 후보 수만큼 누르면 처음으로 돌아온다', () => {
-    expect(names(4, { swapIndex: { 0: 7 } })).toEqual(names(4));
+    const n = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4 }), today).slots[0].candidateCount;
+    expect(names(4, { swapIndex: { 0: n } })).toEqual(names(4));
   });
 
   it('건너뛰기: 그 레시피는 이번 주 후보에서 빠진다', () => {
-    expect(names(4, { rejectedRecipes: [BULGOGI] })).toEqual([CURRY, MANDU, PASTA, SAMGYUP]);
+    expect(names(4, { rejectedRecipes: [BULGOGI] })).not.toContain(BULGOGI);
     expect(names(5, { rejectedRecipes: [CURRY] })).not.toContain(CURRY);
   });
 
+});
+
+describe('배치 이유', () => {
   it('배치 이유 문장', () => {
     const r = (name: string) => PLAN_RECIPES.find((x) => x.name === name)!;
     expect(reasonOf(r(CURRY), inv, today)).toBe('닭안심이 내일까지라서 먼저 배치했어요');
@@ -69,26 +158,10 @@ describe('프로토타입과 같은 플랜', () => {
 });
 
 describe('규칙 세부', () => {
-  const item = (name: string, left: number, ago: number, extra: Partial<Item> = {}): Item => ({
-    id: name,
-    name,
-    qty: '1개',
-    core: '',
-    location: '냉장',
-    enteredAt: addDays(today, -ago),
-    expiresAt: addDays(today, left),
-    expiryBasis: 'table',
-    remaining: '넉넉해요',
-    source: 'manual',
-    portioned: false,
-    ...extra,
-  });
-  const rec = (name: string, uses: string[], keeps: string[] = [], buy: string[] = []): Recipe => ({ name, uses, keeps, buy });
-
   it('쓰는 재료의 남은 일수가 그날보다 짧으면 그날에는 배치하지 않는다', () => {
     const items = [item('두부', 1, 0)];
     const { slots } = makePlan(items, [rec('두부부침', ['두부'])], planOf({ mealsPerWeek: 2 }), today);
-    // 끼니 1의 날짜는 3일 뒤인데 두부는 1일 남음 → 끼니 0에만 배치. (끼니 0에서 이미 써서 끼니 1은 비어 있음)
+    // 두부는 1일 남음 → 오늘 배치. (이미 써서 다음 끼니는 비어 있음)
     expect(slots.map((s) => s.recipe?.name ?? null)).toEqual(['두부부침', null]);
   });
 
@@ -143,19 +216,19 @@ describe('규칙 세부', () => {
 });
 
 describe('플랜 요약', () => {
-  // 기대값은 프로토타입 planView의 계산을 같은 샘플 재고로 실행한 결과
+  // 계산 규칙은 프로토타입 planView와 같고, 플랜은 급한 재료 먼저(A-4)로 짠 결과
   const summary = (n: number) => {
     const plan = planOf({ mealsPerWeek: n });
     const s = summarizePlan(makePlan(inv, PLAN_RECIPES, plan, today), inv, plan, today);
     return { ...s, lost: s.lost.map((i) => i.name) };
   };
 
-  it('샘플 재고·집밥 4번', () => {
+  it('샘플 재고·집밥 4번: 얼른 먹어야 할 재료 4개를 모두 쓴다', () => {
     expect(summary(4)).toEqual({
       soonTotal: 4, // 닭안심, 소고기 불고기용, 오이, 우유
-      soonSaved: 3, // 소고기 불고기용만 못 씀
-      buyAll: ['감자', '당근', '생크림', '상추'],
-      lost: ['소고기 불고기용', '삼겹 베이컨'], // 카레가루는 카레의 상비 재료라 빠짐
+      soonSaved: 4,
+      buyAll: ['감자', '당근', '생크림'],
+      lost: ['삼겹살', '삼겹 베이컨'], // 대파는 소불고기의 상비 재료라 빠짐
     });
   });
 
@@ -163,8 +236,8 @@ describe('플랜 요약', () => {
     expect(summary(2)).toEqual({
       soonTotal: 4,
       soonSaved: 2,
-      buyAll: ['감자', '당근', '생크림'],
-      lost: ['소고기 불고기용', '오이', '삼겹살', '삼겹 베이컨', '대파', '만두'],
+      buyAll: ['감자', '당근'],
+      lost: ['소고기 불고기용', '우유', '삼겹살', '삼겹 베이컨', '대파', '새우살'],
     });
     expect(summary(7)).toEqual({ soonTotal: 4, soonSaved: 4, buyAll: ['감자', '당근', '생크림', '상추'], lost: [] });
   });

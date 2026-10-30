@@ -19,6 +19,10 @@ export const STATE_META: Record<ItemState, { label: string; icon: string }> = {
   ok: { label: '싱싱해요', icon: '🌱' },
 };
 
+/** 이번 주 집밥 횟수 고르기 범위 */
+export const MIN_MEALS_PER_WEEK = 2;
+export const MAX_MEALS_PER_WEEK = 7;
+
 /** 급함 점수(플랜 정렬용): 곧 상할 = SOON_URGENCY_BASE − 남은일수, 묻힘 = BURIED_URGENCY, 정상 = 0 */
 export const SOON_URGENCY_BASE = 10;
 export const BURIED_URGENCY = 5;

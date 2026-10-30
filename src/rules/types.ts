@@ -110,6 +110,8 @@ export interface DoneMeal {
   /** 확정 당시 "오늘 내일 해요"였던 재료 이름 */
   soonUsed: string[];
   at: string;
+  /** 확정한 날 (오늘 먹은 끼니가 있으면 플랜은 내일부터). 예전 기록에는 없음 */
+  date?: DateKey;
 }
 
 /** 재료 사전 한 줄 */

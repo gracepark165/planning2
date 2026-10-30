@@ -264,7 +264,7 @@ function confirmMeal(state: AppState, recipe: Recipe, today: DateKey, at: string
         : items.filter((i) => i.id !== it.id);
     logs.push(logOf(it, 'eat', today, at));
   }
-  const doneMeals = [...state.plan.doneMeals, { recipe: recipe.name, usedItems, soonUsed, at }];
+  const doneMeals = [...state.plan.doneMeals, { recipe: recipe.name, usedItems, soonUsed, at, date: today }];
   return { ...state, items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };
 }
 
