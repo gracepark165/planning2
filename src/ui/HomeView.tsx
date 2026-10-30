@@ -11,7 +11,8 @@ import {
   stateOf,
 } from '../rules/status';
 import type { DateKey, Item, ItemState, Location, MealLog } from '../rules/types';
-import { Tile, dateWithDow } from './parts';
+import { formatDate } from '../rules/date';
+import { Tile } from './parts';
 
 type LocFilter = '전체' | Location;
 type StateFilter = '전체' | ItemState;
@@ -52,6 +53,7 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset, o
   const [loc, setLoc] = useState<LocFilter>('전체');
   const [filter, setFilter] = useState<StateFilter>('전체');
   const [okOpen, setOkOpen] = useState(readOkOpen);
+  const [howOpen, setHowOpen] = useState(false);
   const toggleOk = () => {
     writeOkOpen(!okOpen);
     setOkOpen(!okOpen);
@@ -97,7 +99,7 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset, o
   return (
     <>
       <div className="hero">
-        <span className="ver">{dateWithDow(today)}</span>
+        <span className="ver">{formatDate(today)}</span>
         <h1>{title}</h1>
         <p className="lead">{lead}</p>
         <button className="pill" onClick={onPlan}>
@@ -172,11 +174,16 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset, o
         </div>
       )}
 
-      <p className="note">
-        상태는 소비기한 {SOON_DAYS}일 이내({STATE_META.soon.label}), 들어온 지 {BURIED_AGO}일 이상(
-        {STATE_META.buried.label}) 같은 규칙으로 계산해요. {STATE_META.soon.label} → {STATE_META.buried.label} →{' '}
-        {STATE_META.ok.label} 순서로 묶고, 같은 묶음 안은 기한이 가까운 순서예요. 이름이 같은 재료는 가장 급한 것 아래에 붙여서 보여줘요. 기본 기간표로 정한 소비기한은 식약처 기준으로 검증하기 전이라 ‘임시’예요.
-      </p>
+      <button className="note how" aria-expanded={howOpen} onClick={() => setHowOpen(!howOpen)}>
+        상태는 어떻게 정해요? {howOpen ? '▴' : '▾'}
+      </button>
+      {howOpen && (
+        <p className="note">
+          상태는 소비기한 {SOON_DAYS}일 이내({STATE_META.soon.label}), 들어온 지 {BURIED_AGO}일 이상(
+          {STATE_META.buried.label}) 같은 규칙으로 계산해요. {STATE_META.soon.label} → {STATE_META.buried.label} →{' '}
+          {STATE_META.ok.label} 순서로 묶고, 같은 묶음 안은 기한이 가까운 순서예요. 이름이 같은 재료는 가장 급한 것 아래에 붙여서 보여줘요. 기본 기간표로 정한 소비기한은 식약처 기준으로 검증하기 전이라 ‘임시’예요.
+        </p>
+      )}
       <div className="acts" style={{ gap: 16 }}>
         {items.length > 0 && (
           <button className="note" style={{ textDecoration: 'underline', marginTop: 4 }} onClick={onClear}>
@@ -187,6 +194,8 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset, o
           예시 재료로 되돌리기
         </button>
       </div>
+      {/* 맨 아래까지 스크롤하면 마지막 줄이 + 버튼·하단 탭에 가리지 않게 */}
+      <div className="fab-space" aria-hidden="true" />
       <button className="fab" onClick={onAdd}>
         + 재료 추가
       </button>

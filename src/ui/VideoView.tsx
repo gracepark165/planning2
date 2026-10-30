@@ -331,8 +331,10 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
                 <div className="sub-card">
                   <b>{subQuestion(x.name, x.sub.name)}</b>
                   <span>{reason.text}</span>
-                  {reason.emphasis && (
-                    <span className={`sub-em ${reason.emphasis.state}`}>{reason.emphasis.text}</span>
+                  {reason.state && (
+                    <span className="sub-badge">
+                      <StateBadge state={reason.state} />
+                    </span>
                   )}
                   {x.group.tip && <span>{x.group.tip}</span>}
                 </div>

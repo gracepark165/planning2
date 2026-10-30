@@ -6,7 +6,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { AI_FAILURE_TEXT, readOrderImage, readTextLines, type AiFailure } from '../ai/client';
 import { mergeTextAi, needsAiHelp, orderDateOf, orderToDrafts, retailerOf } from '../ai/convert';
 import { CATALOG, ORDER_EXAMPLE_ITEMS, RETAILERS, findCatalog } from '../data';
-import { addDays, formatMonthDay } from '../rules/date';
+import { addDays, formatDate } from '../rules/date';
 import { autoExpiresAt, checkinDate, defaultLocation } from '../rules/expiry';
 import { parseTextInput } from '../rules/textInput';
 import type { DateKey, Item } from '../rules/types';
@@ -141,7 +141,7 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog }: Props) {
         <p className="note" style={{ marginTop: 6 }}>
           {r.description}
           <br />
-          {formatMonthDay(od)} {r.name === '오프라인 마트' ? '구매' : '주문'} → <b>{formatMonthDay(inDate)}</b>에 냉장고에 들어온 걸로 계산해요.
+          {formatDate(od)} {r.name === '오프라인 마트' ? '구매' : '주문'} → <b>{formatDate(inDate)}</b>에 냉장고에 들어온 걸로 계산해요.
         </p>
       </>
     );

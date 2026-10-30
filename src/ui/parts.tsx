@@ -30,11 +30,3 @@ export function BackButton({ onClick }: { onClick: () => void }) {
     </button>
   );
 }
-
-const DOW = ['일', '월', '화', '수', '목', '금', '토'];
-
-/** '10월 27일 (화)' */
-export function dateWithDow(key: string): string {
-  const [y, m, d] = key.split('-').map(Number);
-  return `${m}월 ${d}일 (${DOW[new Date(y, m - 1, d).getDay()]})`;
-}

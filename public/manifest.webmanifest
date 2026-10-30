@@ -1,7 +1,7 @@
 {
   "name": "냉장고 플래너",
   "short_name": "냉장고",
-  "description": "곧 상할 재료부터 이번 주 끼니에 먼저 먹도록 도와주는 앱",
+  "description": "얼른 먹어야 할 재료부터 이번 주 끼니에 먼저 먹도록 도와주는 앱",
   "lang": "ko",
   "start_url": "/",
   "scope": "/",

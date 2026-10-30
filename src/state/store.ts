@@ -9,7 +9,19 @@ import { findItem, portionQty } from '../rules/plan';
 import { stateOf } from '../rules/status';
 import { COUNT_MAX, COUNT_MIN } from '../rules/constants';
 import { rememberItems, type MyFoods } from './myFoods';
-import type { CatalogEntry, DateKey, Item, Location, MealLog, Plan, Recipe, Remaining } from '../rules/types';
+import type {
+  CatalogEntry,
+  DateKey,
+  Item,
+  Location,
+  MealLog,
+  NotifSettings,
+  Onboarding,
+  Plan,
+  Recipe,
+  Remaining,
+  ShoppingItem,
+} from '../rules/types';
 
 export interface AppState {
   items: Item[];
@@ -17,13 +29,17 @@ export interface AppState {
   plan: Plan;
   /** 사전에 없는 재료를 넣을 때 정한 값 (다음에 자동으로 채운다) */
   myFoods: MyFoods;
+  /** 장보기 목록 (플랜·영상 확인에서 담은 사야 할 재료) */
+  shoppingList: ShoppingItem[];
+  onboarding: Onboarding;
+  notif: NotifSettings;
 }
 
 export type Action =
   | { type: 'addItems'; items: Item[] }
   | { type: 'shiftExpiry'; id: string; delta: number }
   | { type: 'setRemaining'; id: string; remaining: Remaining }
-  | { type: 'finishItem'; id: string; action: MealLog['action']; at: string }
+  | { type: 'finishItem'; id: string; action: MealLog['action']; today: DateKey; at: string }
   | { type: 'reset'; today: DateKey }
   /** 냉장고 비우기: 예시 재료를 지우고 내 재료로 처음부터 채울 때. 지난번 값(myFoods)과 집밥 횟수는 남긴다. */
   | { type: 'clearAll' }
@@ -42,13 +58,36 @@ export type Action =
 export const DEFAULT_MEALS_PER_WEEK = 4;
 
 export function emptyPlan(): Plan {
-  return { mealsPerWeek: DEFAULT_MEALS_PER_WEEK, doneMeals: [], rejectedRecipes: [], swapIndex: {} };
+  return { mealsPerWeek: DEFAULT_MEALS_PER_WEEK, doneMeals: [], rejectedRecipes: [], swapIndex: {}, pinned: [] };
+}
+
+export const DEFAULT_NOTIF_TIME = '18:00';
+
+export function defaultNotif(): NotifSettings {
+  return { askedAt: null, optedLater: false, time: DEFAULT_NOTIF_TIME, bannerClosedOn: null };
 }
 
 /** 처음 열었을 때 / 처음 상태로 되돌리기 */
 export function initialState(today: DateKey): AppState {
-  return { items: makeSampleInventory(today), logs: [], plan: emptyPlan(), myFoods: {} };
+  return {
+    items: makeSampleInventory(today),
+    logs: [],
+    plan: emptyPlan(),
+    myFoods: {},
+    shoppingList: [],
+    onboarding: { seen: false, mode: 'sample' },
+    notif: defaultNotif(),
+  };
 }
+
+/** 기록 한 줄. 기록할 때 재료 상태를 같이 남긴다 (이번 주 요약용) */
+const logOf = (item: Item, action: MealLog['action'], today: DateKey, at: string): MealLog => ({
+  itemId: item.id,
+  action,
+  at,
+  stateAtAction: stateOf(item, today),
+  discardReason: null,
+});
 
 /** 직접 추가(FR-07): 사전 항목으로 재료 하나를 만든다. 소비기한은 자동. */
 export function newItemFromCatalog(entry: CatalogEntry, today: DateKey, id: string): Item {
@@ -130,15 +169,17 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'setRemaining':
       return updateItem(state, action.id, (i) => ({ ...i, remaining: action.remaining }));
     case 'finishItem': {
-      if (!state.items.some((i) => i.id === action.id)) return state;
+      const item = state.items.find((i) => i.id === action.id);
+      if (!item) return state;
       return {
         ...state,
         items: state.items.filter((i) => i.id !== action.id),
-        logs: [...state.logs, { itemId: action.id, action: action.action, at: action.at }],
+        logs: [...state.logs, logOf(item, action.action, action.today, action.at)],
       };
     }
     case 'reset':
-      return initialState(action.today);
+      // 첫 사용 안내·알림 설정은 다시 묻지 않는다
+      return { ...initialState(action.today), onboarding: state.onboarding, notif: state.notif };
     case 'clearAll':
       return { ...state, items: [], logs: [], plan: { ...emptyPlan(), mealsPerWeek: state.plan.mealsPerWeek } };
     case 'removeItem':
@@ -191,7 +232,7 @@ function confirmMeal(state: AppState, recipe: Recipe, today: DateKey, at: string
       it.portioned && (it.count ?? 1) > 1
         ? items.map((i) => (i.id === it.id ? withCount(i, (i.count ?? 1) - 1) : i))
         : items.filter((i) => i.id !== it.id);
-    logs.push({ itemId: it.id, action: 'eat', at });
+    logs.push(logOf(it, 'eat', today, at));
   }
   const doneMeals = [...state.plan.doneMeals, { recipe: recipe.name, usedItems, soonUsed, at }];
   return { ...state, items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };

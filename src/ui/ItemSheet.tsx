@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { findCatalog } from '../data';
 import { COUNT_MAX, COUNT_MIN, LOCATIONS, REMAINING_LEVELS } from '../rules/constants';
-import { formatMonthDay } from '../rules/date';
+import { formatDate } from '../rules/date';
 import { expiryBasisText, usualShelfText } from '../rules/expiry';
 import { dDayLabel, daysLeft, daysSinceEntered, stateOf } from '../rules/status';
 import type { DateKey, Item, Location, Remaining } from '../rules/types';
@@ -29,6 +29,7 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
   }, [onClose]);
 
   const left = daysLeft(item, today);
+  const usual = usualShelfText(item);
 
   return (
     <div className="sheet-bg" onClick={onClose}>
@@ -48,23 +49,25 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
         <div className="basis">
           <div>
             <span>입고일(기준일)</span>
-            <b>{formatMonthDay(item.enteredAt)}</b>
+            <b>{formatDate(item.enteredAt)}</b>
           </div>
           <div>
             <span>소비기한</span>
             <b>
-              {formatMonthDay(item.expiresAt)} ({dDayLabel(left)})
+              {formatDate(item.expiresAt)} · {dDayLabel(left)}
             </b>
           </div>
           <div>
             <span>근거</span>
             <b>{expiryBasisText(item)}</b>
           </div>
-          <div className="usual">
-            {findCatalog(item.name)
-              ? usualShelfText(findCatalog(item.name), item.portioned)
-              : '재료 사전에 없는 재료예요. 고친 기한·보관 위치는 기억해 두었다가 다음에 같은 재료를 넣을 때 써요.'}
-          </div>
+          {findCatalog(item.name) ? (
+            usual && <div className="usual">{usual}</div>
+          ) : (
+            <div className="usual">
+              재료 사전에 없는 재료예요. 고친 기한·보관 위치는 기억해 두었다가 다음에 같은 재료를 넣을 때 써요.
+            </div>
+          )}
           <div className="acts">
             <span style={{ alignSelf: 'center' }}>기한 고치기</span>
             <button className="small-btn alt" onClick={() => onShift(-1)}>

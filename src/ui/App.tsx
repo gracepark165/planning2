@@ -151,7 +151,7 @@ export function App() {
           onShift={(delta) => dispatch({ type: 'shiftExpiry', id: sheetItem.id, delta })}
           onRemaining={(remaining) => dispatch({ type: 'setRemaining', id: sheetItem.id, remaining })}
           onFinish={(action) => {
-            dispatch({ type: 'finishItem', id: sheetItem.id, action, at: new Date().toISOString() });
+            dispatch({ type: 'finishItem', id: sheetItem.id, action, today, at: new Date().toISOString() });
             setSheetId(null);
             const what = withJosa(sheetItem.name, eul);
             showToast(action === 'eat' ? `${what} 다 먹은 걸로 기록했어요` : `${what} 버린 걸로 기록했어요`);

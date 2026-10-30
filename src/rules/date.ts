@@ -33,8 +33,23 @@ export function daysBetween(from: DateKey, to: DateKey): number {
   return Math.round((toUtcMs(to) - toUtcMs(from)) / DAY_MS);
 }
 
-/** '10월 27일' */
-export function formatMonthDay(key: DateKey): string {
+const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+
+/** 요일 한 글자 ('금') */
+export function dayOfWeek(key: DateKey): string {
+  return DOW[new Date(toUtcMs(key)).getUTCDay()];
+}
+
+/** 앱의 모든 날짜 표기: '10/30 (금)' (월이 바뀌어도 헷갈리지 않게 항상 월/일) */
+export function formatDate(key: DateKey): string {
   const [, m, d] = key.split('-').map(Number);
-  return `${m}월 ${d}일`;
+  return `${m}/${d} (${dayOfWeek(key)})`;
+}
+
+/** 오늘·내일은 앞에 붙인다: '오늘 · 10/30 (금)', '내일 · 10/31 (토)', 그 밖은 '11/2 (월)' */
+export function formatDayLabel(key: DateKey, today: DateKey): string {
+  const diff = daysBetween(today, key);
+  if (diff === 0) return `오늘 · ${formatDate(key)}`;
+  if (diff === 1) return `내일 · ${formatDate(key)}`;
+  return formatDate(key);
 }

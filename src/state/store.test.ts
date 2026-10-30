@@ -43,20 +43,44 @@ describe('재고 상태 바꾸기', () => {
   it('다 먹었어요 / 버렸어요: 재고에서 빼고 기록을 남긴다', () => {
     const s0 = initialState(today);
     const [a, b] = s0.items;
-    const s1 = reducer(s0, { type: 'finishItem', id: a.id, action: 'eat', at: 't1' });
-    const s2 = reducer(s1, { type: 'finishItem', id: b.id, action: 'discard', at: 't2' });
+    const s1 = reducer(s0, { type: 'finishItem', id: a.id, action: 'eat', today, at: 't1' });
+    const s2 = reducer(s1, { type: 'finishItem', id: b.id, action: 'discard', today, at: 't2' });
     expect(s2.items).toHaveLength(12);
     expect(s2.logs).toEqual([
-      { itemId: a.id, action: 'eat', at: 't1' },
-      { itemId: b.id, action: 'discard', at: 't2' },
+      // 기록할 때 상태를 같이 남긴다 (닭안심 D-1, 소고기 D-2 → 오늘 내일 해요)
+      { itemId: a.id, action: 'eat', at: 't1', stateAtAction: 'soon', discardReason: null },
+      { itemId: b.id, action: 'discard', at: 't2', stateAtAction: 'soon', discardReason: null },
     ]);
     // 없는 재료는 무시
-    expect(reducer(s2, { type: 'finishItem', id: a.id, action: 'eat', at: 't3' })).toBe(s2);
+    expect(reducer(s2, { type: 'finishItem', id: a.id, action: 'eat', today, at: 't3' })).toBe(s2);
   });
 
   it('처음 상태로 되돌리기', () => {
-    const s1 = reducer(initialState(today), { type: 'finishItem', id: 'sample-1', action: 'eat', at: 't' });
+    const s1 = reducer(initialState(today), { type: 'finishItem', id: 'sample-1', action: 'eat', today, at: 't' });
     expect(reducer(s1, { type: 'reset', today })).toEqual(initialState(today));
+  });
+
+  it('처음 상태로 되돌려도 첫 사용 안내·알림 설정은 다시 묻지 않는다', () => {
+    const s0 = initialState(today);
+    const s1 = {
+      ...s0,
+      onboarding: { seen: true, mode: 'mine' as const },
+      notif: { ...s0.notif, optedLater: true, bannerClosedOn: today },
+    };
+    const s2 = reducer(s1, { type: 'reset', today });
+    expect(s2.onboarding).toEqual(s1.onboarding);
+    expect(s2.notif).toEqual(s1.notif);
+    expect(s2.items).toEqual(s0.items);
+  });
+
+  it('이번 주 확정으로 뺀 재료도 상태를 같이 기록한다', () => {
+    const s = reducer(initialState(today), {
+      type: 'confirmMeal',
+      recipe: { name: '닭안심 버터카레', uses: ['닭안심'], keeps: [], buy: [] },
+      today,
+      at: 'T',
+    });
+    expect(s.logs).toEqual([{ itemId: 'sample-1', action: 'eat', at: 'T', stateAtAction: 'soon', discardReason: null }]);
   });
 });
 
@@ -139,7 +163,7 @@ describe('이번 주 플랜 상태', () => {
   });
 
   it('되돌리기: 재고와 기록이 확정 전과 같아진다 (순서만 다를 수 있음)', () => {
-    const s0 = reducer(initialState(today), { type: 'finishItem', id: 'sample-3', action: 'discard', at: 'T0' });
+    const s0 = reducer(initialState(today), { type: 'finishItem', id: 'sample-3', action: 'discard', today, at: 'T0' });
     const s1 = reducer(s0, { type: 'confirmMeal', recipe: curry, today, at: 'T1' });
     const s2 = reducer(s1, { type: 'confirmMeal', recipe: mandu, today, at: 'T2' });
     const s3 = reducer(s2, { type: 'undoMeal', at: 'T1' }); // 카레만 되돌림

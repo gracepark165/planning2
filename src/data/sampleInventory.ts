@@ -44,8 +44,9 @@ export function makeSampleInventory(today: DateKey): Item[] {
     location: s.location,
     enteredAt: addDays(today, -s.ago),
     expiresAt: addDays(today, s.left),
-    // 예시 날짜는 프로토타입 상태에 맞춘 값이라 기본 기간표와 다르다. 주문 화면에 적힌 소비기한으로 들어온 것으로 둔다.
-    expiryBasis: 'label',
+    // 예시 날짜는 프로토타입 상태에 맞춘 값이라 기본 기간표와 다르다. 근거는 "예시 재료예요"로 보여준다.
+    expiryBasis: 'sample',
+    sample: true,
     remaining: '넉넉해요',
     source: 'order',
     portioned: !!s.portion,

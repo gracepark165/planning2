@@ -3,11 +3,11 @@
 import { PLAN_RECIPES } from '../data';
 import { STATE_META } from '../rules/constants';
 import { findItem, makePlan, reasonOf, summarizePlan, type PlanSlot } from '../rules/plan';
+import { formatDayLabel } from '../rules/date';
 import { dDayLabel, daysLeft, stateOf } from '../rules/status';
 import type { DateKey, Item, Plan, Recipe } from '../rules/types';
 
 const MEAL_CHOICES = [2, 3, 4, 5, 6, 7];
-const DOW = ['일', '월', '화', '수', '목', '금', '토'];
 
 interface Props {
   items: Item[];
@@ -38,19 +38,9 @@ export function PlanView({ items, plan, today, onMeals, onConfirm, onSwap, onSki
     );
   };
 
-  const dayHead = (slot: PlanSlot) => {
-    const [y, m, d] = slot.date.split('-').map(Number);
-    const dow = DOW[new Date(y, m - 1, d).getDay()];
-    return (
-      <div className="d">
-        <b>{d}</b>
-        <span>
-          {dow}
-          {slot.dayOffset === 0 && ' · 오늘'}
-        </span>
-      </div>
-    );
-  };
+  const dayHead = (slot: PlanSlot) => (
+    <div className={`when ${slot.dayOffset === 0 ? 'today' : ''}`}>{formatDayLabel(slot.date, today)}</div>
+  );
 
   return (
     <>
@@ -75,11 +65,8 @@ export function PlanView({ items, plan, today, onMeals, onConfirm, onSwap, onSki
       <div style={{ marginTop: 8 }}>
         {plan.doneMeals.map((d) => (
           <div key={`${d.recipe}-${d.at}`} className="day done">
-            <div className="d">
-              <b>✓</b>
-              <span>먹었어요</span>
-            </div>
             <div className="body">
+              <div className="when">✓ 먹었어요</div>
               <div className="nm" style={{ fontWeight: 700, fontSize: 16 }}>
                 {d.recipe}
               </div>
@@ -95,8 +82,8 @@ export function PlanView({ items, plan, today, onMeals, onConfirm, onSwap, onSki
         {result.slots.map((slot) =>
           slot.recipe ? (
             <div key={slot.index} className="day">
-              {dayHead(slot)}
               <div className="body">
+                {dayHead(slot)}
                 <div className="nm" style={{ fontWeight: 700, fontSize: 16 }}>
                   {slot.recipe.name}
                 </div>
@@ -118,8 +105,8 @@ export function PlanView({ items, plan, today, onMeals, onConfirm, onSwap, onSki
                       </span>
                     ))}
                 </div>
-                <div className="acts">
-                  <button className="small-btn" onClick={() => onConfirm(slot.recipe!)}>
+                <div className="meal-acts">
+                  <button className="small-btn main" onClick={() => onConfirm(slot.recipe!)}>
                     이걸로 할게요
                   </button>
                   {slot.candidateCount > 1 && (
@@ -135,8 +122,8 @@ export function PlanView({ items, plan, today, onMeals, onConfirm, onSwap, onSki
             </div>
           ) : (
             <div key={slot.index} className="day">
-              {dayHead(slot)}
               <div className="body">
+                {dayHead(slot)}
                 <div className="nm" style={{ fontWeight: 700, color: 'var(--sub)' }}>
                   제안할 메뉴가 없어요
                 </div>

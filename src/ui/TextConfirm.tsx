@@ -4,7 +4,7 @@
 import { type ReactNode, useState } from 'react';
 import { findCatalog, findKind } from '../data';
 import { COUNT_MAX, COUNT_MIN, LOCATIONS } from '../rules/constants';
-import { formatMonthDay } from '../rules/date';
+import { formatDate } from '../rules/date';
 import { dDayLabel, daysLeft } from '../rules/status';
 import type { CatalogEntry, DateKey } from '../rules/types';
 import {
@@ -176,7 +176,7 @@ export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, he
                 {r.expiresAt && left !== undefined ? (
                   <div className="acts" style={{ marginTop: 0, alignItems: 'center' }}>
                     <b style={{ fontWeight: 500 }}>
-                      {formatMonthDay(r.expiresAt)} ({dDayLabel(left)})
+                      {formatDate(r.expiresAt)} · {dDayLabel(left)}
                     </b>
                     <button className="small-btn alt" onClick={() => update(r.key, (x) => shiftDraftExpiry(x, -1, today))}>
                       −1일

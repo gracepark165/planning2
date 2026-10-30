@@ -84,7 +84,7 @@ describe('냉장고 비우기', () => {
   it('재료·기록·이번 주 확정을 지우고, 집밥 횟수와 지난번 값은 남긴다', () => {
     let s = reducer(initialState(today), { type: 'setMeals', mealsPerWeek: 6 });
     s = reducer(s, { type: 'addItems', items: [item({ id: 'n1', name: '양갈비', group: 'meat' })] });
-    s = reducer(s, { type: 'finishItem', id: s.items[0].id, action: 'eat', at: 't' });
+    s = reducer(s, { type: 'finishItem', id: s.items[0].id, action: 'eat', today, at: 't' });
     s = reducer(s, { type: 'clearAll' });
     expect(s.items).toEqual([]);
     expect(s.logs).toEqual([]);

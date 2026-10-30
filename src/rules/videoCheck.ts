@@ -61,18 +61,16 @@ export function checkIngredients(
 /** 제안 문구: "닭다리살 말고 닭안심으로 대체하는 건 어때요?" */
 export const subQuestion = (want: string, sub: string) => `${want} 말고 ${sub}${ro(sub)} 대체하는 건 어때요?`;
 
-/** 제안 근거 문구 (프로토타입과 같음): "냉장고에 닭안심(D-1)이 있어요." + 상태 강조 줄 */
+/** 제안 근거 문구: "냉장고에 닭안심(D-1)이 있어요." + 상태 배지(오늘 내일 해요 / 잊혀지는 중일 때만) */
 export function subReason(
   row: Extract<VideoRow, { kind: 'sub' }>,
   today: DateKey,
-): { text: string; emphasis?: { state: 'soon' | 'buried'; text: string } } {
+): { text: string; state?: 'soon' | 'buried' } {
   const n = row.sub.name;
   const many = row.candidateCount > 1 ? ' · 같은 종류 중 소비기한이 더 가까운 걸 골랐어요' : '';
   const text = `냉장고에 ${n}(${dDayLabel(daysLeft(row.sub, today))})${iga(n)} 있어요${many}.`;
   const st = stateOf(row.sub, today);
-  if (st === 'soon') return { text, emphasis: { state: st, text: '지금 가장 급한 재료예요' } };
-  if (st === 'buried') return { text, emphasis: { state: st, text: '오래 숨어 있던 재료예요' } };
-  return { text };
+  return st === 'ok' ? { text } : { text, state: st };
 }
 
 /** 직접 입력(FR-30): 쉼표·줄바꿈으로 나누고 기본 양념은 따로 뺀다 */

@@ -15,7 +15,8 @@ export type ExpiryBasis =
   | 'label' // 주문 화면 등에 적힌 소비기한
   | 'user' // 사용자가 ±1일로 고친 값 (항상 우선)
   | 'kind' // 재료 사전에 없어서, AI가 고른 종류의 기본 기간(종류별 기본 기간표, 임시)
-  | 'mine'; // 지난번에 같은 재료를 넣을 때 정한 기간 (기기에 기억)
+  | 'mine' // 지난번에 같은 재료를 넣을 때 정한 기간 (기기에 기억)
+  | 'sample'; // 예시 재료 (시연용 날짜라 기간 문구를 보여주지 않는다)
 
 /** 품목군. 소분 기간표·소분 보관 위치를 정할 때 쓴다. */
 export type FoodGroup = 'meat' | 'seafood' | 'frozenFood' | 'veg' | 'dairy' | 'grain' | 'sauce' | 'etc';
@@ -44,12 +45,18 @@ export interface Item {
   unit?: string;
   /** 참고 정보 (예: '400g') — 계산에는 쓰지 않는다 */
   note?: string;
+  /** 처음 열 때 넣어 둔 예시 재료 */
+  sample?: boolean;
 }
 
 export interface MealLog {
   itemId: string;
   action: 'eat' | 'discard';
   at: string; // ISO 시각
+  /** 기록할 때 재료 상태. 저장 형식 v2 전에 쌓인 기록은 'unknown' */
+  stateAtAction: ItemState | 'unknown';
+  /** 버린 이유 (버렸어요에서 고른 칩). 묻지 않았거나 건너뛰면 null */
+  discardReason: string | null;
 }
 
 export interface Plan {
@@ -58,6 +65,40 @@ export interface Plan {
   rejectedRecipes: string[];
   /** 끼니 순번 → "바꾸기"를 누른 횟수 */
   swapIndex: Record<number, number>;
+  /** 영상 확인에서 넣은 고정 끼니 (다시 짜도 유지, 바꾸기 없음) */
+  pinned: PinnedMeal[];
+}
+
+export interface PinnedMeal extends Recipe {
+  source: 'video';
+  url: string;
+  title: string;
+}
+
+/** 장보기 목록 한 줄 */
+export interface ShoppingItem {
+  name: string;
+  from: 'plan' | 'video';
+  checked: boolean;
+}
+
+/** 첫 사용 안내 */
+export interface Onboarding {
+  /** 안내 카드에서 버튼을 한 번 골랐는지 */
+  seen: boolean;
+  mode: 'sample' | 'mine';
+}
+
+/** 알림 설정 (A단계는 저장만, 보내기는 B단계) */
+export interface NotifSettings {
+  /** "알려드릴까요?" 카드를 보여준 시각 */
+  askedAt: string | null;
+  /** "나중에"를 골랐는지 (다시 묻지 않음) */
+  optedLater: boolean;
+  /** 'HH:MM' */
+  time: string;
+  /** 인앱 배너를 닫은 날 (그날은 다시 안 보여줌) */
+  bannerClosedOn: DateKey | null;
 }
 
 export interface DoneMeal {

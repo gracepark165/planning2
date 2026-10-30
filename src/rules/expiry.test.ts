@@ -11,6 +11,8 @@ import {
   usualShelfText,
 } from './expiry';
 import { emojiOf } from './emoji';
+import { makeSampleInventory } from '../data/sampleInventory';
+import { newItemFromCatalog } from '../state/store';
 import type { Item, Retailer } from './types';
 
 const cat = (name: string) => {
@@ -57,7 +59,6 @@ describe('소비기한 자동 계산', () => {
   it('사전에 없는 재료는 계산하지 않는다 (사용자가 고름)', () => {
     expect(shelfDaysFor(undefined, false)).toBeUndefined();
     expect(autoExpiresAt('2026-10-27', undefined, true)).toBeUndefined();
-    expect(usualShelfText(undefined, false)).toBe('소비기한을 골라 주세요');
   });
 
   it('소분 여부가 바뀌면 다시 계산하지만, 고친 값·표기 값은 그대로 둔다', () => {
@@ -121,15 +122,43 @@ describe('입고일 (FR-17)', () => {
   });
 });
 
-describe('기준 문구', () => {
-  it('근거 문구', () => {
-    expect(expiryBasisText(base)).toBe('기본 기간표(임시) · 입고일 + 7일');
+describe('기준 문구 (A-3: N일은 입고일과 소비기한의 차이)', () => {
+  it('근거 문구: 출처별', () => {
+    expect(expiryBasisText(base)).toBe('기본 기간표 기준 · 보통 7일');
     expect(expiryBasisText({ ...base, expiryBasis: 'label' })).toBe('주문 화면에 적힌 소비기한');
+    expect(expiryBasisText({ ...base, expiryBasis: 'user' })).toBe('직접 고친 값');
+    expect(expiryBasisText({ ...base, expiryBasis: 'sample' })).toBe('예시 재료예요');
+    expect(expiryBasisText({ ...base, expiryBasis: 'kind' })).toBe('비슷한 종류 기준 · 보통 7일');
+    expect(expiryBasisText({ ...base, expiryBasis: 'mine' })).toBe('지난번에 정한 기간 · 보통 7일');
   });
 
-  it('보통 기간 안내', () => {
-    expect(usualShelfText(cat('대파'), false)).toBe('이 재료는 보통 7일 두고 먹어요');
-    expect(usualShelfText(cat('닭안심'), true)).toBe('소분해 두면 보통 90일 두고 먹어요');
+  it('보통 기간 안내: 기간표로 정한 값에만, N은 날짜 차이', () => {
+    expect(usualShelfText(base)).toBe('이 재료는 보통 7일 두고 먹어요 · 기간표는 검증 전 임시 값이에요');
+    expect(usualShelfText({ ...base, portioned: true, expiresAt: '2026-11-26' })).toBe(
+      '소분해 두면 보통 30일 두고 먹어요 · 기간표는 검증 전 임시 값이에요',
+    );
+    expect(usualShelfText({ ...base, expiryBasis: 'mine' })).toBe('이 재료는 보통 7일 두고 먹어요');
+    for (const b of ['label', 'user', 'sample'] as const) expect(usualShelfText({ ...base, expiryBasis: b })).toBeNull();
+  });
+
+  // 화면에 "보통 N일"이 나오면 N은 반드시 (소비기한 − 입고일)
+  const usualN = (i: Item) =>
+    [expiryBasisText(i), usualShelfText(i) ?? ''].flatMap((t) => [...t.matchAll(/보통 (\d+)일/g)].map((m) => Number(m[1])));
+  const gap = (i: Item) => Math.round((Date.parse(i.expiresAt) - Date.parse(i.enteredAt)) / 86400000);
+
+  it('예시 재료 전부: "보통 N일"이 있으면 N = 소비기한 − 입고일 (예시는 문구 자체가 없음)', () => {
+    const inv = makeSampleInventory('2026-10-30');
+    for (const i of inv) for (const n of usualN(i)) expect(n).toBe(gap(i));
+    expect(inv.flatMap(usualN)).toEqual([]);
+    // 예시 재료를 ±1일로 고쳐도 마찬가지
+    for (const i of inv) for (const n of usualN(shiftExpiry(i, 1))) expect(n).toBe(gap(shiftExpiry(i, 1)));
+  });
+
+  it('사전 재료를 직접 추가해도 N = 소비기한 − 입고일', () => {
+    for (const name of ['대파', '우유', '닭가슴살', '감자']) {
+      const i = newItemFromCatalog(cat(name), '2026-10-30', 'x');
+      expect(usualN(i)).toEqual([gap(i), gap(i)]);
+    }
   });
 });
 
