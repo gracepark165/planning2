@@ -16,7 +16,7 @@
 import { MAX_MEALS_PER_WEEK } from './constants';
 import { addDays } from './date';
 import { iga } from './josa';
-import { mealsLeft } from './portion';
+import { mealsLeft, portionOf } from './portion';
 import { daysLeft, daysSinceEntered, stateOf, urgencyOf } from './status';
 import type { DateKey, DoneMeal, Item, PinnedMeal, Plan, Recipe } from './types';
 
@@ -356,7 +356,8 @@ export interface PlanSummary {
   soonSaved: number;
   /** 한 번에 사야 할 재료 (재고에 없는 것만, 중복 없이) */
   buyAll: string[];
-  /** 이번 주 못 쓰는 재료: 플랜이 안 쓰고, 상비로도 안 쓰고, 7일 이내이거나 잊혀지는 중 */
+  /** 이번 주 못 쓰는 재료: 플랜이 안 쓰고, 상비로도 안 쓰고, 7일 이내이거나 잊혀지는 중.
+   *  나눠 쓰는 재료(우유 반쯤 등)는 한 끼라도 쓰면 남은 몫이 있어도 넣지 않는다 (AI 칸 포함) */
   lost: Item[];
 }
 
@@ -378,7 +379,10 @@ export function summarizePlan(result: PlanResult, items: readonly Item[], plan: 
     lost: result.leftover
       .map((e) => e.item)
       .filter(
-        (i) => !kept.has(i.name) && (daysLeft(i, today) <= LOST_WITHIN_DAYS || stateOf(i, today) === 'buried'),
+        (i) =>
+          !kept.has(i.name) &&
+          !(used.has(i.name) && portionOf(i) === 'level') &&
+          (daysLeft(i, today) <= LOST_WITHIN_DAYS || stateOf(i, today) === 'buried'),
       ),
   };
 }

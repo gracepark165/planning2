@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { AI_MODEL, LIMITS, anthropicErrorOf, handleRead, kindIdsOf, parseRequest, resetRateLimit, youtubeIdOf } from './read';
+import { AI_MODEL, LIMITS, MENU_SYSTEM, anthropicErrorOf, handleRead, kindIdsOf, parseRequest, resetRateLimit, youtubeIdOf } from './read';
 
 describe('유튜브 주소 → 영상 번호 (쇼츠·롱폼 모두)', () => {
   const id = 'dQw4w9WgXcQ';
@@ -207,8 +207,8 @@ describe('메뉴 제안 /api/menu (V4-1b)', () => {
     today: '2026-10-30',
     slots: [{ index: 3, date: '2026-11-04' }],
     stock: [
-      { name: '두부', qty: '1모', daysLeft: 7, state: 'ok', portion: 'whole' },
-      { name: '계란', qty: '10구', daysLeft: 14, state: 'ok', portion: 'level', level: '넉넉해요' },
+      { name: '두부', qty: '1모', daysLeft: 7, state: 'ok', portion: 'whole', meals: 1 },
+      { name: '계란', qty: '10구', daysLeft: 14, state: 'ok', portion: 'level', level: '넉넉해요', meals: 3 },
     ],
     mustUseFirst: ['두부'],
     excludeMenus: ['닭가슴살 샐러드'],
@@ -226,6 +226,14 @@ describe('메뉴 제안 /api/menu (V4-1b)', () => {
     expect(body.system).toContain('1인 가구의 집밥 메뉴');
     const sent = JSON.parse(body.messages[0].content[0].text);
     expect(sent).toEqual({ ...menuReq, kind: undefined });
+  });
+
+  it('남은 끼니 수(meals)는 0~20 정수만 받고, 지시문에 meals 규칙이 있다', () => {
+    const withMeals = (meals: unknown) => parseRequest({ ...menuReq, stock: [{ ...menuReq.stock[0], meals }] });
+    expect(withMeals(1)).toMatchObject({ stock: [{ name: '두부', meals: 1 }] });
+    expect(withMeals(1.5)).toBe('bad-request');
+    expect(withMeals(-1)).toBe('bad-request');
+    expect(MENU_SYSTEM).toContain('meals');
   });
 
   it('형식이 다르면 한 번만 다시 부르고, 두 번 틀리면 실패(앱이 폴백)', async () => {

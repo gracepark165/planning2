@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { PLAN_RECIPES, SUBSTITUTES, findCatalog } from '../data';
 import { suggestMenus } from '../ai/client';
-import { useAiMenus } from '../state/aiMenu';
+import { AI_DAILY_LIMIT, useAiMenus } from '../state/aiMenu';
 import { todayKey } from '../rules/date';
 import { fitPin, makePlan, mealsForNewPin, todayMeal } from '../rules/plan';
 import { missingToBuy } from '../rules/shopping';
@@ -135,8 +135,10 @@ export function App() {
       dispatch({ type: 'swap', slotIndex });
       return;
     }
-    void ai.swap(slotIndex).then((ok) => {
-      if (!ok) showToast('다른 메뉴를 찾지 못했어요. 지금 메뉴를 그대로 둘게요');
+    void ai.swap(slotIndex).then((why) => {
+      if (why === 'limit') showToast(`오늘 AI 메뉴 제안을 다 썼어요 (하루 ${AI_DAILY_LIMIT}번). 지금 메뉴를 그대로 둘게요`);
+      else if (why === 'busy') showToast('AI 요청이 잠깐 몰렸어요. 몇 분 뒤 다시 바꿔 주세요');
+      else if (why) showToast('다른 메뉴를 찾지 못했어요. 지금 메뉴를 그대로 둘게요');
     });
   };
 
@@ -245,6 +247,7 @@ export function App() {
         result={planResult}
         aiStates={ai.states}
         aiSwapping={ai.swapping}
+        aiNotice={ai.notice}
         mustUseFirst={ai.mustUseFirst}
         onFindByVideo={() => go('video')}
         today={today}

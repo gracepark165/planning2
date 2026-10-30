@@ -2,7 +2,7 @@
 // - 규칙 플랜이 못 채운 칸만 맡긴다 (menuTargets). 결과는 규칙 코드가 다시 검사한다 (checkMenus).
 // - 한 번 부르고, 버려진 칸만 한 번 더 (최대 1회). 그래도 비면 그 칸은 폴백.
 // - 결과는 "재고 상태 + 칸 + 제외 메뉴"로 만든 이름표로 기기에 저장해 두고, 같은 이름표면 다시 부르지 않는다.
-// - 짧은 시간에 여러 번 바뀌면 마지막 한 번만 부른다 (1초). 기기당 하루 30회 (메뉴 이름 → 재료 채우기와 함께 센다).
+// - 짧은 시간에 여러 번 바뀌면 마지막 한 번만 부른다 (1초). 기기당 하루 100회 (메뉴 이름 → 재료 채우기와 함께 센다).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MenuAiItem, MenuAiResult, MenuRequest } from '../../api/read';
@@ -11,7 +11,8 @@ import { buildMenuRequest, checkMenus, menuTargets, withAiMenus, type AiSlot } f
 import type { PlanResult } from '../rules/plan';
 import type { DateKey, Item, Plan, SubstituteTable } from '../rules/types';
 
-export const AI_DAILY_LIMIT = 30;
+/** 기기당 하루 한도. 시연 기간이라 100회 (처음엔 30회) */
+export const AI_DAILY_LIMIT = 100;
 const DEBOUNCE_MS = 1000;
 const CACHE_KEY = 'fridge-planner-ai-menus';
 const CACHE_MAX = 20;
@@ -88,7 +89,21 @@ const writeCache = (key: string, entry: MenuEntry) => {
 
 type Call = (req: MenuRequest) => Promise<AiResult<MenuAiResult>>;
 const bySlot = (m: ReadonlyMap<number, MenuAiItem>) => [...m.values()].sort((a, b) => a.slotIndex - b.slotIndex);
-export type MenuOutcome = { entry: MenuEntry; reason?: undefined } | { entry?: undefined; reason: 'limit' | 'error' };
+/** limit = 기기 하루 한도를 다 씀, busy = 서버의 짧은 시간 한도(IP당)에 걸림, error = 그 밖의 실패 */
+export type MenuFailure = 'limit' | 'busy' | 'error';
+export type MenuOutcome = { entry: MenuEntry; reason?: undefined } | { entry?: undefined; reason: MenuFailure };
+const failOf = (r: AiResult<unknown>): MenuFailure => (!r.ok && r.reason === 'too-many' ? 'busy' : 'error');
+
+/** 다른 칸이 이미 쓰는 재료를 뺀 요청 (다시 요청·바꾸기용). 안 빼면 AI가 같은 재료를 또 써서 검사에서 버려진다 */
+function withoutUsed(req: MenuRequest, result: PlanResult, taken: readonly MenuAiItem[]): Pick<MenuRequest, 'stock' | 'mustUseFirst'> {
+  const used = new Map<string, number>();
+  for (const m of taken) for (const u of m.uses) used.set(u, (used.get(u) ?? 0) + 1);
+  const avail = new Map(result.leftover.map((e) => [e.item.name, e.count]));
+  const stock = req.stock
+    .map((s) => ({ ...s, meals: (avail.get(s.name) ?? 0) - (used.get(s.name) ?? 0) }))
+    .filter((s) => s.meals > 0);
+  return { stock, mustUseFirst: req.mustUseFirst.filter((n) => stock.some((s) => s.name === n)) };
+}
 
 /** 맡긴 칸을 요청하고 검사한다. 버려진 칸만 한 번 더 요청한다 (최대 1회). */
 export async function requestMenus(
@@ -101,11 +116,12 @@ export async function requestMenus(
 ): Promise<MenuOutcome> {
   if (!quota.take()) return { reason: 'limit' };
   const first = await call(req);
-  if (!first.ok) return { reason: 'error' };
+  if (!first.ok) return { reason: failOf(first) };
   let check = checkMenus(first.data, req, result, items, table);
   if (check.failed.length && quota.take()) {
     const retry: MenuRequest = {
       ...req,
+      ...withoutUsed(req, result, [...check.accepted.values()]),
       slots: req.slots.filter((s) => check.failed.includes(s.index)),
       excludeMenus: [...req.excludeMenus, ...[...check.accepted.values()].map((m) => m.name)],
     };
@@ -134,19 +150,13 @@ export async function swapMenu(
   const current = entry.menus.find((m) => m.slotIndex === slotIndex);
   const others = entry.menus.filter((m) => m.slotIndex !== slotIndex);
   const slot = req.slots.filter((s) => s.index === slotIndex);
-  // 다른 AI 칸이 이미 쓰는 재료는 빼고 보낸다 (안 빼면 같은 재료를 또 써서 검사에서 버려진다)
-  const used = new Map<string, number>();
-  for (const m of others) for (const u of m.uses) used.set(u, (used.get(u) ?? 0) + 1);
-  const avail = new Map(result.leftover.map((e) => [e.item.name, e.count]));
-  const stock = req.stock.filter((s) => (avail.get(s.name) ?? 0) - (used.get(s.name) ?? 0) > 0);
   const res = await call({
     ...req,
+    ...withoutUsed(req, result, others),
     slots: slot,
-    stock,
-    mustUseFirst: req.mustUseFirst.filter((n) => stock.some((s) => s.name === n)),
     excludeMenus: [...req.excludeMenus, ...entry.menus.map((m) => m.name)],
   });
-  if (!res.ok) return { reason: 'error' };
+  if (!res.ok) return { reason: failOf(res) };
   const fresh = (Array.isArray(res.data?.menus) ? res.data.menus : []).filter((m) => m?.slotIndex === slotIndex);
   const check = checkMenus(
     { menus: [...others, ...fresh] },
@@ -171,8 +181,10 @@ export interface AiMenus {
   states: Map<number, AiSlotState>;
   /** 폴백 칸에 보여줄 먼저 쓸 재료 */
   mustUseFirst: string[];
-  /** AI 칸 바꾸기 (그 칸만 다시). 못 바꾸면 false */
-  swap: (slotIndex: number) => Promise<boolean>;
+  /** AI 칸 바꾸기 (그 칸만 다시). 바꿨으면 null, 못 바꿨으면 이유 */
+  swap: (slotIndex: number) => Promise<MenuFailure | null>;
+  /** 한도에 걸렸으면 화면 위에 크게 알린다 */
+  notice: 'limit' | 'busy' | null;
   /** 바꾸는 중인 칸 (실제 AI는 10초쯤 걸려서 화면에 표시) */
   swapping: number | null;
 }
@@ -189,7 +201,7 @@ export function useAiMenus(
   const req = useMemo(() => (targets ? buildMenuRequest(targets, base, plan, today) : null), [targets, base, plan, today]);
   const key = req ? menuCacheKey(req) : null;
   const [entry, setEntry] = useState<MenuEntry | null>(() => (key ? readCache()[key] ?? null : null));
-  const [reason, setReason] = useState<'limit' | 'error' | null>(null);
+  const [reason, setReason] = useState<MenuFailure | null>(null);
   const [loading, setLoading] = useState(false);
   const [swapping, setSwapping] = useState<number | null>(null);
   // 비동기로 늦게 온 결과가 다른 이름표의 결과를 덮지 않게
@@ -228,17 +240,17 @@ export function useAiMenus(
   const swap = useCallback(
     async (slotIndex: number) => {
       const { key: k, req: r, base: b, items: its } = live.current;
-      if (!k || !r || !entry) return false;
+      if (!k || !r || !entry) return 'error';
       setSwapping(slotIndex);
       const out = await swapMenu(entry, slotIndex, r, b, its, table, call, deviceQuota(today)).finally(() => setSwapping(null));
-      if (live.current.key !== k) return false;
+      if (live.current.key !== k) return 'error';
       if (out.entry) {
         writeCache(k, out.entry);
         setEntry(out.entry);
-        return true;
+        return null;
       }
-      if (out.reason === 'limit') setReason('limit');
-      return false;
+      if (out.reason !== 'error') setReason(out.reason);
+      return out.reason;
     },
     [entry, table, call, today],
   );
@@ -254,5 +266,6 @@ export function useAiMenus(
     return m;
   }, [targets, accepted, loading, reason]);
 
-  return { result, states, mustUseFirst: targets?.mustUseFirst ?? [], swap, swapping };
+  const notice = reason === 'limit' || reason === 'busy' ? reason : null;
+  return { result, states, mustUseFirst: targets?.mustUseFirst ?? [], swap, swapping, notice };
 }

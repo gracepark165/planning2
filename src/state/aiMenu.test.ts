@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { MenuAiItem, MenuRequest } from '../../api/read';
 import { CATALOG, PLAN_RECIPES, SUBSTITUTES, findCatalog } from '../data';
-import { buildMenuRequest, menuTargets } from '../rules/menuCheck';
-import { makePlan } from '../rules/plan';
+import { buildMenuRequest, menuTargets, withAiMenus } from '../rules/menuCheck';
+import { makePlan, summarizePlan } from '../rules/plan';
 import { parseTextInput } from '../rules/textInput';
 import { AI_DAILY_LIMIT, menuCacheKey, quotaLeft, quotaUse, requestMenus, swapMenu, type QuotaGate } from './aiMenu';
 import { emptyPlan } from './store';
@@ -18,13 +18,14 @@ const req = buildMenuRequest(menuTargets(result, items, today)!, result, plan, t
 const menu = (slotIndex: number, name: string, uses: string[]): MenuAiItem => ({ slotIndex, name, uses, keeps: [], buy: [], howto: '' });
 const gate = (n = 99): QuotaGate & { used: number } => ({ used: 0, take() { if (this.used >= n) return false; this.used++; return true; } });
 
-describe('하루 한도 (V4-1b·V4-5 함께 30회)', () => {
-  it('오늘 쓴 만큼 줄고, 날이 바뀌면 다시 30회', () => {
+describe('하루 한도 (V4-1b·V4-5 함께, 시연 기간 100회)', () => {
+  it('오늘 쓴 만큼 줄고, 날이 바뀌면 다시 100회', () => {
+    expect(AI_DAILY_LIMIT).toBe(100);
     expect(quotaLeft(null, today)).toBe(AI_DAILY_LIMIT);
     let q = quotaUse(null, today);
     q = quotaUse(q, today);
-    expect(quotaLeft(q, today)).toBe(28);
-    expect(quotaLeft(q, '2026-10-31')).toBe(30);
+    expect(quotaLeft(q, today)).toBe(98);
+    expect(quotaLeft(q, '2026-10-31')).toBe(100);
     expect(quotaUse(q, '2026-10-31')).toEqual({ date: '2026-10-31', count: 1 });
   });
 });
@@ -51,6 +52,10 @@ describe('메뉴 요청 순서', () => {
     expect(calls).toHaveLength(2);
     expect(calls[1].slots.map((s) => s.index)).toEqual([2, 3]); // 버려진 칸만
     expect(calls[1].excludeMenus).toContain('두부 애호박 볶음'); // 이미 고른 메뉴는 제외
+    // 다시 요청할 때는 통과한 칸이 쓴 재료(두부·애호박, 한 번에 쓰는 재료)를 빼고 보낸다
+    expect(calls[1].stock.map((s) => s.name)).not.toContain('두부');
+    expect(calls[1].stock.map((s) => s.name)).not.toContain('애호박');
+    expect(calls[1].mustUseFirst).not.toContain('두부');
     expect(out.entry?.menus.map((m) => m.name)).toEqual(['두부 애호박 볶음', '우유 계란찜', '김치 볶음밥']);
     expect(out.entry?.failed).toEqual([]);
     expect(g.used).toBe(2);
@@ -66,6 +71,9 @@ describe('메뉴 요청 순서', () => {
     const fail = async () => ({ ok: false as const, reason: 'ai-failed' as const });
     expect(await requestMenus(req, result, items, SUBSTITUTES, fail, gate())).toEqual({ reason: 'error' });
     expect(await requestMenus(req, result, items, SUBSTITUTES, fail, gate(0))).toEqual({ reason: 'limit' });
+    // 서버의 짧은 시간 한도(IP당)에 걸리면 busy (화면에 따로 알림)
+    const busy = async () => ({ ok: false as const, reason: 'too-many' as const });
+    expect(await requestMenus(req, result, items, SUBSTITUTES, busy, gate())).toEqual({ reason: 'busy' });
   });
 
   it('바꾸기: 그 칸만 다시 요청하고 지금 메뉴는 제외, 다른 칸은 그대로', async () => {
@@ -96,5 +104,14 @@ describe('메뉴 요청 순서', () => {
     expect(sent).toEqual(expect.arrayContaining(['방울토마토', '우유']));
     expect(calls[0].mustUseFirst).not.toContain('두부');
     expect(out.entry?.menus.map((m) => m.name)).toEqual(['두부 애호박 볶음', '우유 계란찜']);
+  });
+});
+
+describe('이번에 못 쓰는 재료 (AI 칸 반영)', () => {
+  it('AI 칸이 우유(반쯤)를 쓰면 우유는 못 쓰는 재료에 나오지 않는다', () => {
+    const lost = (r: typeof result) => summarizePlan(r, items, plan, today).lost.map((i) => i.name);
+    expect(lost(result)).toEqual(expect.arrayContaining(['우유', '두부', '애호박', '방울토마토']));
+    const withAi = withAiMenus(result, new Map([[1, menu(1, '토마토 우유 스크램블', ['방울토마토', '우유'])], [2, menu(2, '두부 애호박 찌개', ['두부', '애호박'])]]));
+    expect(lost(withAi)).toEqual([]);
   });
 });

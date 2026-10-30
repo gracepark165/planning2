@@ -51,7 +51,7 @@ export function menuTargets(result: PlanResult, items: readonly Item[], today: D
   return { slots, mustUseFirst };
 }
 
-/** /api/menu 요청: 재료 이름·수량·상태·남은 일수·쓰는 방식뿐 (사용자 식별 정보 없음) */
+/** /api/menu 요청: 재료 이름·수량·상태·남은 일수·쓰는 방식·남은 끼니 수뿐 (사용자 식별 정보 없음) */
 export function buildMenuRequest(
   targets: MenuTargets,
   result: PlanResult,
@@ -70,6 +70,7 @@ export function buildMenuRequest(
         state: stateOf(item, today),
         portion,
         ...(portion === 'level' ? { level: item.remaining } : {}),
+        meals: count, // 몇 끼 더 쓸 수 있는지 (한 번에 쓰는 재료는 1)
       };
     });
   const excludeMenus = [

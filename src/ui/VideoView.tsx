@@ -6,7 +6,7 @@ import { youtubeIdOf } from '../../api/read';
 import { AI_FAILURE_TEXT, fetchIngredients, readVideo } from '../ai/client';
 import { ingredientsOf, videoMenusOf, type VideoMenu } from '../ai/convert';
 import { BASIC_SEASONINGS } from '../rules/constants';
-import { deviceQuota } from '../state/aiMenu';
+import { AI_DAILY_LIMIT, deviceQuota } from '../state/aiMenu';
 import { PLAN_RECIPES, SUBSTITUTES, VIDEO_EXAMPLES } from '../data';
 import { eul, ro } from '../rules/josa';
 import { pantryNames } from '../rules/plan';
@@ -309,8 +309,12 @@ export function VideoView({ items, today, onPin }: Props) {
       if (!names.length) {
         // 메뉴 이름만 적었으면 AI가 흔한 재료를 채우고, 칩으로 확인받는다 (V4-5). 못 하면 지금처럼 안내
         const title = manualTitle.trim();
-        if (!title || !deviceQuota(today).take()) {
+        if (!title) {
           setManualError('재료를 한 개 이상 적어 주세요');
+          return;
+        }
+        if (!deviceQuota(today).take()) {
+          setManualError(`오늘 AI 사용을 다 썼어요 (하루 ${AI_DAILY_LIMIT}번). 재료를 직접 적어 주세요`);
           return;
         }
         setManualError('');
@@ -320,7 +324,7 @@ export function VideoView({ items, today, onPin }: Props) {
         if (my !== round.current) return;
         const list = res.ok ? ingredientsOf(res.data, SUBSTITUTES) : [];
         if (!list.length) {
-          setManualError('재료를 한 개 이상 적어 주세요');
+          setManualError(!res.ok && res.reason === 'too-many' ? `${AI_FAILURE_TEXT['too-many']}. 재료를 직접 적어도 돼요` : '재료를 한 개 이상 적어 주세요');
           setStep('manual');
           return;
         }

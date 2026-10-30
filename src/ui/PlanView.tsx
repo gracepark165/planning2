@@ -18,7 +18,7 @@ import { shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
 import type { DateKey, Item, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
 import type { AiSlot } from '../rules/menuCheck';
-import type { AiSlotState } from '../state/aiMenu';
+import { AI_DAILY_LIMIT, type AiSlotState } from '../state/aiMenu';
 import { UseTag } from './parts';
 
 const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
@@ -34,6 +34,8 @@ interface Props {
   aiStates: Map<number, AiSlotState>;
   /** AI 칸을 바꾸는 중이면 그 칸 번호 (실제 AI는 10초쯤 걸림) */
   aiSwapping: number | null;
+  /** AI 한도에 걸렸으면 화면 위에 알림 (limit = 기기 하루 한도, busy = 서버의 짧은 시간 한도) */
+  aiNotice: 'limit' | 'busy' | null;
   /** 폴백 칸에 보여줄 먼저 쓸 재료 */
   mustUseFirst: string[];
   /** 폴백: 영상 확인 탭으로 */
@@ -62,6 +64,7 @@ export function PlanView({
   result,
   aiStates,
   aiSwapping,
+  aiNotice,
   mustUseFirst,
   onFindByVideo,
   today,
@@ -141,6 +144,17 @@ export function PlanView({
         ))}
       </div>
 
+      {aiNotice && (
+        <div className="card ai-notice" role="status">
+          <b>{aiNotice === 'limit' ? `오늘 AI 메뉴 제안을 다 썼어요 (하루 ${AI_DAILY_LIMIT}번)` : 'AI 요청이 잠깐 몰렸어요'}</b>
+          <p>
+            {aiNotice === 'limit'
+              ? '내일 다시 골라 드릴게요. 빈 칸은 아래 재료로 직접 골라 주세요.'
+              : '몇 분 뒤 이 화면을 다시 열면 메뉴를 다시 골라요. 그동안 빈 칸은 아래 재료로 직접 골라 주세요.'}
+          </p>
+        </div>
+      )}
+
       {uncovered.length > 0 && (
         <div className="card warn">
           <p>{coverageText(uncovered, coverMeals)}</p>
@@ -202,7 +216,10 @@ export function PlanView({
                     ))}
                 </div>
                 {aiSwapping === slot.index ? (
-                  <div className="ai-skeleton">다른 메뉴를 찾고 있어요</div>
+                  <div className="ai-skeleton">
+                    다른 메뉴를 찾고 있어요
+                    <span className="ai-wait">보통 10~20초 걸려요</span>
+                  </div>
                 ) : (
                 <div className="meal-acts">
                   <button className="small-btn main" onClick={() => onConfirm(slot.recipe!)}>
@@ -230,7 +247,10 @@ export function PlanView({
             <div key={slot.index} className="day" aria-busy="true">
               <div className="body">
                 {dayHead(slot)}
-                <div className="ai-skeleton">메뉴를 고르고 있어요</div>
+                <div className="ai-skeleton">
+                  메뉴를 고르고 있어요
+                  <span className="ai-wait">보통 10~20초 걸려요</span>
+                </div>
               </div>
             </div>
           ) : aiStates.has(slot.index) ? (

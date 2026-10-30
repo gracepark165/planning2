@@ -178,6 +178,10 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
 .ai-howto{font-size:13px;color:var(--fg);margin-top:2px}
 .ai-skeleton{margin-top:4px;padding:14px;border-radius:12px;background:var(--card);color:var(--sub);font-size:14px;animation:aiPulse 1.2s ease-in-out infinite}
 @keyframes aiPulse{50%{opacity:.5}}
+.ai-wait{display:block;font-size:12px;margin-top:2px}
+.card.ai-notice{background:var(--accent-bg)}
+.card.ai-notice b{display:block;color:var(--accent)}
+.card.ai-notice p{color:var(--fg);margin:4px 0 0}
 @media (prefers-reduced-motion: reduce){.ai-skeleton{animation:none}}
 .chip-x{font-size:14px;padding:6px 12px;min-height:36px;color:var(--fg)}
 .fab-space{height:calc(56px + env(safe-area-inset-bottom,0px))}

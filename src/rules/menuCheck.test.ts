@@ -32,8 +32,8 @@ describe('AI에게 맡길 칸과 요청 (V4-1b)', () => {
     expect(req.excludeMenus).toContain('닭가슴살 샐러드');
     expect(req.basicSeasonings).toEqual(['소금', '후추', '식용유', '설탕', '간장', '참기름', '깨', '물']);
     // 보내는 것은 재료 이름·수량·상태·남은 일수·쓰는 방식뿐
-    for (const s of req.stock) expect(Object.keys(s).every((k) => ['name', 'qty', 'daysLeft', 'state', 'portion', 'level'].includes(k))).toBe(true);
-    expect(req.stock.find((s) => s.name === '우유')).toEqual({ name: '우유', qty: '1개', daysLeft: 7, state: 'ok', portion: 'level', level: '반쯤' });
+    for (const s of req.stock) expect(Object.keys(s).every((k) => ['name', 'qty', 'daysLeft', 'state', 'portion', 'level', 'meals'].includes(k))).toBe(true);
+    expect(req.stock.find((s) => s.name === '우유')).toEqual({ name: '우유', qty: '1개', daysLeft: 7, state: 'ok', portion: 'level', level: '반쯤', meals: 2 });
   });
 
   it('규칙 메뉴로 다 채워지고 못 쓰는 재료도 없으면 부르지 않는다', () => {

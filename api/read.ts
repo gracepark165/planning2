@@ -27,7 +27,8 @@ export const MENU_SYSTEM = `너는 1인 가구의 집밥 메뉴를 짜는 도우
 6. 각 재료의 daysLeft보다 늦은 날짜의 끼니에 그 재료를 쓰지 마.
 7. excludeMenus와 같거나 거의 같은 메뉴는 내지 마. 이번 응답 안에서도 메뉴 이름이 겹치지 않게 해.
 8. howto는 40자 이내 한 문장, 해요체로 써.
-9. JSON만 출력해. 설명 문장은 쓰지 마.`;
+9. JSON만 출력해. 설명 문장은 쓰지 마.
+10. 각 재료는 meals에 적힌 끼니 수까지만 uses에 써. meals가 1이면 한 끼에만 써 (다른 칸에 또 쓰지 마).`;
 
 /** 메뉴 이름 → 흔한 재료 (V4-5) */
 export const INGREDIENTS_SYSTEM = `너는 요리 메뉴의 재료를 알려 주는 도우미야.
@@ -59,7 +60,7 @@ export const LIMITS = {
   slots: 7,
   menuNames: 40,
   /** 한 사람(IP)이 RATE_WINDOW_MS 동안 부를 수 있는 횟수. 서버 인스턴스마다 따로 세는 대략적인 제한. */
-  ratePerWindow: 20,
+  ratePerWindow: 60, // 시연 기간: 메뉴 제안·바꾸기·영상 읽기를 한자리에서 여러 번 해도 막히지 않게 (처음엔 20)
   rateWindowMs: 10 * 60 * 1000,
 };
 
@@ -86,7 +87,7 @@ export type ReadRequest =
 export interface MenuRequest {
   today: string;
   slots: { index: number; date: string }[];
-  stock: { name: string; qty: string; daysLeft: number; state: string; portion: string; level?: string }[];
+  stock: { name: string; qty: string; daysLeft: number; state: string; portion: string; level?: string; meals?: number }[];
   mustUseFirst: string[];
   excludeMenus: string[];
   basicSeasonings: string[];
@@ -428,7 +429,8 @@ export function parseRequest(body: unknown): ReadRequest | ReadErrorCode {
       const stockOk = b.stock.every((s) => {
         const x = s as Record<string, unknown>;
         return x && isStr(x.name, LIMITS.wordChars) && isStr(x.qty, LIMITS.wordChars) && typeof x.daysLeft === 'number' &&
-          isStr(x.state, 10) && isStr(x.portion, 10) && (x.level === undefined || isStr(x.level, 10));
+          isStr(x.state, 10) && isStr(x.portion, 10) && (x.level === undefined || isStr(x.level, 10)) &&
+          (x.meals === undefined || (Number.isInteger(x.meals) && (x.meals as number) >= 0 && (x.meals as number) <= 20));
       });
       const mustUseFirst = strs(b.mustUseFirst ?? [], LIMITS.stock);
       const excludeMenus = strs(b.excludeMenus ?? [], LIMITS.menuNames);
@@ -438,8 +440,8 @@ export function parseRequest(body: unknown): ReadRequest | ReadErrorCode {
         kind: 'menu',
         today: b.today,
         slots: (b.slots as MenuRequest['slots']).map(({ index, date }) => ({ index, date })),
-        stock: (b.stock as MenuRequest['stock']).map(({ name, qty, daysLeft, state, portion, level }) => ({
-          name, qty, daysLeft, state, portion, ...(level ? { level } : {}),
+        stock: (b.stock as MenuRequest['stock']).map(({ name, qty, daysLeft, state, portion, level, meals }) => ({
+          name, qty, daysLeft, state, portion, ...(level ? { level } : {}), ...(meals !== undefined ? { meals } : {}),
         })),
         mustUseFirst,
         excludeMenus,
