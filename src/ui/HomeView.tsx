@@ -1,8 +1,9 @@
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { BURIED_AGO, LOCATIONS, SOON_DAYS, STATE_META } from '../rules/constants';
 import {
   countByState,
   dDayLabel,
+  dueBannerText,
   daysLeft,
   daysSinceEntered,
   groupForHome,
@@ -13,6 +14,7 @@ import {
 import type { DateKey, Item, ItemState, Location, MealLog } from '../rules/types';
 import { formatDate } from '../rules/date';
 import { discardLabel } from '../rules/logs';
+import { nextFabHidden } from './fabScroll';
 import { Tile } from './parts';
 
 type LocFilter = '전체' | Location;
@@ -55,13 +57,13 @@ interface Props {
   onSamplePrompt: (remove: boolean) => void;
   /** 마스코트 카드 아래 오늘의 한 끼 (B-2) */
   todayCard: ReactNode;
-  /** "얼른 먹어야 할 재료가 생기면 알려드릴까요?" 카드 (B-3) */
+  /** "홈 화면에 추가해 두면 더 빨리 열 수 있어요" 카드 (B-3, V3-3) */
   notifAsk: boolean;
   onNotifAsk: (choice: 'install' | 'later') => void;
-  /** 인앱 배너의 얼른 먹어야 할 재료 수 (0이면 숨김) */
-  bannerCount: number;
+  /** 인앱 배너가 짚을 가장 급한 재료 (없으면 숨김) */
+  bannerItem: Item | undefined;
   onCloseBanner: () => void;
-  /** 알림 설정 화면으로 */
+  /** 알림 시간 설정 화면으로 */
   onNotifySettings: () => void;
 }
 
@@ -81,7 +83,7 @@ export function HomeView({
   todayCard,
   notifAsk,
   onNotifAsk,
-  bannerCount,
+  bannerItem,
   onCloseBanner,
   onNotifySettings,
 }: Props) {
@@ -89,6 +91,21 @@ export function HomeView({
   const [filter, setFilter] = useState<StateFilter>('전체');
   const [okOpen, setOkOpen] = useState(readOkOpen);
   const [howOpen, setHowOpen] = useState(false);
+  // + 재료 추가 버튼: 아래로 스크롤하는 동안은 숨긴다 (V3-6-3)
+  const [fabHidden, setFabHidden] = useState(false);
+  useEffect(() => {
+    let prevY = window.scrollY;
+    const onScroll = () => {
+      const from = prevY;
+      const y = window.scrollY;
+      const vh = window.innerHeight;
+      const page = document.documentElement.scrollHeight;
+      prevY = y;
+      setFabHidden((h) => nextFabHidden(h, from, y, vh, page));
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
   const toggleOk = () => {
     writeOkOpen(!okOpen);
     setOkOpen(!okOpen);
@@ -151,19 +168,20 @@ export function HomeView({
       )}
       {notifAsk && (
         <div className="card blue onboard">
-          <h3>얼른 먹어야 할 재료가 생기면 알려드릴까요?</h3>
+          <h3>홈 화면에 추가해 두면 더 빨리 열 수 있어요</h3>
+          <p>앱을 열면 얼른 먹어야 할 재료부터 알려드려요.</p>
           <button className="cta" onClick={() => onNotifAsk('install')}>
-            홈 화면에 추가하고 알림 받기
+            홈 화면에 추가하는 방법 보기
           </button>
           <button className="cta ghost" onClick={() => onNotifAsk('later')}>
             나중에
           </button>
         </div>
       )}
-      {bannerCount > 0 && (
+      {bannerItem && (
         <div className="banner" role="status">
-          <button className="banner-text" onClick={() => setFilter('soon')}>
-            {STATE_META.soon.icon} 얼른 먹어야 할 재료 {bannerCount}개가 있어요
+          <button className="banner-text" onClick={() => onOpen(bannerItem.id)}>
+            {STATE_META.soon.icon} {dueBannerText(bannerItem, today)}
           </button>
           <button className="banner-x" aria-label="배너 닫기" onClick={onCloseBanner}>
             ✕
@@ -285,12 +303,12 @@ export function HomeView({
           예시 재료로 되돌리기
         </button>
         <button className="note" style={{ textDecoration: 'underline', marginTop: 4 }} onClick={onNotifySettings}>
-          알림 설정
+          알림 시간 설정
         </button>
       </div>
       {/* 맨 아래까지 스크롤하면 마지막 줄이 + 버튼·하단 탭에 가리지 않게 */}
       <div className="fab-space" aria-hidden="true" />
-      <button className="fab" onClick={onAdd}>
+      <button className={`fab ${fabHidden ? 'hide' : ''}`} onClick={onAdd} tabIndex={fabHidden ? -1 : 0}>
         + 재료 추가
       </button>
     </>

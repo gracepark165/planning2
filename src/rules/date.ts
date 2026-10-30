@@ -53,17 +53,3 @@ export function formatDayLabel(key: DateKey, today: DateKey): string {
   if (diff === 1) return `내일 · ${formatDate(key)}`;
   return formatDate(key);
 }
-
-const MONDAY_FIRST = ['월', '화', '수', '목', '금', '토', '일'];
-
-/** 오늘이 속한 주 (월요일 ~ 일요일) */
-export function weekRange(today: DateKey): { start: DateKey; end: DateKey } {
-  const start = addDays(today, -MONDAY_FIRST.indexOf(dayOfWeek(today)));
-  return { start, end: addDays(start, 6) };
-}
-
-/** 날짜가 오늘이 속한 주(월~일) 안인지 */
-export function inThisWeek(date: DateKey, today: DateKey): boolean {
-  const { start, end } = weekRange(today);
-  return date >= start && date <= end;
-}

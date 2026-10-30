@@ -4,7 +4,9 @@ import { addDays } from './date';
 import {
   countByState,
   dDayLabel,
+  dueBannerText,
   groupForHome,
+  mostUrgentSoon,
   sameAsAbove,
   daysLeft,
   daysSinceEntered,
@@ -156,5 +158,31 @@ describe('홈 정렬과 헤드라인', () => {
     expect(dDayLabel(3)).toBe('D-3');
     expect(dDayLabel(0)).toBe('오늘까지');
     expect(dDayLabel(-2)).toBe('2일 지났어요');
+  });
+});
+
+describe('홈 배너: 가장 급한 재료 하나 (V3-4)', () => {
+  const inv = makeSampleInventory(today);
+
+  it('예시 재료에서는 닭안심(D-1): "닭안심이 내일까지예요"', () => {
+    const it = mostUrgentSoon(inv, today)!;
+    expect(it.name).toBe('닭안심');
+    expect(dueBannerText(it, today)).toBe('닭안심이 내일까지예요');
+  });
+
+  it('오늘까지 / N일 뒤까지 / 기한이 지났어요, 조사 이/가', () => {
+    const item = (name: string, left: number) => ({ name, ...at(left, 1) });
+    expect(dueBannerText(item('우유', 0), today)).toBe('우유가 오늘까지예요');
+    expect(dueBannerText(item('오이', 2), today)).toBe('오이가 2일 뒤까지예요');
+    expect(dueBannerText(item('두부', -1), today)).toBe('두부가 기한이 지났어요');
+    expect(dueBannerText(item('닭안심', 3), today)).toBe('닭안심이 3일 뒤까지예요');
+  });
+
+  it('소비기한이 같으면 목록 순서(먼저 있는 것), 오늘 내일 해요 재료가 없으면 없음', () => {
+    const a = { id: 'a', name: 'A', ...at(2, 1) };
+    const b = { id: 'b', name: 'B', ...at(2, 1) };
+    const c = { id: 'c', name: 'C', ...at(10, 1) };
+    expect(mostUrgentSoon([c, a, b], today)?.id).toBe('a');
+    expect(mostUrgentSoon([c], today)).toBeUndefined();
   });
 });

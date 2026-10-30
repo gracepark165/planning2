@@ -4,6 +4,7 @@
 // - v1 (버전 필드 없음): items, logs, plan, myFoods
 // - v2 (2026-10-30): 예시 재료 표시(sample), 기록의 stateAtAction·discardReason, plan.pinned,
 //   shoppingList, onboarding, notif
+// - v3 (2026-10-30, 수정명세 v3): onboarding.firstConfirmAt, opens (홈 화면 추가 카드를 보여줄 때)
 // 예전 버전을 읽으면 migrate()가 새 필드의 기본값을 채워서 옮긴다.
 
 import { canonicalName } from '../data';
@@ -11,7 +12,7 @@ import { defaultNotif, type AppState } from './store';
 import type { Item, MealLog } from '../rules/types';
 
 export const STORAGE_KEY = 'fridge-planner-v1';
-export const STORAGE_VERSION = 2;
+export const STORAGE_VERSION = 3;
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -61,9 +62,11 @@ export function migrate(data: unknown): AppState | null {
       seen: true,
       mode: items.some((i) => i.sample) ? 'sample' : 'mine',
       sampleAsked: false,
+      firstConfirmAt: null,
       ...onboarding,
     },
     notif: { ...defaultNotif(), ...(isObj(data.notif) ? data.notif : {}) },
+    opens: { count: 0, lastDate: null, ...(isObj(data.opens) ? data.opens : {}) },
   };
 }
 

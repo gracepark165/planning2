@@ -11,6 +11,7 @@ import {
   STATE_META,
 } from './constants';
 import { daysBetween } from './date';
+import { iga } from './josa';
 import type { DateKey, Item, ItemState } from './types';
 
 /** 상태 판정에 필요한 것: 날짜 두 개 (+ 상비 재료인지 보려면 이름) */
@@ -122,4 +123,16 @@ export function dDayLabel(left: number): string {
   if (left < 0) return `${-left}일 지났어요`;
   if (left === 0) return '오늘까지';
   return `D-${left}`;
+}
+
+/** 홈 배너가 짚을 가장 급한 재료 (V3-4): 오늘 내일 해요 중 소비기한이 가장 가까운 것, 같으면 목록 순서 */
+export function mostUrgentSoon<T extends Dated>(items: readonly T[], today: DateKey): T | undefined {
+  return sortForHome(items.filter((i) => stateOf(i, today) === 'soon'), today)[0];
+}
+
+/** 홈 배너 문구: '닭안심이 내일까지예요' / '…오늘까지예요' / '…N일 뒤까지예요' / '…기한이 지났어요' */
+export function dueBannerText(item: Dated & { name: string }, today: DateKey): string {
+  const left = daysLeft(item, today);
+  const when = left < 0 ? '기한이 지났어요' : left === 0 ? '오늘까지예요' : left === 1 ? '내일까지예요' : `${left}일 뒤까지예요`;
+  return `${item.name}${iga(item.name)} ${when}`;
 }

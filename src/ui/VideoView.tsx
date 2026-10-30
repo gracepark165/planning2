@@ -6,7 +6,7 @@ import { youtubeIdOf } from '../../api/read';
 import { AI_FAILURE_TEXT, readVideo } from '../ai/client';
 import { videoMenusOf, type VideoMenu } from '../ai/convert';
 import { PLAN_RECIPES, SUBSTITUTES, VIDEO_EXAMPLES } from '../data';
-import { ro } from '../rules/josa';
+import { eul, ro } from '../rules/josa';
 import { pantryNames } from '../rules/plan';
 import { dDayLabel, daysLeft, stateOf } from '../rules/status';
 import type { DateKey, Item, PinnedMeal } from '../rules/types';
@@ -40,7 +40,8 @@ interface Props {
   items: Item[];
   today: DateKey;
   /** 결과 화면의 "이번 주 플랜에 넣을게요"(week) / "오늘 한 끼로 할게요"(today) */
-  onPin: (meal: PinnedMeal, mode: 'week' | 'today') => void;
+  /** 넣었으면 ok. 급한 재료를 못 먹게 되면 넣지 않고 그 재료를 돌려준다 (force = "그래도 넣을게요") */
+  onPin: (meal: PinnedMeal, mode: 'week' | 'today', force?: boolean) => { ok: true } | { ok: false; lost: string[] };
 }
 
 export function VideoView({ items, today, onPin }: Props) {
@@ -50,6 +51,8 @@ export function VideoView({ items, today, onPin }: Props) {
   const [sourceUrl, setSourceUrl] = useState('');
   /** 결과 화면에서 고른 것: 대체할지/살지, 장보기 목록에 담지 않을 재료 */
   const [choices, setChoices] = useState<VideoChoices>(NO_CHOICES);
+  /** 넣으면 급한 재료를 못 먹게 될 때 묻는 확인 시트 (V3-1) */
+  const [confirmPin, setConfirmPin] = useState<{ meal: PinnedMeal; mode: 'week' | 'today'; lost: string[] } | null>(null);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [manualTitle, setManualTitle] = useState('');
   const [manualIngredients, setManualIngredients] = useState('');
@@ -76,6 +79,7 @@ export function VideoView({ items, today, onPin }: Props) {
     setRecipe(null);
     setChoices(NO_CHOICES);
     setSourceUrl('');
+    setConfirmPin(null);
     window.scrollTo(0, 0);
   };
 
@@ -340,8 +344,9 @@ export function VideoView({ items, today, onPin }: Props) {
       title: r.title,
       ...(mode === 'today' ? { date: today } : {}),
     };
-    onPin(meal, mode);
-    reset();
+    const res = onPin(meal, mode);
+    if (res.ok) reset();
+    else setConfirmPin({ meal, mode, lost: res.lost });
   };
 
   return (
@@ -446,6 +451,37 @@ export function VideoView({ items, today, onPin }: Props) {
           </button>
         </div>
       </div>
+      {confirmPin && (
+        <div className="sheet-bg" onClick={() => setConfirmPin(null)}>
+          <div
+            className="sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pin-confirm-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h1 id="pin-confirm-title">
+              이 메뉴를 넣으면 {confirmPin.lost.join(', ')}
+              {eul(confirmPin.lost.at(-1) ?? '')} 이번에 못 먹어요
+            </h1>
+            <p className="lead">집밥을 7번으로 늘려도 같이 먹을 날이 없어요.</p>
+            <div className="ctas">
+              <button className="cta ghost" onClick={() => setConfirmPin(null)}>
+                넣지 않을게요
+              </button>
+              <button
+                className="cta"
+                onClick={() => {
+                  onPin(confirmPin.meal, confirmPin.mode, true);
+                  reset();
+                }}
+              >
+                그래도 넣을게요
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

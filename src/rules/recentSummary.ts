@@ -1,17 +1,23 @@
-// 이번 주 요약 (B-5). 월요일부터 일요일까지가 한 주다.
-// 기록(MealLog)의 시각은 기기 현지 날짜로 바꿔서 주에 넣는다.
+// 최근 7일 요약 (B-5, 수정명세 v3 V3-2에서 월~일 → 오늘 포함 최근 7일로 바꿈).
+// 플랜은 "앞으로 7일", 요약은 "최근 7일"이라 요일 경계가 없다.
+// 기록(MealLog)의 시각은 기기 현지 날짜로 바꿔서 센다.
 
 import { DISCARD_REASONS } from './constants';
-import { inThisWeek, toDateKey } from './date';
+import { addDays, toDateKey } from './date';
 import { stateOf } from './status';
 import type { DateKey, Item, MealLog } from './types';
 
-export { weekRange } from './date';
+const RECENT_DAYS = 7;
+
+/** 오늘 포함 최근 7일 (6일 전 ~ 오늘) */
+export function recentRange(today: DateKey): { start: DateKey; end: DateKey } {
+  return { start: addDays(today, -(RECENT_DAYS - 1)), end: today };
+}
 
 /** 기록 시각(ISO) → 기기 현지 날짜 */
 export const logDate = (log: Pick<MealLog, 'at'>) => toDateKey(new Date(log.at));
 
-export type WeekSummary =
+export type RecentSummary =
   | { kind: 'empty'; sentence: string }
   | {
       kind: 'summary';
@@ -26,11 +32,14 @@ export type WeekSummary =
       /** 지금 냉장고에 남은 얼른 먹어야 할 재료 */
       soonNow: number;
       sentence: string;
+      /** "지금 얼른 먹어야 할 재료 d개" 줄을 보여줄지 (문장에 이미 d가 있으면 빼요, V3-6-1) */
+      showSoonNowLine: boolean;
     };
 
-export function weekSummary(logs: readonly MealLog[], items: readonly Item[], today: DateKey): WeekSummary {
-  const week = logs.filter((l) => inThisWeek(logDate(l), today));
-  if (!week.length) return { kind: 'empty', sentence: '이번 주 기록이 쌓이면 여기에서 요약해 드려요' };
+export function recentSummary(logs: readonly MealLog[], items: readonly Item[], today: DateKey): RecentSummary {
+  const { start, end } = recentRange(today);
+  const week = logs.filter((l) => logDate(l) >= start && logDate(l) <= end);
+  if (!week.length) return { kind: 'empty', sentence: '최근 7일 기록이 쌓이면 여기에서 요약해 드려요' };
 
   const eats = week.filter((l) => l.action === 'eat');
   const discards = week.filter((l) => l.action === 'discard');
@@ -49,11 +58,12 @@ export function weekSummary(logs: readonly MealLog[], items: readonly Item[], to
     discarded: discards.length,
     topReason,
     soonNow,
+    showSoonNowLine: !eatenSoon,
     sentence: eatenSoon
-      ? `이번 주 얼른 먹어야 할 재료 ${eatenSoon}개를 먹었어요. ${soonNow}개는 아직 남아 있어요.`
+      ? `최근 7일 동안 얼른 먹어야 할 재료 ${eatenSoon}개를 먹었어요. ${soonNow}개는 아직 남아 있어요.`
       : eats.length
         ? // 명세에 없는 경우: 먹긴 했지만 얼른 먹어야 할 재료는 아니었음 ("아직 먹은 재료가 없어요"와 숫자가 어긋나지 않게)
-          `이번 주 먹은 재료 ${eats.length}개 중 얼른 먹어야 할 재료는 아직 없어요.`
-        : '이번 주는 아직 먹은 재료가 없어요.',
+          `최근 7일 동안 먹은 재료 ${eats.length}개 중 얼른 먹어야 할 재료는 아직 없어요.`
+        : '최근 7일 동안은 아직 먹은 재료가 없어요.',
   };
 }

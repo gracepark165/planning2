@@ -4,7 +4,7 @@ import { PLAN_RECIPES } from '../data';
 import { MAX_MEALS_PER_WEEK, MIN_MEALS_PER_WEEK, STATE_META } from '../rules/constants';
 import {
   coverageText,
-  doneThisWeek,
+  doneToday,
   minMealsToCover,
   reasonOf,
   summarizePlan,
@@ -12,8 +12,8 @@ import {
   type PlanResult,
   type PlanSlot,
 } from '../rules/plan';
-import { formatDate, formatDayLabel, weekRange } from '../rules/date';
-import { weekSummary } from '../rules/weekSummary';
+import { formatDate, formatDayLabel } from '../rules/date';
+import { recentRange, recentSummary } from '../rules/recentSummary';
 import { shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
 import type { DateKey, Item, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
@@ -23,7 +23,7 @@ const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEE
 
 interface Props {
   items: Item[];
-  /** 다 먹었어요·버렸어요 기록 (이번 주 요약) */
+  /** 다 먹었어요·버렸어요 기록 (최근 7일 요약) */
   logs: MealLog[];
   plan: Plan;
   /** 이번 주 플랜 (App에서 한 번만 짜서 홈의 오늘의 한 끼와 같이 쓴다) */
@@ -65,7 +65,7 @@ export function PlanView({
 }: Props) {
   const { soonTotal, soonSaved, buyAll, lost } = summarizePlan(result, items, plan, today);
   const owned = new Set(items.map((i) => i.name));
-  // 이번 주 사야 할 재료 = 플랜의 사야 할 재료 + 영상에서 담은 재료 (B-1)
+  // 사야 할 재료 = 플랜의 사야 할 재료 + 영상에서 담은 재료 (B-1)
   const shopping = shoppingView(buyAll, shoppingList, [...owned]);
   const bought = shopping.filter((s) => s.checked).map((s) => s.name);
   // 고른 집밥 횟수로 얼른 먹어야 할 재료를 다 못 쓰면 안내 (A-4)
@@ -76,15 +76,15 @@ export function PlanView({
     <div className={`when ${slot.dayOffset === 0 ? 'today' : ''}`}>{formatDayLabel(slot.date, today)}</div>
   );
 
-  const week = weekSummary(logs, items, today);
-  const range = weekRange(today);
+  const week = recentSummary(logs, items, today);
+  const range = recentRange(today);
 
   return (
     <>
-      {/* 이번 주 요약 (B-5): 월~일 */}
+      {/* 최근 7일 요약 (B-5 → V3-2): 오늘 포함 7일 */}
       <div className="card week">
         <div className="eyebrow" style={{ marginTop: 0 }}>
-          이번 주 요약 · {formatDate(range.start)} ~ {formatDate(range.end)}
+          최근 7일 요약 · {formatDate(range.start)} ~ {formatDate(range.end)}
         </div>
         <p className="week-lead">{week.sentence}</p>
         {week.kind === 'summary' && (
@@ -96,22 +96,24 @@ export function PlanView({
               버린 재료 <b>{week.discarded}개</b>
               {week.topReason && ` · 가장 많은 이유: ${week.topReason}`}
             </li>
-            <li>
-              지금 얼른 먹어야 할 재료 <b>{week.soonNow}개</b>가 남아 있어요
-            </li>
+            {week.showSoonNowLine && (
+              <li>
+                지금 얼른 먹어야 할 재료 <b>{week.soonNow}개</b>가 남아 있어요
+              </li>
+            )}
           </ul>
         )}
       </div>
 
-      <h1>이번 주 먹을 순서예요</h1>
+      <h1>앞으로 7일 먹을 순서예요</h1>
       <p className="lead">
         {soonTotal
-          ? `얼른 먹어야 할 재료 ${soonTotal}개 중 ${soonSaved}개를 이번 주 저녁에 먼저 써요.`
+          ? `얼른 먹어야 할 재료 ${soonTotal}개 중 ${soonSaved}개를 앞으로 7일 저녁에 먼저 써요.`
           : '급하게 써야 할 재료는 없어요.'}
       </p>
 
       <div className="eyebrow" style={{ marginTop: 0 }}>
-        이번 주 집밥은 몇 번 하세요?
+        앞으로 7일 동안 집밥은 몇 번 하세요?
       </div>
       <div className="seg">
         {MEAL_CHOICES.map((n) => (
@@ -133,7 +135,7 @@ export function PlanView({
       )}
 
       <div style={{ marginTop: 8 }}>
-        {doneThisWeek(plan, today).map((d) => (
+        {doneToday(plan, today).map((d) => (
           <div key={`${d.recipe}-${d.at}`} className="day done">
             <div className="body">
               <div className="when">✓ 먹었어요</div>
@@ -220,7 +222,7 @@ export function PlanView({
 
       {shopping.length > 0 && (
         <div className="card blue">
-          <h3>이번 주 사야 할 재료</h3>
+          <h3>사야 할 재료</h3>
           <ul className="shop">
             {shopping.map((it) => (
               <li key={it.name}>
@@ -244,7 +246,7 @@ export function PlanView({
       )}
       {lost.length > 0 && (
         <div className="card">
-          <h3>이번 주에 못 쓰는 재료</h3>
+          <h3>이번에 못 쓰는 재료</h3>
           <p>
             {lost
               .map((i) => {

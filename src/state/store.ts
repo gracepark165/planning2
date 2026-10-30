@@ -1,12 +1,13 @@
 // 앱 상태와 상태를 바꾸는 규칙(리듀서). 화면과 무관한 순수 함수다.
 // "오늘"·시각·새 id는 액션에 담아서 넘긴다 (리듀서 안에서 만들지 않음).
 
-import { findKind } from '../data';
+import { SUBSTITUTES, findKind } from '../data';
+import { boughtAs } from '../rules/shopping';
 import { makeSampleInventory } from '../data/sampleInventory';
 import { addDays } from '../rules/date';
 import { autoExpiresAt, defaultLocation, shiftExpiry } from '../rules/expiry';
-import { doneThisWeek, findItem, portionQty } from '../rules/plan';
-import { stateOf } from '../rules/status';
+import { findItem, portionQty } from '../rules/plan';
+import { mostUrgentSoon, stateOf } from '../rules/status';
 import { COUNT_MAX, COUNT_MIN, MAX_MEALS_PER_WEEK } from '../rules/constants';
 import { rememberItems, type MyFoods } from './myFoods';
 import type {
@@ -17,6 +18,7 @@ import type {
   MealLog,
   NotifSettings,
   Onboarding,
+  Opens,
   PinnedMeal,
   Plan,
   Recipe,
@@ -34,6 +36,7 @@ export interface AppState {
   shoppingList: ShoppingItem[];
   onboarding: Onboarding;
   notif: NotifSettings;
+  opens: Opens;
 }
 
 export type Action =
@@ -58,8 +61,13 @@ export type Action =
   | { type: 'confirmMeal'; recipe: Recipe; today: DateKey; at: string }
   | { type: 'undoMeal'; at: string }
   // 영상 확인 → 플랜·장보기 목록 (B-1)
-  /** 영상 메뉴를 고정 끼니로 넣는다. 사야 할 재료는 장보기 목록에. 빈 끼니가 없으면 집밥 횟수 +1 (최대 7) */
-  | { type: 'pinMeal'; meal: PinnedMeal; today: DateKey }
+  /**
+   * 영상 메뉴를 고정 끼니로 넣는다. 사야 할 재료는 장보기 목록에.
+   * 집밥 횟수는 fitPin으로 정한 값 (급한 재료를 밀어내지 않게 늘린 횟수)
+   */
+  | { type: 'pinMeal'; meal: PinnedMeal; mealsPerWeek: number }
+  /** 집밥을 늘려 넣은 영상 메뉴 되돌리기: 고정 끼니를 빼고 집밥 횟수·장보기 목록을 넣기 전으로 */
+  | { type: 'undoPin'; id: string; mealsPerWeek: number; shoppingList: ShoppingItem[] }
   /** 고정 끼니 건너뛰기 = 영상 메뉴 지우기 */
   | { type: 'removePinned'; id: string }
   /** 장보기 목록 체크 (플랜에서 온 재료면 저장해 둔다) */
@@ -76,6 +84,8 @@ export type Action =
   // 알림 A단계 (B-3)
   /** "알려드릴까요?" 카드: 홈 화면에 추가하고 알림 받기(install) / 나중에(later, 다시 묻지 않음) */
   | { type: 'answerNotifAsk'; choice: 'install' | 'later'; at: string }
+  /** 앱을 열었다 (하루에 한 번만 센다) */
+  | { type: 'appOpened'; today: DateKey }
   /** 인앱 배너 닫기 (그날은 다시 안 보여줌) */
   | { type: 'closeBanner'; today: DateKey }
   /** 알림 시간 'HH:MM' (A단계는 저장만, B단계에서 씀) */
@@ -101,8 +111,9 @@ export function initialState(today: DateKey): AppState {
     plan: emptyPlan(),
     myFoods: {},
     shoppingList: [],
-    onboarding: { introSeen: false, seen: false, mode: 'sample', sampleAsked: false },
+    onboarding: { introSeen: false, seen: false, mode: 'sample', sampleAsked: false, firstConfirmAt: null },
     notif: defaultNotif(),
+    opens: { count: 0, lastDate: null },
   };
 }
 
@@ -182,17 +193,27 @@ export const showSamplePrompt = (state: AppState) =>
   state.items.some((i) => i.sample) &&
   state.items.some((i) => !i.sample);
 
-/** "얼른 먹어야 할 재료가 생기면 알려드릴까요?": 첫 사용 안내 다음에 한 번만 (나중에를 고르면 다시 묻지 않음) */
-export const showNotifAsk = (state: AppState) =>
-  state.onboarding.seen && state.notif.askedAt === null && !state.notif.optedLater;
+/** 홈 화면 추가 카드를 보여주는 때: 앱을 연 날이 이만큼 되면 (V3-5) */
+export const NOTIF_ASK_OPEN_DAYS = 3;
 
 /**
- * 홈 위 인앱 배너에 보여줄 얼른 먹어야 할 재료 수. 0이면 배너를 숨긴다.
- * 오늘 닫았으면 0, 첫 사용 안내·알림 카드가 떠 있을 때도 0 (카드가 겹치지 않게).
+ * "홈 화면에 추가해 두면 더 빨리 열 수 있어요" (V3-5): 처음으로 "이걸로 할게요"를 누른 뒤,
+ * 또는 앱을 서로 다른 날 세 번째 열었을 때 중 먼저 오는 때 한 번만. 첫 사용 안내 카드와 같이 나오지 않는다.
+ * 이미 물어봤거나 나중에를 골랐으면 다시 묻지 않는다.
  */
-export function soonBannerCount(state: AppState, today: DateKey): number {
-  if (!state.onboarding.seen || showNotifAsk(state) || state.notif.bannerClosedOn === today) return 0;
-  return state.items.filter((i) => stateOf(i, today) === 'soon').length;
+export const showNotifAsk = (state: AppState) =>
+  state.onboarding.seen &&
+  state.notif.askedAt === null &&
+  !state.notif.optedLater &&
+  (state.onboarding.firstConfirmAt !== null || state.opens.count >= NOTIF_ASK_OPEN_DAYS);
+
+/**
+ * 홈 위 인앱 배너가 짚을 가장 급한 재료 (V3-4). 없으면 배너를 숨긴다.
+ * 오늘 닫았으면 없음, 첫 사용 안내·홈 화면 추가 카드가 떠 있을 때도 없음 (카드가 겹치지 않게).
+ */
+export function soonBanner(state: AppState, today: DateKey): Item | undefined {
+  if (!state.onboarding.seen || showNotifAsk(state) || state.notif.bannerClosedOn === today) return undefined;
+  return mostUrgentSoon(state.items, today);
 }
 
 /** 예시 재료만 지운다 (재고가 바뀌었으니 이번 주 추천은 첫 후보부터) */
@@ -217,14 +238,15 @@ const updateAndRemember = (state: AppState, id: string, fn: (i: Item) => Item): 
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'addItems': {
-      // 재고가 바뀌면 이번 주 추천을 첫 후보부터 다시 (프로토타입과 같음). 산 재료는 장보기 목록에서 뺀다.
-      const added = new Set(action.items.map((i) => i.name));
+      // 재고가 바뀌면 이번 주 추천을 첫 후보부터 다시 (프로토타입과 같음).
+      // 산 재료는 장보기 목록에서 뺀다 (이름이 같거나 대체 묶음이 같으면, V3-7-1)
+      const bought = (name: string) => action.items.some((i) => boughtAs(name, i.name, SUBSTITUTES));
       return {
         ...state,
         items: [...state.items, ...action.items],
         plan: { ...state.plan, swapIndex: {} },
         myFoods: rememberItems(state.myFoods, action.items),
-        shoppingList: state.shoppingList.filter((s) => !added.has(s.name)),
+        shoppingList: state.shoppingList.filter((s) => !bought(s.name)),
       };
     }
     case 'shiftExpiry':
@@ -282,8 +304,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return undoMeal(state, action.at);
     case 'pinMeal': {
       const { plan } = state;
-      const open = plan.mealsPerWeek - doneThisWeek(plan, action.today).length - plan.pinned.length;
-      const mealsPerWeek = open > 0 ? plan.mealsPerWeek : Math.min(MAX_MEALS_PER_WEEK, plan.mealsPerWeek + 1);
+      const mealsPerWeek = Math.min(MAX_MEALS_PER_WEEK, action.mealsPerWeek);
       const listed = new Set(state.shoppingList.map((s) => s.name));
       const newBuy = action.meal.buy.filter((n) => !listed.has(n));
       return {
@@ -298,6 +319,17 @@ export function reducer(state: AppState, action: Action): AppState {
         ],
       };
     }
+    case 'undoPin':
+      return {
+        ...state,
+        plan: {
+          ...state.plan,
+          pinned: state.plan.pinned.filter((p) => p.id !== action.id),
+          mealsPerWeek: action.mealsPerWeek,
+          swapIndex: {},
+        },
+        shoppingList: action.shoppingList,
+      };
     case 'removePinned':
       return {
         ...state,
@@ -324,6 +356,9 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case 'answerNotifAsk':
       return { ...state, notif: { ...state.notif, askedAt: action.at, optedLater: action.choice === 'later' } };
+    case 'appOpened':
+      if (state.opens.lastDate === action.today) return state;
+      return { ...state, opens: { count: state.opens.count + 1, lastDate: action.today } };
     case 'closeBanner':
       return { ...state, notif: { ...state.notif, bannerClosedOn: action.today } };
     case 'setNotifTime':
@@ -367,7 +402,9 @@ function confirmMeal(state: AppState, recipe: Recipe, today: DateKey, at: string
     { recipe: recipe.name, usedItems, soonUsed, at, date: today, ...(pinned ? { pinned } : {}) },
   ];
   const pins = pinned ? state.plan.pinned.filter((p) => p !== pinned) : state.plan.pinned;
-  return { ...state, items, logs, plan: { ...state.plan, doneMeals, pinned: pins, swapIndex: {} } };
+  // 처음 확정한 시각 (홈 화면 추가 카드를 보여줄 때, V3-5)
+  const onboarding = state.onboarding.firstConfirmAt ? state.onboarding : { ...state.onboarding, firstConfirmAt: at };
+  return { ...state, items, logs, onboarding, plan: { ...state.plan, doneMeals, pinned: pins, swapIndex: {} } };
 }
 
 /** 확정 되돌리기(확정 시각으로 찾음): 뺀 재료를 다시 넣고 그때 남긴 기록을 지운다. 이미 되돌렸으면 무시. */

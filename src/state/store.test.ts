@@ -12,7 +12,7 @@ import {
   showNotifAsk,
   showOnboarding,
   showSamplePrompt,
-  soonBannerCount,
+  soonBanner,
 } from './store';
 
 const today = '2026-10-27';
@@ -76,7 +76,7 @@ describe('재고 상태 바꾸기', () => {
     const s0 = initialState(today);
     const s1 = {
       ...s0,
-      onboarding: { introSeen: true, seen: true, mode: 'mine' as const, sampleAsked: true },
+      onboarding: { introSeen: true, seen: true, mode: 'mine' as const, sampleAsked: true, firstConfirmAt: null },
       notif: { ...s0.notif, optedLater: true, bannerClosedOn: today },
     };
     const s2 = reducer(s1, { type: 'reset', today });
@@ -245,7 +245,7 @@ describe('첫 사용 안내 (B-6)', () => {
   it('처음 열면 안내 카드를 보여주고, 예시 재료에는 예시 표시가 있다', () => {
     const s = initialState(today);
     expect(showOnboarding(s)).toBe(true);
-    expect(s.onboarding).toEqual({ introSeen: false, seen: false, mode: 'sample', sampleAsked: false });
+    expect(s.onboarding).toEqual({ introSeen: false, seen: false, mode: 'sample', sampleAsked: false, firstConfirmAt: null });
     expect(s.items.every((i) => i.sample)).toBe(true);
   });
 
@@ -317,25 +317,28 @@ describe('영상 메뉴 → 플랜·장보기 목록 (B-1)', () => {
   const jeyuk = { ...curry, id: 'v2', name: '제육볶음', uses: ['삼겹살', '대파'], keeps: ['양파'], buy: ['고추장'] };
 
   it('이번 주 플랜에 넣기: 고정 끼니로, 사야 할 재료는 장보기 목록에 (영상)', () => {
-    const s = reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, today });
+    const s = reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, mealsPerWeek: 4 });
     expect(s.plan.pinned).toEqual([jeyuk]);
     expect(s.plan.mealsPerWeek).toBe(4);
     expect(s.shoppingList).toEqual([{ name: '고추장', from: 'video', checked: false }]);
   });
 
-  it('빈 끼니가 없으면 집밥 횟수 +1 (최대 7)', () => {
-    let s = { ...initialState(today), plan: { ...initialState(today).plan, mealsPerWeek: 2 } };
-    s = reducer(s, { type: 'pinMeal', meal: curry, today });
-    s = reducer(s, { type: 'pinMeal', meal: jeyuk, today });
-    expect(s.plan.mealsPerWeek).toBe(2);
-    s = reducer(s, { type: 'pinMeal', meal: { ...curry, id: 'v3' }, today });
-    expect(s.plan.mealsPerWeek).toBe(3);
-    const full = { ...s, plan: { ...s.plan, mealsPerWeek: 7, pinned: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ ...curry, id: `p${n}` })) } };
-    expect(reducer(full, { type: 'pinMeal', meal: { ...curry, id: 'p8' }, today }).plan.mealsPerWeek).toBe(7);
+  it('집밥 횟수는 정해 준 값으로 (fitPin이 정함, 최대 7)', () => {
+    expect(reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, mealsPerWeek: 5 }).plan.mealsPerWeek).toBe(5);
+    expect(reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, mealsPerWeek: 9 }).plan.mealsPerWeek).toBe(7);
+  });
+
+  it('되돌리기(undoPin): 고정 끼니가 빠지고 집밥 횟수·장보기 목록이 넣기 전으로', () => {
+    const s0 = initialState(today);
+    const s1 = reducer(s0, { type: 'pinMeal', meal: jeyuk, mealsPerWeek: 5 });
+    expect(s1.shoppingList).toHaveLength(1);
+    const s2 = reducer(s1, { type: 'undoPin', id: jeyuk.id, mealsPerWeek: 4, shoppingList: s0.shoppingList });
+    expect(s2.plan).toEqual({ ...s0.plan, mealsPerWeek: 4 });
+    expect(s2.shoppingList).toEqual([]);
   });
 
   it('확정하면 쓰는 재료가 빠지고 고정 끼니는 완료로, 되돌리면 고정 끼니도 돌아온다', () => {
-    const s1 = reducer(initialState(today), { type: 'pinMeal', meal: curry, today });
+    const s1 = reducer(initialState(today), { type: 'pinMeal', meal: curry, mealsPerWeek: 4 });
     const s2 = reducer(s1, { type: 'confirmMeal', recipe: curry, today, at: 'T' });
     expect(s2.items.map((i) => i.name)).not.toContain('닭안심');
     expect(s2.items.map((i) => i.name)).toContain('카레가루');
@@ -347,12 +350,12 @@ describe('영상 메뉴 → 플랜·장보기 목록 (B-1)', () => {
   });
 
   it('건너뛰기 = 영상 메뉴 지우기', () => {
-    const s = reducer(reducer(initialState(today), { type: 'pinMeal', meal: curry, today }), { type: 'removePinned', id: 'v1' });
+    const s = reducer(reducer(initialState(today), { type: 'pinMeal', meal: curry, mealsPerWeek: 4 }), { type: 'removePinned', id: 'v1' });
     expect(s.plan.pinned).toEqual([]);
   });
 
   it('장보기 목록: 체크, ✕로 지우기(플랜 재료는 숨김), 냉장고에 넣으면 목록에서 빠진다', () => {
-    let s = reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, today });
+    let s = reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, mealsPerWeek: 4 });
     s = reducer(s, { type: 'toggleShopping', name: '고추장' });
     expect(s.shoppingList).toEqual([{ name: '고추장', from: 'video', checked: true }]);
     s = reducer(s, { type: 'toggleShopping', name: '감자' }); // 플랜에서 온 재료를 체크
@@ -402,14 +405,45 @@ describe('폐기 이유 (B-4)', () => {
 
 describe('알림 A단계 (B-3)', () => {
   const onboarded = () => reducer(reducer(initialState(today), { type: 'finishIntro' }), { type: 'onboard', mode: 'sample' });
+  /** 홈 화면 추가 카드가 뜬 상태 (세 번째로 연 날) */
+  const ready = () => [0, 1, 2].reduce((s, d) => reducer(s, { type: 'appOpened', today: addDays(today, d) }), onboarded());
 
-  it('"알려드릴까요?"는 첫 사용 안내 다음에 한 번', () => {
-    expect(showNotifAsk(initialState(today))).toBe(false); // 첫 사용 안내가 먼저
-    expect(showNotifAsk(onboarded())).toBe(true);
+  it('처음 열면 소개 → 예시 안내 카드만, 홈 화면 추가 카드는 아직 없다 (V3-5)', () => {
+    expect(showNotifAsk(initialState(today))).toBe(false);
+    expect(showNotifAsk(onboarded())).toBe(false);
+  });
+
+  it('처음으로 "이걸로 할게요"를 누르면 나온다', () => {
+    const recipe = { name: '닭안심 버터카레', uses: ['닭안심'], keeps: [], buy: [] };
+    const s = reducer(onboarded(), { type: 'confirmMeal', recipe, today, at: 'T1' });
+    expect(s.onboarding.firstConfirmAt).toBe('T1');
+    expect(showNotifAsk(s)).toBe(true);
+    // 되돌려도 처음 확정한 시각은 남는다, 두 번째 확정은 시각을 바꾸지 않는다
+    const s2 = reducer(reducer(s, { type: 'undoMeal', at: 'T1' }), { type: 'confirmMeal', recipe, today, at: 'T2' });
+    expect(s2.onboarding.firstConfirmAt).toBe('T1');
+  });
+
+  it('서로 다른 날 세 번째로 열면 나오고, 같은 날 세 번 열면 안 나온다', () => {
+    let s = onboarded();
+    for (let k = 0; k < 3; k++) s = reducer(s, { type: 'appOpened', today });
+    expect(s.opens).toEqual({ count: 1, lastDate: today });
+    expect(showNotifAsk(s)).toBe(false);
+    s = reducer(s, { type: 'appOpened', today: addDays(today, 1) });
+    expect(showNotifAsk(s)).toBe(false);
+    s = reducer(s, { type: 'appOpened', today: addDays(today, 3) });
+    expect(s.opens).toEqual({ count: 3, lastDate: addDays(today, 3) });
+    expect(showNotifAsk(s)).toBe(true);
+  });
+
+  it('첫 사용 안내 카드와 같이 나오지 않는다', () => {
+    let s = reducer(initialState(today), { type: 'finishIntro' });
+    for (const d of [0, 1, 2]) s = reducer(s, { type: 'appOpened', today: addDays(today, d) });
+    expect(showOnboarding(s)).toBe(true);
+    expect(showNotifAsk(s)).toBe(false);
   });
 
   it('나중에: 다시 묻지 않는다 (새로고침해도)', () => {
-    const s = reducer(onboarded(), { type: 'answerNotifAsk', choice: 'later', at: 'T' });
+    const s = reducer(ready(), { type: 'answerNotifAsk', choice: 'later', at: 'T' });
     expect(s.notif).toMatchObject({ askedAt: 'T', optedLater: true });
     expect(showNotifAsk(s)).toBe(false);
     const m = new Map<string, string>();
@@ -419,30 +453,56 @@ describe('알림 A단계 (B-3)', () => {
   });
 
   it('홈 화면에 추가하고 알림 받기: 물은 것으로 기록 (나중에 아님)', () => {
-    const s = reducer(onboarded(), { type: 'answerNotifAsk', choice: 'install', at: 'T' });
+    const s = reducer(ready(), { type: 'answerNotifAsk', choice: 'install', at: 'T' });
     expect(s.notif).toMatchObject({ askedAt: 'T', optedLater: false });
     expect(showNotifAsk(s)).toBe(false);
   });
 
-  it('배너: 얼른 먹어야 할 재료가 1개 이상일 때만, 닫으면 그날은 다시 안 나온다', () => {
+  it('배너: 얼른 먹어야 할 재료가 있을 때만 가장 급한 것 하나, 닫으면 그날은 다시 안 나온다', () => {
     const s = reducer(onboarded(), { type: 'answerNotifAsk', choice: 'later', at: 'T' });
-    expect(soonBannerCount(s, today)).toBe(4); // 닭안심, 소고기 불고기용, 오이, 우유
+    expect(soonBanner(s, today)?.name).toBe('닭안심');
     const closed = reducer(s, { type: 'closeBanner', today });
     expect(closed.notif.bannerClosedOn).toBe(today);
-    expect(soonBannerCount(closed, today)).toBe(0);
+    expect(soonBanner(closed, today)).toBeUndefined();
     // 다음 날 다시 (그날 기준 얼른 먹어야 할 재료가 있으면)
-    expect(soonBannerCount(closed, addDays(today, 1))).toBeGreaterThan(0);
+    expect(soonBanner(closed, addDays(today, 1))).toBeDefined();
     // 얼른 먹어야 할 재료가 없으면 안 나온다
-    expect(soonBannerCount({ ...s, items: s.items.filter((i) => i.name === '카레가루') }, today)).toBe(0);
+    expect(soonBanner({ ...s, items: s.items.filter((i) => i.name === '카레가루') }, today)).toBeUndefined();
   });
 
-  it('배너는 첫 사용 안내·알림 카드가 떠 있을 때는 기다린다', () => {
-    expect(soonBannerCount(initialState(today), today)).toBe(0);
-    expect(soonBannerCount(onboarded(), today)).toBe(0);
+  it('배너는 첫 사용 안내·홈 화면 추가 카드가 떠 있을 때는 기다린다', () => {
+    expect(soonBanner(initialState(today), today)).toBeUndefined();
+    expect(soonBanner(ready(), today)).toBeUndefined();
+    expect(soonBanner(onboarded(), today)?.name).toBe('닭안심');
   });
 
   it('알림 시간: 기본 오후 6시, 고르면 저장 (A단계는 저장만)', () => {
     expect(initialState(today).notif.time).toBe('18:00');
     expect(reducer(initialState(today), { type: 'setNotifTime', time: '20:00' }).notif.time).toBe('20:00');
+  });
+});
+
+describe('산 재료는 장보기 목록에서 빠진다 (V3-7-1)', () => {
+  const list = (names: string[]) => names.map((name) => ({ name, from: 'video' as const, checked: true }));
+  const added = (name: string) => [newItemFromCatalog(findCatalog(name)!, today, `n-${name}`)];
+
+  it('이름이 같으면 빠진다', () => {
+    const s = reducer({ ...initialState(today), shoppingList: list(['고추장', '감자']) }, { type: 'addItems', items: added('감자') });
+    expect(s.shoppingList.map((i) => i.name)).toEqual(['고추장']);
+  });
+
+  it('대체 묶음이 같은 이름도 같은 것으로 본다 (냉동새우 ↔ 새우살)', () => {
+    const s = reducer({ ...initialState(today), shoppingList: list(['냉동새우', '고추장']) }, { type: 'addItems', items: added('새우살') });
+    expect(s.shoppingList.map((i) => i.name)).toEqual(['고추장']);
+  });
+
+  it('다른 이름(달걀)으로 적어 둔 재료도 대표 이름(계란)으로 맞춰 본다', () => {
+    const s = reducer({ ...initialState(today), shoppingList: list(['달걀']) }, { type: 'addItems', items: added('계란') });
+    expect(s.shoppingList).toEqual([]);
+  });
+
+  it('제안하지 않는 쌍(대파 ↔ 양파)은 빼지 않는다', () => {
+    const s = reducer({ ...initialState(today), shoppingList: list(['대파']) }, { type: 'addItems', items: added('양파') });
+    expect(s.shoppingList.map((i) => i.name)).toEqual(['대파']);
   });
 });

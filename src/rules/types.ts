@@ -78,6 +78,8 @@ export interface PinnedMeal extends Recipe {
   title: string;
   /** "오늘 한 끼로 할게요"로 넣었으면 그날 (지나면 무시하고 다시 배치) */
   date?: DateKey;
+  /** 급한 재료를 못 먹게 되는데도 "그래도 넣을게요"를 골랐음 (조건 없이 가장 빠른 날) */
+  force?: boolean;
 }
 
 /** 장보기 목록 한 줄 */
@@ -98,6 +100,14 @@ export interface Onboarding {
   mode: 'sample' | 'mine';
   /** 내 재료를 넣은 뒤 "예시 재료는 지울까요?"를 물었는지 (한 번만 묻는다) */
   sampleAsked: boolean;
+  /** 처음으로 "이걸로 할게요"를 누른 시각 (홈 화면 추가 카드를 보여줄 때, V3-5) */
+  firstConfirmAt: string | null;
+}
+
+/** 앱을 연 날 수 (같은 날 여러 번 연 건 한 번으로 센다, V3-5) */
+export interface Opens {
+  count: number;
+  lastDate: DateKey | null;
 }
 
 /** 알림 설정 (A단계는 저장만, 보내기는 B단계) */

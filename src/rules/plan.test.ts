@@ -4,8 +4,17 @@ import { makeSampleInventory } from '../data/sampleInventory';
 import { emptyPlan } from '../state/store';
 import { addDays } from './date';
 import { daysLeft } from './status';
-import { coverageText, makePlan, minMealsToCover, reasonOf, summarizePlan, todayMeal, uncoveredSoon } from './plan';
-import type { Item, Plan, Recipe } from './types';
+import {
+  coverageText,
+  fitPin,
+  makePlan,
+  minMealsToCover,
+  reasonOf,
+  summarizePlan,
+  todayMeal,
+  uncoveredSoon,
+} from './plan';
+import type { Item, PinnedMeal, Plan, Recipe } from './types';
 
 const today = '2026-10-27';
 const inv = makeSampleInventory(today);
@@ -198,19 +207,19 @@ describe('규칙 세부', () => {
     const { slots } = makePlan(items, recipes, planOf({ mealsPerWeek: 3 }), today);
     expect(slots.map((s) => s.recipe?.name)).toEqual(['볶음밥', '카레', '샐러드']);
     // 이미 확정한 메뉴도 뒤로 간다
-    const done = [{ recipe: '볶음밥', usedItems: [], soonUsed: [], at: '', date: addDays(today, -1) }];
+    const done = [{ recipe: '볶음밥', usedItems: [], soonUsed: [], at: '', date: today }];
     const after = makePlan(items, recipes, planOf({ mealsPerWeek: 3, doneMeals: done }), today);
     expect(after.slots.map((s) => s.recipe?.name)).toEqual(['카레', '샐러드']);
   });
 
-  it('이번 주에 이미 확정한 끼니 수만큼 앞 끼니는 건너뛴다', () => {
-    const done = [{ recipe: 'x', usedItems: [], soonUsed: [], at: '', date: addDays(today, -1) }]; // 10/26(월)
+  it('오늘 확정한 끼니 수만큼 앞 끼니는 건너뛴다 (플랜은 앞으로 7일)', () => {
+    const done = [{ recipe: 'x', usedItems: [], soonUsed: [], at: '', date: today }];
     const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, doneMeals: done }), today);
     expect(slots.map((s) => s.index)).toEqual([1, 2, 3]);
   });
 
-  it('지난주에 확정한 끼니·날짜 없는 예전 기록은 세지 않는다 (주가 바뀌면 플랜이 다시 N끼)', () => {
-    const old = [1, 2, 3, 4].map((n) => ({ recipe: `x${n}`, usedItems: [], soonUsed: ['a'], at: '', date: addDays(today, -1 - n) }));
+  it('어제까지 확정한 끼니·날짜 없는 예전 기록은 세지 않는다 (앞으로 7일은 늘 N끼)', () => {
+    const old = [1, 2, 3, 4].map((n) => ({ recipe: `x${n}`, usedItems: [], soonUsed: ['a'], at: '', date: addDays(today, -n) }));
     const noDate = [{ recipe: 'y', usedItems: [], soonUsed: [], at: '' }];
     const plan = planOf({ mealsPerWeek: 4, doneMeals: [...old, ...noDate] });
     const result = makePlan(inv, PLAN_RECIPES, plan, today);
@@ -254,7 +263,7 @@ describe('플랜 요약', () => {
   it('이미 확정한 끼니의 곧 상할 재료도 센다', () => {
     const plan = planOf({
       mealsPerWeek: 4,
-      doneMeals: [{ recipe: 'x', usedItems: [], soonUsed: ['a', 'b'], at: '', date: addDays(today, -1) }],
+      doneMeals: [{ recipe: 'x', usedItems: [], soonUsed: ['a', 'b'], at: '', date: today }],
     });
     const s = summarizePlan(makePlan(inv, PLAN_RECIPES, plan, today), inv, plan, today);
     expect(s.soonTotal).toBe(6);
@@ -298,10 +307,10 @@ describe('오늘의 한 끼 (B-2): 플랜의 오늘 끼니를 그대로 쓴다',
     expect(t.kind === 'suggest' && t.slot.recipe.name).toBe('계란말이 한 끼');
   });
 
-  it('만들 수 있는 메뉴가 없거나 이번 주 끼니를 다 먹었으면 none', () => {
+  it('만들 수 있는 메뉴가 없으면 none, 어제 먹은 끼니는 오늘 추천에 영향 없음', () => {
     expect(at([])).toEqual({ kind: 'none' });
-    const done = [{ recipe: 'x', usedItems: [], soonUsed: [], at: 'T', date: addDays(today, -1) }]; // 이번 주 월요일
-    expect(at(inv, { mealsPerWeek: 1, doneMeals: done })).toEqual({ kind: 'none' });
+    const done = [{ recipe: 'x', usedItems: [], soonUsed: [], at: 'T', date: addDays(today, -1) }];
+    expect(at(inv, { mealsPerWeek: 1, doneMeals: done }).kind).toBe('suggest');
   });
 });
 
@@ -323,21 +332,6 @@ describe('영상에서 넣은 고정 끼니 (B-1)', () => {
     expect(slots[0]).toMatchObject({ pinned: curry, candidateCount: 1 });
   });
 
-  it('급하지 않은 영상 메뉴는 얼른 먹어야 할 재료 끼니를 밀어내지 않는다 (자기 재료 기한 안의 가장 빠른 빈 날)', () => {
-    const jeyuk = { ...curry, id: 'v3', name: '제육볶음', uses: ['삼겹살', '대파'], keeps: ['양파'], buy: ['고추장'] };
-    const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [jeyuk] }), today);
-    expect(slots.map((s) => [s.dayOffset, s.recipe?.name])).toEqual([
-      [0, CURRY],
-      [1, MANDU],
-      [2, PASTA], // 대파(소분 1봉)를 제육볶음이 써서 소불고기 덮밥(대파 상비)은 못 만듦 → 우유 쓰는 파스타
-      [3, '제육볶음'], // 급한 재료 끼니 다음, 삼겹살·대파 D-5 안
-    ]);
-    // 닭안심이 오늘까지여도 오늘은 닭안심 끼니
-    const todayOnly = inv.map((i) => (i.name === '닭안심' ? { ...i, expiresAt: today } : i));
-    const t = makePlan(todayOnly, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [jeyuk] }), today);
-    expect(t.slots[0].recipe?.name).toBe(CURRY);
-  });
-
   it('영상 메뉴가 얼른 먹어야 할 재료를 쓰면 급한 순서대로 경쟁한다', () => {
     // 버터크림치킨카레(닭안심 D-1)는 오이·소고기(D-2)보다 급해서 오늘
     const { slots } = plan4();
@@ -356,9 +350,9 @@ describe('영상에서 넣은 고정 끼니 (B-1)', () => {
     const later = { ...curry, id: 'v2', name: '삼겹 덮밥', uses: ['삼겹살'], keeps: [] };
     const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [{ ...later, date: today }] }), today);
     expect(slots[0]).toMatchObject({ dayOffset: 0, recipe: { name: '삼겹 덮밥' } });
-    // 날짜가 지난 "오늘"은 무시하고 다시 배치 (급한 재료 끼니 다음, 삼겹살 기한 안)
-    const stale = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [{ ...later, date: addDays(today, -1) }] }), today);
-    expect(stale.slots.find((s) => s.pinned)!.dayOffset).toBe(3);
+    // 날짜가 지난 "오늘"은 무시하고 다시 배치 (집밥 5번이면 급한 재료 끼니 4개 다음, 삼겹살 기한 안)
+    const stale = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 5, pinned: [{ ...later, date: addDays(today, -1) }] }), today);
+    expect(stale.slots.find((s) => s.pinned)!.dayOffset).toBe(4);
   });
 
   it('오늘의 한 끼도 고정 끼니를 그대로 보여준다', () => {
@@ -371,5 +365,68 @@ describe('영상에서 넣은 고정 끼니 (B-1)', () => {
     const jeyuk = { ...curry, id: 'v3', name: '제육볶음', uses: ['삼겹살', '대파'], keeps: ['양파'], buy: ['고추장'] };
     const plan = planOf({ mealsPerWeek: 4, pinned: [jeyuk] });
     expect(summarizePlan(makePlan(inv, PLAN_RECIPES, plan, today), inv, plan, today).buyAll).toContain('고추장');
+  });
+});
+
+// 수정명세 v3 V3-1: 고정 끼니(영상 메뉴)는 기준 커버(고정 끼니를 뺀 플랜이 쓰는 급한 재료)를 하나도 빼지 않는 첫 날에
+describe('영상 메뉴가 급한 재료를 밀어내지 않는다 (V3-1)', () => {
+  const pin = (p: Partial<PinnedMeal> & Pick<PinnedMeal, 'id' | 'name' | 'uses'>): PinnedMeal => ({
+    keeps: [], buy: [], source: 'video', url: 'u', title: p.name, ...p,
+  });
+  const jeyuk = pin({ id: 'j', name: '제육볶음', uses: ['삼겹살', '대파'], keeps: ['양파'], buy: ['고추장'] });
+  const curry = pin({ id: 'c', name: '버터크림치킨카레', uses: ['닭안심', '우유'], keeps: ['카레가루', '양파', '버터'] });
+  const SOON = ['닭안심', '소고기 불고기용', '오이', '우유'];
+  const leftOf = (name: string, items = inv) => Math.min(...items.filter((i) => i.name === name).map((i) => daysLeft(i, today)));
+
+  it('제육볶음 고정 (집밥 4번): 집밥을 5번으로 늘리고, 급한 재료 4개 모두 배치, 제육볶음은 급한 끼니들 뒤·삼겹살 D-5 안', () => {
+    expect(fitPin(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4 }), jeyuk, today)).toEqual({ ok: true, mealsPerWeek: 5 });
+    const result = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 5, pinned: [jeyuk] }), today);
+    expect(uncoveredSoon(result, inv, today)).toEqual([]);
+    const jDay = result.slots.find((s) => s.pinned)!.dayOffset;
+    const soonDays = result.slots.filter((s) => !s.pinned && s.recipe?.uses.some((u) => SOON.includes(u))).map((s) => s.dayOffset);
+    expect(soonDays).toHaveLength(4);
+    expect(jDay).toBeGreaterThan(Math.max(...soonDays));
+    expect(jDay).toBeLessThanOrEqual(leftOf('삼겹살'));
+    expect(result.slots.map((s) => s.recipe?.name)).toContain(BULGOGI);
+  });
+
+  it('버터크림치킨카레 고정 (닭안심 대체): 닭안심 기한 안(오늘·내일)에, 급한 재료가 빠지지 않고 늘릴 필요 없음', () => {
+    expect(fitPin(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4 }), curry, today)).toEqual({ ok: true, mealsPerWeek: 4 });
+    const result = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [curry] }), today);
+    expect(result.slots.find((s) => s.pinned)!.dayOffset).toBeLessThanOrEqual(1);
+    expect(uncoveredSoon(result, inv, today)).toEqual([]);
+  });
+
+  it('어떤 경우에도 소비기한이 지난 날에 그 재료를 쓰는 끼니가 없다 (고정 끼니 포함)', () => {
+    for (let n = 1; n <= 7; n++)
+      for (const pinned of [[jeyuk], [curry], [jeyuk, curry], [{ ...jeyuk, date: today }], [{ ...jeyuk, force: true }]]) {
+        const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: n, pinned }), today);
+        for (const s of slots)
+          for (const u of s.recipe?.uses ?? []) expect(leftOf(u), `${n}번 ${s.recipe!.name} ${u}`).toBeGreaterThanOrEqual(s.dayOffset);
+        expect(new Set(slots.map((s) => s.dayOffset)).size).toBe(slots.length);
+      }
+  });
+
+  it('7번으로도 안 되면 확인 시트 조건이 참 (못 먹게 되는 재료를 알려준다)', () => {
+    // 오이(오늘까지)는 오늘만 쓸 수 있는데, 오늘 한 끼로 다른 메뉴를 고정하면 어떻게 늘려도 못 먹는다
+    const items = inv.map((i) => (i.name === '오이' ? { ...i, expiresAt: today } : i));
+    const todayPin = pin({ id: 't', name: '삼겹 덮밥', uses: ['삼겹살'], date: today });
+    expect(fitPin(items, PLAN_RECIPES, planOf({ mealsPerWeek: 4 }), todayPin, today)).toEqual({ ok: false, lost: ['오이'] });
+  });
+
+  it('그래도 넣을게요(force): 조건 없이 가장 빠른 날에', () => {
+    const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [{ ...jeyuk, force: true }] }), today);
+    expect(slots.find((s) => s.pinned)!.dayOffset).toBe(0);
+  });
+
+  it('다시 짤 때도 같은 규칙 (집밥 횟수를 바꾸면 날짜를 다시 정함), 오늘 먹은 끼니는 움직이지 않는다', () => {
+    const at7 = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 7, pinned: [jeyuk] }), today);
+    expect(uncoveredSoon(at7, inv, today)).toEqual([]);
+    expect(at7.slots.find((s) => s.pinned)!.dayOffset).toBeLessThanOrEqual(leftOf('삼겹살'));
+    const done = [{ recipe: CURRY, usedItems: [], soonUsed: ['닭안심'], at: 'T', date: today }];
+    const items = inv.filter((i) => i.name !== '닭안심');
+    const after = makePlan(items, PLAN_RECIPES, planOf({ mealsPerWeek: 5, doneMeals: done, pinned: [jeyuk] }), today);
+    expect(after.slots.every((s) => s.dayOffset >= 1)).toBe(true); // 오늘은 이미 먹은 끼니 자리
+    expect(uncoveredSoon(after, items, today)).toEqual([]);
   });
 });

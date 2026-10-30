@@ -59,7 +59,8 @@ describe('저장 형식 v1 → v2 옮기기', () => {
 
   it('새 필드 기본값: 장보기 목록 비움, 이미 쓰던 사람이라 첫 사용 안내는 본 것으로, 알림 오후 6시', () => {
     expect(s.shoppingList).toEqual([]);
-    expect(s.onboarding).toEqual({ introSeen: true, seen: true, mode: 'sample', sampleAsked: false });
+    expect(s.onboarding).toEqual({ introSeen: true, seen: true, mode: 'sample', sampleAsked: false, firstConfirmAt: null });
+    expect(s.opens).toEqual({ count: 0, lastDate: null });
     expect(s.notif).toEqual({ askedAt: null, optedLater: false, time: '18:00', bannerClosedOn: null });
     expect(migrate({ ...v1, items: [v1.items[2]] })!.onboarding.mode).toBe('mine');
   });
@@ -82,6 +83,7 @@ describe('저장 형식 v1 → v2 옮기기', () => {
       seen: true,
       mode: 'sample',
       sampleAsked: false,
+      firstConfirmAt: null,
     });
   });
 
@@ -89,5 +91,18 @@ describe('저장 형식 v1 → v2 옮기기', () => {
     const s0 = initialState(today);
     const s1 = { ...s0, items: s0.items.map((i, n) => (n === 0 ? { ...i, expiryBasis: 'table' as const } : i)) };
     expect(migrate({ version: 2, ...s1 })).toEqual(s1);
+  });
+});
+
+describe('저장 형식 v2 → v3 (V3-5)', () => {
+  it('열어 본 날 수·처음 확정 시각을 채우고, 이미 물어본 사람은 다시 묻지 않는다', () => {
+    const s0 = initialState(today);
+    const { opens: _o, ...v2 } = { ...s0, onboarding: { introSeen: true, seen: true, mode: 'sample' as const, sampleAsked: false } };
+    const asked = { ...v2, notif: { ...s0.notif, askedAt: 'T' } };
+    const s = migrate({ version: 2, ...asked })!;
+    expect(s.opens).toEqual({ count: 0, lastDate: null });
+    expect(s.onboarding.firstConfirmAt).toBeNull();
+    expect(s.notif.askedAt).toBe('T');
+    expect(STORAGE_VERSION).toBe(3);
   });
 });

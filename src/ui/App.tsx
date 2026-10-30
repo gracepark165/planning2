@@ -1,7 +1,7 @@
 import { type ReactNode, useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { PLAN_RECIPES, findCatalog } from '../data';
 import { todayKey } from '../rules/date';
-import { makePlan, todayMeal } from '../rules/plan';
+import { fitPin, makePlan, mealsForNewPin, todayMeal } from '../rules/plan';
 import { eul, eun, ro, withJosa } from '../rules/josa';
 import type { PinnedMeal, Recipe } from '../rules/types';
 import { loadState, saveState } from '../state/persist';
@@ -14,13 +14,13 @@ import {
   showNotifAsk,
   showOnboarding,
   showSamplePrompt,
-  soonBannerCount,
+  soonBanner,
   type AddPick,
 } from '../state/store';
 import { AddView } from './AddView';
 import { DiscardSheet } from './DiscardSheet';
 import { HomeView } from './HomeView';
-import { NotifyView } from './NotifyView';
+import { InstallGuideView, NotifyTimeView } from './NotifyView';
 import { ItemSheet } from './ItemSheet';
 import { OpeningView } from './OpeningView';
 import { OrderView } from './OrderView';
@@ -30,7 +30,7 @@ import { VideoView } from './VideoView';
 import { TabBar, type TabKey } from './TabBar';
 import { newId } from './id';
 
-type Screen = TabKey | 'add' | 'notify';
+type Screen = TabKey | 'add' | 'notify' | 'install';
 
 interface Toast {
   msg: string;
@@ -43,6 +43,8 @@ export function App() {
   const [state, dispatch] = useReducer(reducer, today, (t) => loadState() ?? initialState(t));
   const [screen, setScreen] = useState<Screen>('home');
   const [prevScreen, setPrevScreen] = useState<Screen>('home');
+  /** 홈 화면에 추가하는 방법에서 뒤로 갈 곳 (홈 카드 또는 알림 시간 설정) */
+  const [installBack, setInstallBack] = useState<Screen>('home');
   const [sheetId, setSheetId] = useState<string | null>(null);
   /** 버렸어요 다음에 이유를 물을 기록 (B-4) */
   const [discardAsk, setDiscardAsk] = useState<{ itemId: string; at: string; name: string } | null>(null);
@@ -53,6 +55,8 @@ export function App() {
   const toastTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => saveState(state), [state]);
+  // 앱을 연 날 세기 (하루에 한 번만, 홈 화면 추가 카드를 보여줄 때 씀)
+  useEffect(() => dispatch({ type: 'appOpened', today }), [today]);
 
   const showToast = useCallback((msg: string, action?: Toast['action']) => {
     setToast({ msg, action });
@@ -62,10 +66,18 @@ export function App() {
   }, []);
 
   const go = (s: Screen) => {
-    if (s === 'add' || s === 'notify') setPrevScreen(screen);
+    // 하위 화면(재료 추가·알림 시간·홈 화면 추가 방법)에서 뒤로 가면 들어오기 전 탭으로.
+    // 하위 화면끼리 오갈 때는 처음 들어온 탭을 그대로 기억한다
+    const isSub = (x: Screen) => x === 'add' || x === 'notify' || x === 'install';
+    if (isSub(s) && !isSub(screen)) setPrevScreen(screen);
     setScreen(s);
     setSheetId(null);
     window.scrollTo(0, 0);
+  };
+
+  const openInstallGuide = () => {
+    setInstallBack(screen);
+    go('install');
   };
 
   const addFromPicks = (picks: AddPick[]) => {
@@ -99,17 +111,32 @@ export function App() {
   };
   const swap = (slotIndex: number) => dispatch({ type: 'swap', slotIndex });
 
-  /** 영상 확인 결과 → 이번 주 플랜(고정 끼니) / 오늘 한 끼 */
-  const pinMeal = (meal: PinnedMeal, mode: 'week' | 'today') => {
-    dispatch({ type: 'pinMeal', meal, today });
-    const extra = meal.buy.length ? ` 사야 할 재료 ${meal.buy.length}개는 장보기 목록에 담았어요` : '';
-    if (mode === 'today') {
-      go('home');
-      showToast(`오늘 한 끼를 ${meal.name}${ro(meal.name)} 정했어요.${extra}`);
-    } else {
-      go('plan');
-      showToast(`${meal.name}${eul(meal.name)} 이번 주 플랜에 넣었어요.${extra}`);
+  /**
+   * 영상 확인 결과 → 이번 주 플랜(고정 끼니) / 오늘 한 끼 (V3-1).
+   * 급한 재료를 밀어내지 않게 집밥을 늘려야 하면 늘리고 되돌리기를 보여준다.
+   * 7번으로도 안 되면 넣지 않고 못 먹게 되는 재료를 돌려준다 (영상 화면이 확인 시트를 띄움). force = "그래도 넣을게요".
+   */
+  const pinMeal = (meal: PinnedMeal, mode: 'week' | 'today', force = false): { ok: true } | { ok: false; lost: string[] } => {
+    const fit = force ? undefined : fitPin(state.items, PLAN_RECIPES, state.plan, meal, today);
+    if (fit && !fit.ok) return fit;
+    const before = { mealsPerWeek: state.plan.mealsPerWeek, shoppingList: state.shoppingList };
+    const mealsPerWeek = fit ? fit.mealsPerWeek : mealsForNewPin(state.plan, today);
+    dispatch({ type: 'pinMeal', meal: force ? { ...meal, force: true } : meal, mealsPerWeek });
+    go(mode === 'today' ? 'home' : 'plan');
+    if (mealsPerWeek > before.mealsPerWeek) {
+      showToast(`${meal.name}${eul(meal.name)} 넣느라 집밥을 ${mealsPerWeek}번으로 늘렸어요`, {
+        label: '되돌리기',
+        run: () => dispatch({ type: 'undoPin', id: meal.id, ...before }),
+      });
+      return { ok: true };
     }
+    const extra = meal.buy.length ? ` 사야 할 재료 ${meal.buy.length}개는 장보기 목록에 담았어요` : '';
+    showToast(
+      mode === 'today'
+        ? `오늘 한 끼를 ${meal.name}${ro(meal.name)} 정했어요.${extra}`
+        : `${meal.name}${eul(meal.name)} 이번 주 플랜에 넣었어요.${extra}`,
+    );
+    return { ok: true };
   };
 
   const sheetItem = state.items.find((i) => i.id === sheetId);
@@ -149,7 +176,7 @@ export function App() {
         }}
         onClear={() => {
           const n = state.items.length;
-          if (!window.confirm(`냉장고에 있는 재료 ${n}개를 모두 지울까요?\n이번 주 기록도 같이 지워져요. 지난번에 정한 값은 남아요.`)) return;
+          if (!window.confirm(`냉장고에 있는 재료 ${n}개를 모두 지울까요?\n먹은·버린 기록과 플랜도 같이 지워져요. 지난번에 정한 값은 남아요.`)) return;
           dispatch({ type: 'clearAll' });
           showToast('냉장고를 비웠어요. 내 재료로 채워 주세요');
         }}
@@ -165,10 +192,10 @@ export function App() {
         notifAsk={showNotifAsk(state)}
         onNotifAsk={(choice) => {
           dispatch({ type: 'answerNotifAsk', choice, at: new Date().toISOString() });
-          if (choice === 'install') go('notify');
-          else showToast('알겠어요. 알림 설정은 홈 맨 아래에서 언제든 열 수 있어요');
+          if (choice === 'install') openInstallGuide();
+          else showToast('알겠어요. 홈 화면에 추가하는 방법은 ‘알림 시간 설정’에서 언제든 볼 수 있어요');
         }}
-        bannerCount={soonBannerCount(state, today)}
+        bannerItem={soonBanner(state, today)}
         onCloseBanner={() => dispatch({ type: 'closeBanner', today })}
         onNotifySettings={() => go('notify')}
         samplePrompt={showSamplePrompt(state)}
@@ -213,15 +240,18 @@ export function App() {
     );
   } else if (screen === 'notify') {
     view = (
-      <NotifyView
+      <NotifyTimeView
         time={state.notif.time}
         onTime={(time) => {
           dispatch({ type: 'setNotifTime', time });
           showToast('알림 시간을 저장했어요');
         }}
+        onInstallGuide={openInstallGuide}
         onBack={() => go(prevScreen)}
       />
     );
+  } else if (screen === 'install') {
+    view = <InstallGuideView onBack={() => go(installBack)} />;
   } else if (screen === 'add') {
     view = <AddView items={state.items} onBack={() => go(prevScreen)} onAdd={addFromPicks} />;
   }
@@ -246,12 +276,12 @@ export function App() {
               setOrderRound((n) => n + 1); // 넣고 나면 다음에는 처음 화면부터
               setOrderText('');
               go('plan');
-              showToast('냉장고에 넣었어요. 이번 주 먹을 순서예요');
+              showToast('냉장고에 넣었어요. 앞으로 7일 먹을 순서예요');
             }}
           />
         </div>
       </div>
-      <TabBar active={screen === 'add' || screen === 'notify' ? 'home' : screen} onChange={go} />
+      <TabBar active={screen === 'add' || screen === 'notify' || screen === 'install' ? 'home' : screen} onChange={go} />
       {sheetItem && (
         <ItemSheet
           item={sheetItem}
