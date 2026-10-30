@@ -59,7 +59,7 @@ describe('저장 형식 v1 → v2 옮기기', () => {
 
   it('새 필드 기본값: 장보기 목록 비움, 이미 쓰던 사람이라 첫 사용 안내는 본 것으로, 알림 오후 6시', () => {
     expect(s.shoppingList).toEqual([]);
-    expect(s.onboarding).toEqual({ seen: true, mode: 'sample' });
+    expect(s.onboarding).toEqual({ seen: true, mode: 'sample', sampleAsked: false });
     expect(s.notif).toEqual({ askedAt: null, optedLater: false, time: '18:00', bannerClosedOn: null });
     expect(migrate({ ...v1, items: [v1.items[2]] })!.onboarding.mode).toBe('mine');
   });
@@ -72,6 +72,12 @@ describe('저장 형식 v1 → v2 옮기기', () => {
     saveState(loaded, st);
     expect(JSON.parse(st.getItem(STORAGE_KEY)!).version).toBe(STORAGE_VERSION);
     expect(loadState(st)).toEqual(s);
+  });
+
+  it('1단계로 저장한 v2(첫 사용 안내에 sampleAsked 없음)는 false로 채운다', () => {
+    const s0 = initialState(today);
+    const { sampleAsked: _, ...old } = { ...s0.onboarding, seen: true };
+    expect(migrate({ version: 2, ...s0, onboarding: old })!.onboarding).toEqual({ seen: true, mode: 'sample', sampleAsked: false });
   });
 
   it('v2는 옮겨도 그대로 (예시 재료를 직접 고친 근거도 유지)', () => {

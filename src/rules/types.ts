@@ -87,6 +87,8 @@ export interface Onboarding {
   /** 안내 카드에서 버튼을 한 번 골랐는지 */
   seen: boolean;
   mode: 'sample' | 'mine';
+  /** 내 재료를 넣은 뒤 "예시 재료는 지울까요?"를 물었는지 (한 번만 묻는다) */
+  sampleAsked: boolean;
 }
 
 /** 알림 설정 (A단계는 저장만, 보내기는 B단계) */

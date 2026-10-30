@@ -122,6 +122,14 @@ export function togglePortion(row: DraftRow, today: DateKey, lookup: Lookup): Dr
   return refresh({ ...row, portioned: !row.portioned }, today, lookup);
 }
 
+/** 개수를 모를 때 "잘 모르겠어요 (1개로 둘게요)": 1개로 채우고 확인 표시를 푼다 */
+export const assumeOneCount = (row: DraftRow): DraftRow => ({ ...row, count: 1 });
+
+/** 개수를 모를 때 "소분 안 함으로 바꾸기": 소분을 끄고 포장 그대로 1개 (위치·소비기한도 소분 안 한 기준으로) */
+export function unportionAsOne(row: DraftRow, today: DateKey, lookup: Lookup): DraftRow {
+  return refresh({ ...row, portioned: false, count: 1 }, today, lookup);
+}
+
 export function shiftDraftCount(row: DraftRow, delta: number): DraftRow {
   const base = row.count ?? (delta > 0 ? COUNT_MIN - 1 : COUNT_MIN + 1);
   return { ...row, count: Math.min(COUNT_MAX, Math.max(COUNT_MIN, base + delta)) };

@@ -104,6 +104,13 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
 .hero .lead{margin:0 0 16px;font-size:14px;max-width:64%}
 .hero .pill{display:inline-block;background:var(--white);color:var(--fg);font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;box-shadow:var(--shadow)}
 .mascot{position:absolute;right:12px;bottom:0;width:124px;height:auto;max-width:34%}
+.card.onboard h3{word-break:keep-all}
+.card.onboard .cta{margin-top:12px}
+.card.onboard .cta.ghost{margin-top:8px;background:var(--bg)}
+.notice{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:16px;padding:8px 8px 8px 16px;margin:8px 0;font-size:14px;font-weight:500}
+.notice span{flex:1;min-width:0}
+.notice .small-btn{flex:none;min-height:40px;white-space:nowrap}
+.row .nm .tag.sample{margin-left:6px;vertical-align:2px;font-weight:500}
 .fab-space{height:calc(56px + env(safe-area-inset-bottom,0px))}
 .note.how{display:block;text-decoration:underline;margin-top:20px}
 .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--accent-bg);color:var(--accent);font-weight:700;font-size:15px;padding:12px 20px;border-radius:999px;box-shadow:var(--shadow);z-index:5}
@@ -164,6 +171,9 @@ textarea.text-input:focus{border-color:var(--accent)}
 .seg.mini{margin:0;flex:0 1 210px}
 .seg.mini button{padding:7px 0;font-size:13px}
 .field .chip{padding:6px 12px;font-size:13px}
+/* 개수를 모를 때 빠져나갈 길 (A-8) */
+.count-help{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.count-help .small-btn{font-size:13px;min-height:40px;white-space:nowrap}
 .field .chips .chip{flex:none}
 .stepper button[disabled]{opacity:.35;cursor:default}
 

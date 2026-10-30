@@ -53,7 +53,12 @@ export type Action =
   | { type: 'skip'; recipe: string }
   | { type: 'clearRejected' }
   | { type: 'confirmMeal'; recipe: Recipe; today: DateKey; at: string }
-  | { type: 'undoMeal'; at: string };
+  | { type: 'undoMeal'; at: string }
+  // 첫 사용 안내
+  /** 안내 카드: 내 재료로 시작할게요(mine, 예시 재료를 지움) / 예시로 둘러볼게요(sample) */
+  | { type: 'onboard'; mode: Onboarding['mode'] }
+  /** "예시 재료는 지울까요?": 지우기(remove) / 놔둘게요 */
+  | { type: 'answerSamplePrompt'; remove: boolean };
 
 export const DEFAULT_MEALS_PER_WEEK = 4;
 
@@ -75,7 +80,7 @@ export function initialState(today: DateKey): AppState {
     plan: emptyPlan(),
     myFoods: {},
     shoppingList: [],
-    onboarding: { seen: false, mode: 'sample' },
+    onboarding: { seen: false, mode: 'sample', sampleAsked: false },
     notif: defaultNotif(),
   };
 }
@@ -141,6 +146,23 @@ export function newItemFromPick(
     portioned: false,
   };
 }
+
+/** 첫 방문 안내 카드를 보여줄지 */
+export const showOnboarding = (state: AppState) => !state.onboarding.seen;
+
+/** "예시 재료는 지울까요?": 안내 카드를 고른 뒤, 예시 재료와 내 재료가 같이 있을 때 한 번만 */
+export const showSamplePrompt = (state: AppState) =>
+  state.onboarding.seen &&
+  !state.onboarding.sampleAsked &&
+  state.items.some((i) => i.sample) &&
+  state.items.some((i) => !i.sample);
+
+/** 예시 재료만 지운다 (재고가 바뀌었으니 이번 주 추천은 첫 후보부터) */
+const withoutSamples = (state: AppState): AppState => ({
+  ...state,
+  items: state.items.filter((i) => !i.sample),
+  plan: { ...state.plan, swapIndex: {} },
+});
 
 const updateItem = (state: AppState, id: string, fn: (i: Item) => Item): AppState => ({
   ...state,
@@ -212,6 +234,14 @@ export function reducer(state: AppState, action: Action): AppState {
       return confirmMeal(state, action.recipe, action.today, action.at);
     case 'undoMeal':
       return undoMeal(state, action.at);
+    case 'onboard': {
+      const next = action.mode === 'mine' ? withoutSamples(state) : state;
+      return { ...next, onboarding: { ...state.onboarding, seen: true, mode: action.mode } };
+    }
+    case 'answerSamplePrompt': {
+      const next = action.remove ? withoutSamples(state) : state;
+      return { ...next, onboarding: { ...state.onboarding, sampleAsked: true } };
+    }
   }
 }
 

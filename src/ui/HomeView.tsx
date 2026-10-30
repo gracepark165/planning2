@@ -47,9 +47,29 @@ interface Props {
   onReset: () => void;
   onClear: () => void;
   onOrder: () => void;
+  /** 첫 방문 안내 카드 */
+  onboarding: boolean;
+  onOnboard: (mode: 'sample' | 'mine') => void;
+  /** 내 재료를 넣은 뒤 "예시 재료는 지울까요?" */
+  samplePrompt: boolean;
+  onSamplePrompt: (remove: boolean) => void;
 }
 
-export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset, onClear, onOrder }: Props) {
+export function HomeView({
+  items,
+  logs,
+  today,
+  onOpen,
+  onAdd,
+  onPlan,
+  onReset,
+  onClear,
+  onOrder,
+  onboarding,
+  onOnboard,
+  samplePrompt,
+  onSamplePrompt,
+}: Props) {
   const [loc, setLoc] = useState<LocFilter>('전체');
   const [filter, setFilter] = useState<StateFilter>('전체');
   const [okOpen, setOkOpen] = useState(readOkOpen);
@@ -78,7 +98,10 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset, o
       <button key={i.id} className={`row ${sameAsAbove(list, n) ? 'same' : ''}`} onClick={() => onOpen(i.id)}>
         <Tile name={i.name} core={i.core} />
         <div className="main">
-          <div className="nm">{i.name}</div>
+          <div className="nm">
+            {i.name}
+            {i.sample && <span className="tag sample">예시</span>}
+          </div>
           <div className="meta">
             {i.qty} · {i.location}
             {buried && ` · ${dday}`}
@@ -98,6 +121,28 @@ export function HomeView({ items, logs, today, onOpen, onAdd, onPlan, onReset, o
 
   return (
     <>
+      {onboarding && (
+        <div className="card blue onboard">
+          <h3>지금 보이는 건 예시 재료예요. 내 냉장고로 시작해 볼까요?</h3>
+          <button className="cta" onClick={() => onOnboard('mine')}>
+            내 재료로 시작할게요
+          </button>
+          <button className="cta ghost" onClick={() => onOnboard('sample')}>
+            예시로 둘러볼게요
+          </button>
+        </div>
+      )}
+      {samplePrompt && (
+        <div className="notice">
+          <span>예시 재료는 지울까요?</span>
+          <button className="small-btn" onClick={() => onSamplePrompt(true)}>
+            지우기
+          </button>
+          <button className="small-btn alt" onClick={() => onSamplePrompt(false)}>
+            놔둘게요
+          </button>
+        </div>
+      )}
       <div className="hero">
         <span className="ver">{formatDate(today)}</span>
         <h1>{title}</h1>

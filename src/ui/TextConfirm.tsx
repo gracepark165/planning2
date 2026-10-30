@@ -10,6 +10,7 @@ import type { CatalogEntry, DateKey } from '../rules/types';
 import {
   EXPIRY_CHOICES,
   ISSUE_TEXT,
+  assumeOneCount,
   chooseExpiryDays,
   issuesOf,
   renameRow,
@@ -17,6 +18,7 @@ import {
   shiftDraftCount,
   shiftDraftExpiry,
   togglePortion,
+  unportionAsOne,
   type DraftRow,
 } from '../state/textDraft';
 import { BackButton, Tile } from './parts';
@@ -151,6 +153,18 @@ export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, he
                   </button>
                 </div>
               </div>
+              {r.count === undefined && (
+                <div className="count-help">
+                  <button className="small-btn alt" onClick={() => update(r.key, assumeOneCount)}>
+                    잘 모르겠어요 (1개로 둘게요)
+                  </button>
+                  {r.portioned && (
+                    <button className="small-btn alt" onClick={() => update(r.key, (x) => unportionAsOne(x, today, lookup))}>
+                      소분 안 함으로 바꾸기
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="field">
                 <span>소분</span>
                 <button

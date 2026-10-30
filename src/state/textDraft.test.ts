@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CATALOG, findCatalog } from '../data';
 import { parseItem } from '../rules/textInput';
 import {
+  assumeOneCount,
   chooseExpiryDays,
   draftFromParsed,
   draftQty,
@@ -11,6 +12,7 @@ import {
   shiftDraftCount,
   shiftDraftExpiry,
   togglePortion,
+  unportionAsOne,
 } from './textDraft';
 
 const today = '2026-10-27';
@@ -90,6 +92,45 @@ describe('고치기', () => {
     const r = chooseExpiryDays(draft('가리비 2팩'), 3, today);
     expect(r).toMatchObject({ expiresAt: '2026-10-30', expiryBasis: 'user' });
     expect(issuesOf(r)).toEqual([]);
+  });
+});
+
+describe('개수를 모를 때 빠져나갈 길 (A-8)', () => {
+  const pending = (rows: ReturnType<typeof draft>[]) => rows.filter((r) => issuesOf(r).length).length;
+
+  it('잘 모르겠어요: 1개로 두고 확인 표시를 푼다 (소분은 그대로)', () => {
+    const r = assumeOneCount(draft('대파 소분'));
+    expect(r).toMatchObject({ count: 1, portioned: true, location: '냉장', expiresAt: '2026-11-26' }); // 소분 30일
+    expect(issuesOf(r)).toEqual([]);
+    expect(draftQty(r)).toBe('소분 1개');
+  });
+
+  it('소분 안 함으로 바꾸기: 포장 그대로 1개, 위치·소비기한은 소분 안 한 기준으로', () => {
+    const r = unportionAsOne(draft('대파 소분'), today, findCatalog);
+    expect(r).toMatchObject({ count: 1, portioned: false, location: '냉장', expiresAt: '2026-11-03' }); // 대파 7일
+    expect(issuesOf(r)).toEqual([]);
+    expect(draftQty(r)).toBe('1개');
+    // 고기도 소분 기준(냉동 90일)에서 품목 기본(냉장 3일)으로
+    const meat = unportionAsOne(draft('닭가슴살 소분'), today, findCatalog);
+    expect(meat).toMatchObject({ portioned: false, count: 1, location: '냉장', expiresAt: '2026-10-30' });
+  });
+
+  it('두 버튼 각각 "확인할 줄이 N개 남았어요"가 하나씩 줄어든다', () => {
+    const rows = [draft('대파 소분'), draft('닭가슴살 소분'), draft('우유 2개')];
+    expect(pending(rows)).toBe(2);
+    const a = [assumeOneCount(rows[0]), rows[1], rows[2]];
+    expect(pending(a)).toBe(1);
+    const b = [a[0], unportionAsOne(a[1], today, findCatalog), a[2]];
+    expect(pending(b)).toBe(0);
+  });
+
+  it('다른 확인할 것(소비기한)은 그대로 남는다', () => {
+    expect(issuesOf(assumeOneCount(draft('가리비 소분')))).toEqual(['expiry']);
+  });
+
+  it('직접 고친 소비기한은 소분 안 함으로 바꿔도 그대로', () => {
+    const edited = shiftDraftExpiry(draft('대파 소분'), 1, today);
+    expect(unportionAsOne(edited, today, findCatalog).expiresAt).toBe(edited.expiresAt);
   });
 });
 

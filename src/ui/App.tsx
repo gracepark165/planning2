@@ -4,7 +4,7 @@ import { todayKey } from '../rules/date';
 import { eul, eun, withJosa } from '../rules/josa';
 import { loadState, saveState } from '../state/persist';
 import { withMyFoods } from '../state/myFoods';
-import { initialState, newItemFromPick, reducer, type AddPick } from '../state/store';
+import { initialState, newItemFromPick, reducer, showOnboarding, showSamplePrompt, type AddPick } from '../state/store';
 import { AddView } from './AddView';
 import { HomeView } from './HomeView';
 import { ItemSheet } from './ItemSheet';
@@ -86,6 +86,19 @@ export function App() {
           showToast('냉장고를 비웠어요. 내 재료로 채워 주세요');
         }}
         onOrder={() => go('order')}
+        onboarding={showOnboarding(state)}
+        onOnboard={(mode) => {
+          dispatch({ type: 'onboard', mode });
+          if (mode === 'mine') {
+            go('order');
+            showToast('예시 재료를 비웠어요. 장 본 재료를 올려 주세요');
+          }
+        }}
+        samplePrompt={showSamplePrompt(state)}
+        onSamplePrompt={(remove) => {
+          dispatch({ type: 'answerSamplePrompt', remove });
+          if (remove) showToast('예시 재료를 지웠어요');
+        }}
       />
     );
   } else if (screen === 'plan') {

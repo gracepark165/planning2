@@ -42,7 +42,7 @@ export function migrate(data: unknown): AppState | null {
   );
 
   const plan = data.plan as Partial<AppState['plan']>;
-  const onboarding = isObj(data.onboarding) ? (data.onboarding as unknown as AppState['onboarding']) : undefined;
+  const onboarding = isObj(data.onboarding) ? (data.onboarding as Partial<AppState['onboarding']>) : undefined;
   return {
     items,
     logs,
@@ -56,7 +56,12 @@ export function migrate(data: unknown): AppState | null {
     myFoods: isObj(data.myFoods) ? (data.myFoods as AppState['myFoods']) : {},
     shoppingList: arr(data.shoppingList),
     // 이미 쓰던 사람에게는 첫 사용 안내를 다시 보여주지 않는다
-    onboarding: onboarding ?? { seen: true, mode: items.some((i) => i.sample) ? 'sample' : 'mine' },
+    onboarding: {
+      seen: true,
+      mode: items.some((i) => i.sample) ? 'sample' : 'mine',
+      sampleAsked: false,
+      ...onboarding,
+    },
     notif: { ...defaultNotif(), ...(isObj(data.notif) ? data.notif : {}) },
   };
 }

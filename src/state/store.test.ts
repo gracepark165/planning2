@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findCatalog } from '../data';
 import { loadState, saveState, STORAGE_KEY } from './persist';
-import { initialState, newItemFromCatalog, reducer } from './store';
+import { initialState, newItemFromCatalog, reducer, showOnboarding, showSamplePrompt } from './store';
 
 const today = '2026-10-27';
 
@@ -64,7 +64,7 @@ describe('재고 상태 바꾸기', () => {
     const s0 = initialState(today);
     const s1 = {
       ...s0,
-      onboarding: { seen: true, mode: 'mine' as const },
+      onboarding: { seen: true, mode: 'mine' as const, sampleAsked: true },
       notif: { ...s0.notif, optedLater: true, bannerClosedOn: today },
     };
     const s2 = reducer(s1, { type: 'reset', today });
@@ -222,5 +222,60 @@ describe('저장한 뒤에 고치기', () => {
   it('소분이 아닌 재료는 개수를 바꾸지 않는다', () => {
     const s0 = initialState(today);
     expect(reducer(s0, { type: 'shiftCount', id: 'sample-1', delta: 1 })).toEqual(s0);
+  });
+});
+
+describe('첫 사용 안내 (B-6)', () => {
+  const mine = newItemFromCatalog(findCatalog('감자')!, today, 'm1');
+
+  it('처음 열면 안내 카드를 보여주고, 예시 재료에는 예시 표시가 있다', () => {
+    const s = initialState(today);
+    expect(showOnboarding(s)).toBe(true);
+    expect(s.onboarding).toEqual({ seen: false, mode: 'sample', sampleAsked: false });
+    expect(s.items.every((i) => i.sample)).toBe(true);
+  });
+
+  it('예시로 둘러볼게요: 카드만 닫고 예시 재료는 그대로', () => {
+    const s0 = initialState(today);
+    const s = reducer(s0, { type: 'onboard', mode: 'sample' });
+    expect(showOnboarding(s)).toBe(false);
+    expect(s.onboarding).toMatchObject({ seen: true, mode: 'sample' });
+    expect(s.items).toEqual(s0.items);
+  });
+
+  it('내 재료로 시작할게요: 예시 재료만 지운다 (내 재료·지난번 값은 남김)', () => {
+    const s0 = reducer(initialState(today), { type: 'addItems', items: [mine] });
+    const s = reducer(s0, { type: 'onboard', mode: 'mine' });
+    expect(showOnboarding(s)).toBe(false);
+    expect(s.onboarding).toMatchObject({ seen: true, mode: 'mine' });
+    expect(s.items).toEqual([mine]);
+    expect(s.myFoods).toEqual(s0.myFoods);
+  });
+
+  it('내 재료를 하나라도 넣으면 "예시 재료는 지울까요?"를 한 번 묻는다', () => {
+    const looked = reducer(initialState(today), { type: 'onboard', mode: 'sample' });
+    expect(showSamplePrompt(looked)).toBe(false); // 예시 재료만 있을 때는 묻지 않음
+    const added = reducer(looked, { type: 'addItems', items: [mine] });
+    expect(showSamplePrompt(added)).toBe(true);
+    // 첫 안내 카드를 아직 안 골랐으면 그 카드가 먼저
+    expect(showSamplePrompt(reducer(initialState(today), { type: 'addItems', items: [mine] }))).toBe(false);
+  });
+
+  it('지우기: 예시 재료만 지우고 다시 묻지 않는다', () => {
+    const added = reducer(reducer(initialState(today), { type: 'onboard', mode: 'sample' }), { type: 'addItems', items: [mine] });
+    const s = reducer(added, { type: 'answerSamplePrompt', remove: true });
+    expect(s.items).toEqual([mine]);
+    expect(s.onboarding.sampleAsked).toBe(true);
+    expect(showSamplePrompt(s)).toBe(false);
+  });
+
+  it('놔둘게요: 예시 재료를 두고 다시 묻지 않는다 (예시 재료로 되돌려도)', () => {
+    const added = reducer(reducer(initialState(today), { type: 'onboard', mode: 'sample' }), { type: 'addItems', items: [mine] });
+    const s = reducer(added, { type: 'answerSamplePrompt', remove: false });
+    expect(s.items).toEqual(added.items);
+    expect(showSamplePrompt(s)).toBe(false);
+    const reset = reducer(reducer(s, { type: 'reset', today }), { type: 'addItems', items: [mine] });
+    expect(showOnboarding(reset)).toBe(false);
+    expect(showSamplePrompt(reset)).toBe(false);
   });
 });
