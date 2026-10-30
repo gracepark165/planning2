@@ -72,7 +72,14 @@ export type Action =
   /** 안내 카드: 내 재료로 시작할게요(mine, 예시 재료를 지움) / 예시로 둘러볼게요(sample) */
   | { type: 'onboard'; mode: Onboarding['mode'] }
   /** "예시 재료는 지울까요?": 지우기(remove) / 놔둘게요 */
-  | { type: 'answerSamplePrompt'; remove: boolean };
+  | { type: 'answerSamplePrompt'; remove: boolean }
+  // 알림 A단계 (B-3)
+  /** "알려드릴까요?" 카드: 홈 화면에 추가하고 알림 받기(install) / 나중에(later, 다시 묻지 않음) */
+  | { type: 'answerNotifAsk'; choice: 'install' | 'later'; at: string }
+  /** 인앱 배너 닫기 (그날은 다시 안 보여줌) */
+  | { type: 'closeBanner'; today: DateKey }
+  /** 알림 시간 'HH:MM' (A단계는 저장만, B단계에서 씀) */
+  | { type: 'setNotifTime'; time: string };
 
 export const DEFAULT_MEALS_PER_WEEK = 4;
 
@@ -174,6 +181,19 @@ export const showSamplePrompt = (state: AppState) =>
   !state.onboarding.sampleAsked &&
   state.items.some((i) => i.sample) &&
   state.items.some((i) => !i.sample);
+
+/** "얼른 먹어야 할 재료가 생기면 알려드릴까요?": 첫 사용 안내 다음에 한 번만 (나중에를 고르면 다시 묻지 않음) */
+export const showNotifAsk = (state: AppState) =>
+  state.onboarding.seen && state.notif.askedAt === null && !state.notif.optedLater;
+
+/**
+ * 홈 위 인앱 배너에 보여줄 얼른 먹어야 할 재료 수. 0이면 배너를 숨긴다.
+ * 오늘 닫았으면 0, 첫 사용 안내·알림 카드가 떠 있을 때도 0 (카드가 겹치지 않게).
+ */
+export function soonBannerCount(state: AppState, today: DateKey): number {
+  if (!state.onboarding.seen || showNotifAsk(state) || state.notif.bannerClosedOn === today) return 0;
+  return state.items.filter((i) => stateOf(i, today) === 'soon').length;
+}
 
 /** 예시 재료만 지운다 (재고가 바뀌었으니 이번 주 추천은 첫 후보부터) */
 const withoutSamples = (state: AppState): AppState => ({
@@ -302,6 +322,12 @@ export function reducer(state: AppState, action: Action): AppState {
         shoppingList: cur ? state.shoppingList.map((s) => (s === cur ? hidden : s)) : [...state.shoppingList, hidden],
       };
     }
+    case 'answerNotifAsk':
+      return { ...state, notif: { ...state.notif, askedAt: action.at, optedLater: action.choice === 'later' } };
+    case 'closeBanner':
+      return { ...state, notif: { ...state.notif, bannerClosedOn: action.today } };
+    case 'setNotifTime':
+      return { ...state, notif: { ...state.notif, time: action.time } };
     case 'finishIntro':
       return { ...state, onboarding: { ...state.onboarding, introSeen: true } };
     case 'onboard': {

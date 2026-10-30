@@ -55,6 +55,14 @@ interface Props {
   onSamplePrompt: (remove: boolean) => void;
   /** 마스코트 카드 아래 오늘의 한 끼 (B-2) */
   todayCard: ReactNode;
+  /** "얼른 먹어야 할 재료가 생기면 알려드릴까요?" 카드 (B-3) */
+  notifAsk: boolean;
+  onNotifAsk: (choice: 'install' | 'later') => void;
+  /** 인앱 배너의 얼른 먹어야 할 재료 수 (0이면 숨김) */
+  bannerCount: number;
+  onCloseBanner: () => void;
+  /** 알림 설정 화면으로 */
+  onNotifySettings: () => void;
 }
 
 export function HomeView({
@@ -71,6 +79,11 @@ export function HomeView({
   samplePrompt,
   onSamplePrompt,
   todayCard,
+  notifAsk,
+  onNotifAsk,
+  bannerCount,
+  onCloseBanner,
+  onNotifySettings,
 }: Props) {
   const [loc, setLoc] = useState<LocFilter>('전체');
   const [filter, setFilter] = useState<StateFilter>('전체');
@@ -133,6 +146,27 @@ export function HomeView({
           </button>
           <button className="cta ghost" onClick={() => onOnboard('sample')}>
             예시로 둘러볼게요
+          </button>
+        </div>
+      )}
+      {notifAsk && (
+        <div className="card blue onboard">
+          <h3>얼른 먹어야 할 재료가 생기면 알려드릴까요?</h3>
+          <button className="cta" onClick={() => onNotifAsk('install')}>
+            홈 화면에 추가하고 알림 받기
+          </button>
+          <button className="cta ghost" onClick={() => onNotifAsk('later')}>
+            나중에
+          </button>
+        </div>
+      )}
+      {bannerCount > 0 && (
+        <div className="banner" role="status">
+          <button className="banner-text" onClick={() => setFilter('soon')}>
+            {STATE_META.soon.icon} 얼른 먹어야 할 재료 {bannerCount}개가 있어요
+          </button>
+          <button className="banner-x" aria-label="배너 닫기" onClick={onCloseBanner}>
+            ✕
           </button>
         </div>
       )}
@@ -249,6 +283,9 @@ export function HomeView({
         )}
         <button className="note" style={{ textDecoration: 'underline', marginTop: 4 }} onClick={onReset}>
           예시 재료로 되돌리기
+        </button>
+        <button className="note" style={{ textDecoration: 'underline', marginTop: 4 }} onClick={onNotifySettings}>
+          알림 설정
         </button>
       </div>
       {/* 맨 아래까지 스크롤하면 마지막 줄이 + 버튼·하단 탭에 가리지 않게 */}

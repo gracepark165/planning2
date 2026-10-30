@@ -11,13 +11,16 @@ import {
   newItemFromPick,
   reducer,
   showIntro,
+  showNotifAsk,
   showOnboarding,
   showSamplePrompt,
+  soonBannerCount,
   type AddPick,
 } from '../state/store';
 import { AddView } from './AddView';
 import { DiscardSheet } from './DiscardSheet';
 import { HomeView } from './HomeView';
+import { NotifyView } from './NotifyView';
 import { ItemSheet } from './ItemSheet';
 import { OpeningView } from './OpeningView';
 import { OrderView } from './OrderView';
@@ -27,7 +30,7 @@ import { VideoView } from './VideoView';
 import { TabBar, type TabKey } from './TabBar';
 import { newId } from './id';
 
-type Screen = TabKey | 'add';
+type Screen = TabKey | 'add' | 'notify';
 
 interface Toast {
   msg: string;
@@ -59,7 +62,7 @@ export function App() {
   }, []);
 
   const go = (s: Screen) => {
-    if (s === 'add') setPrevScreen(screen);
+    if (s === 'add' || s === 'notify') setPrevScreen(screen);
     setScreen(s);
     setSheetId(null);
     window.scrollTo(0, 0);
@@ -159,6 +162,15 @@ export function App() {
             showToast('예시 재료를 비웠어요. 장 본 재료를 올려 주세요');
           }
         }}
+        notifAsk={showNotifAsk(state)}
+        onNotifAsk={(choice) => {
+          dispatch({ type: 'answerNotifAsk', choice, at: new Date().toISOString() });
+          if (choice === 'install') go('notify');
+          else showToast('알겠어요. 알림 설정은 홈 맨 아래에서 언제든 열 수 있어요');
+        }}
+        bannerCount={soonBannerCount(state, today)}
+        onCloseBanner={() => dispatch({ type: 'closeBanner', today })}
+        onNotifySettings={() => go('notify')}
         samplePrompt={showSamplePrompt(state)}
         onSamplePrompt={(remove) => {
           dispatch({ type: 'answerSamplePrompt', remove });
@@ -199,6 +211,17 @@ export function App() {
         }}
       />
     );
+  } else if (screen === 'notify') {
+    view = (
+      <NotifyView
+        time={state.notif.time}
+        onTime={(time) => {
+          dispatch({ type: 'setNotifTime', time });
+          showToast('알림 시간을 저장했어요');
+        }}
+        onBack={() => go(prevScreen)}
+      />
+    );
   } else if (screen === 'add') {
     view = <AddView items={state.items} onBack={() => go(prevScreen)} onAdd={addFromPicks} />;
   }
@@ -228,7 +251,7 @@ export function App() {
           />
         </div>
       </div>
-      <TabBar active={screen === 'add' ? 'home' : screen} onChange={go} />
+      <TabBar active={screen === 'add' || screen === 'notify' ? 'home' : screen} onChange={go} />
       {sheetItem && (
         <ItemSheet
           item={sheetItem}

@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { findCatalog } from '../data';
+import { addDays } from '../rules/date';
 import { loadState, saveState, STORAGE_KEY } from './persist';
 import { discardLabel } from '../rules/logs';
 import { DISCARD_REASONS } from '../rules/constants';
-import { initialState, newItemFromCatalog, reducer, showIntro, showOnboarding, showSamplePrompt } from './store';
+import {
+  initialState,
+  newItemFromCatalog,
+  reducer,
+  showIntro,
+  showNotifAsk,
+  showOnboarding,
+  showSamplePrompt,
+  soonBannerCount,
+} from './store';
 
 const today = '2026-10-27';
 
@@ -387,5 +397,52 @@ describe('폐기 이유 (B-4)', () => {
     const s = reducer(discarded(), { type: 'setDiscardReason', itemId: 'sample-3', at: 'T1', reason: '깜빡했어요' });
     saveState(s, st);
     expect(loadState(st)!.logs[0].discardReason).toBe('깜빡했어요');
+  });
+});
+
+describe('알림 A단계 (B-3)', () => {
+  const onboarded = () => reducer(reducer(initialState(today), { type: 'finishIntro' }), { type: 'onboard', mode: 'sample' });
+
+  it('"알려드릴까요?"는 첫 사용 안내 다음에 한 번', () => {
+    expect(showNotifAsk(initialState(today))).toBe(false); // 첫 사용 안내가 먼저
+    expect(showNotifAsk(onboarded())).toBe(true);
+  });
+
+  it('나중에: 다시 묻지 않는다 (새로고침해도)', () => {
+    const s = reducer(onboarded(), { type: 'answerNotifAsk', choice: 'later', at: 'T' });
+    expect(s.notif).toMatchObject({ askedAt: 'T', optedLater: true });
+    expect(showNotifAsk(s)).toBe(false);
+    const m = new Map<string, string>();
+    const st = { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) } as Storage;
+    saveState(s, st);
+    expect(showNotifAsk(loadState(st)!)).toBe(false);
+  });
+
+  it('홈 화면에 추가하고 알림 받기: 물은 것으로 기록 (나중에 아님)', () => {
+    const s = reducer(onboarded(), { type: 'answerNotifAsk', choice: 'install', at: 'T' });
+    expect(s.notif).toMatchObject({ askedAt: 'T', optedLater: false });
+    expect(showNotifAsk(s)).toBe(false);
+  });
+
+  it('배너: 얼른 먹어야 할 재료가 1개 이상일 때만, 닫으면 그날은 다시 안 나온다', () => {
+    const s = reducer(onboarded(), { type: 'answerNotifAsk', choice: 'later', at: 'T' });
+    expect(soonBannerCount(s, today)).toBe(4); // 닭안심, 소고기 불고기용, 오이, 우유
+    const closed = reducer(s, { type: 'closeBanner', today });
+    expect(closed.notif.bannerClosedOn).toBe(today);
+    expect(soonBannerCount(closed, today)).toBe(0);
+    // 다음 날 다시 (그날 기준 얼른 먹어야 할 재료가 있으면)
+    expect(soonBannerCount(closed, addDays(today, 1))).toBeGreaterThan(0);
+    // 얼른 먹어야 할 재료가 없으면 안 나온다
+    expect(soonBannerCount({ ...s, items: s.items.filter((i) => i.name === '카레가루') }, today)).toBe(0);
+  });
+
+  it('배너는 첫 사용 안내·알림 카드가 떠 있을 때는 기다린다', () => {
+    expect(soonBannerCount(initialState(today), today)).toBe(0);
+    expect(soonBannerCount(onboarded(), today)).toBe(0);
+  });
+
+  it('알림 시간: 기본 오후 6시, 고르면 저장 (A단계는 저장만)', () => {
+    expect(initialState(today).notif.time).toBe('18:00');
+    expect(reducer(initialState(today), { type: 'setNotifTime', time: '20:00' }).notif.time).toBe('20:00');
   });
 });
