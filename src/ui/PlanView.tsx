@@ -32,6 +32,8 @@ interface Props {
   result: PlanResult & { slots: AiSlot[] };
   /** AI에게 맡겼는데 아직 메뉴가 없는 칸의 상태 (불러오는 중·폴백) */
   aiStates: Map<number, AiSlotState>;
+  /** AI 칸을 바꾸는 중이면 그 칸 번호 (실제 AI는 10초쯤 걸림) */
+  aiSwapping: number | null;
   /** 폴백 칸에 보여줄 먼저 쓸 재료 */
   mustUseFirst: string[];
   /** 폴백: 영상 확인 탭으로 */
@@ -59,6 +61,7 @@ export function PlanView({
   plan,
   result,
   aiStates,
+  aiSwapping,
   mustUseFirst,
   onFindByVideo,
   today,
@@ -198,6 +201,9 @@ export function PlanView({
                       </span>
                     ))}
                 </div>
+                {aiSwapping === slot.index ? (
+                  <div className="ai-skeleton">다른 메뉴를 찾고 있어요</div>
+                ) : (
                 <div className="meal-acts">
                   <button className="small-btn main" onClick={() => onConfirm(slot.recipe!)}>
                     이걸로 할게요
@@ -217,6 +223,7 @@ export function PlanView({
                     건너뛰기
                   </button>
                 </div>
+                )}
               </div>
             </div>
           ) : aiStates.get(slot.index) === 'loading' ? (

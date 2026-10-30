@@ -80,4 +80,21 @@ describe('메뉴 요청 순서', () => {
     expect(calls[0].excludeMenus).toEqual(expect.arrayContaining(['두부 애호박 볶음', '우유 계란찜']));
     expect(out.entry?.menus.map((m) => m.name)).toEqual(['두부부침', '우유 계란찜']);
   });
+
+  it('바꾸기: 다른 AI 칸이 이미 쓰는 재료는 보내지 않는다 (배포에서 방울토마토를 또 써서 버려졌음)', async () => {
+    const entry = { menus: [menu(1, '두부 애호박 볶음', ['두부', '애호박']), menu(2, '토마토 스크램블', ['방울토마토', '우유'])], failed: [3] };
+    const calls: MenuRequest[] = [];
+    const call = async (r: MenuRequest) => {
+      calls.push(r);
+      return { ok: true as const, data: { menus: [menu(2, '우유 계란찜', ['우유'])] } };
+    };
+    const out = await swapMenu(entry, 2, req, result, items, SUBSTITUTES, call, gate());
+    const sent = calls[0].stock.map((s) => s.name);
+    expect(sent).not.toContain('두부');
+    expect(sent).not.toContain('애호박');
+    // 바꾸는 칸이 쓰던 재료는 다시 쓸 수 있다
+    expect(sent).toEqual(expect.arrayContaining(['방울토마토', '우유']));
+    expect(calls[0].mustUseFirst).not.toContain('두부');
+    expect(out.entry?.menus.map((m) => m.name)).toEqual(['두부 애호박 볶음', '우유 계란찜']);
+  });
 });

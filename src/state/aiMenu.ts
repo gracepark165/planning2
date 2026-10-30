@@ -134,7 +134,18 @@ export async function swapMenu(
   const current = entry.menus.find((m) => m.slotIndex === slotIndex);
   const others = entry.menus.filter((m) => m.slotIndex !== slotIndex);
   const slot = req.slots.filter((s) => s.index === slotIndex);
-  const res = await call({ ...req, slots: slot, excludeMenus: [...req.excludeMenus, ...entry.menus.map((m) => m.name)] });
+  // 다른 AI 칸이 이미 쓰는 재료는 빼고 보낸다 (안 빼면 같은 재료를 또 써서 검사에서 버려진다)
+  const used = new Map<string, number>();
+  for (const m of others) for (const u of m.uses) used.set(u, (used.get(u) ?? 0) + 1);
+  const avail = new Map(result.leftover.map((e) => [e.item.name, e.count]));
+  const stock = req.stock.filter((s) => (avail.get(s.name) ?? 0) - (used.get(s.name) ?? 0) > 0);
+  const res = await call({
+    ...req,
+    slots: slot,
+    stock,
+    mustUseFirst: req.mustUseFirst.filter((n) => stock.some((s) => s.name === n)),
+    excludeMenus: [...req.excludeMenus, ...entry.menus.map((m) => m.name)],
+  });
   if (!res.ok) return { reason: 'error' };
   const fresh = (Array.isArray(res.data?.menus) ? res.data.menus : []).filter((m) => m?.slotIndex === slotIndex);
   const check = checkMenus(
@@ -162,6 +173,8 @@ export interface AiMenus {
   mustUseFirst: string[];
   /** AI 칸 바꾸기 (그 칸만 다시). 못 바꾸면 false */
   swap: (slotIndex: number) => Promise<boolean>;
+  /** 바꾸는 중인 칸 (실제 AI는 10초쯤 걸려서 화면에 표시) */
+  swapping: number | null;
 }
 
 export function useAiMenus(
@@ -178,6 +191,7 @@ export function useAiMenus(
   const [entry, setEntry] = useState<MenuEntry | null>(() => (key ? readCache()[key] ?? null : null));
   const [reason, setReason] = useState<'limit' | 'error' | null>(null);
   const [loading, setLoading] = useState(false);
+  const [swapping, setSwapping] = useState<number | null>(null);
   // 비동기로 늦게 온 결과가 다른 이름표의 결과를 덮지 않게
   const live = useRef({ key, req, base, items });
   live.current = { key, req, base, items };
@@ -215,7 +229,8 @@ export function useAiMenus(
     async (slotIndex: number) => {
       const { key: k, req: r, base: b, items: its } = live.current;
       if (!k || !r || !entry) return false;
-      const out = await swapMenu(entry, slotIndex, r, b, its, table, call, deviceQuota(today));
+      setSwapping(slotIndex);
+      const out = await swapMenu(entry, slotIndex, r, b, its, table, call, deviceQuota(today)).finally(() => setSwapping(null));
       if (live.current.key !== k) return false;
       if (out.entry) {
         writeCache(k, out.entry);
@@ -239,5 +254,5 @@ export function useAiMenus(
     return m;
   }, [targets, accepted, loading, reason]);
 
-  return { result, states, mustUseFirst: targets?.mustUseFirst ?? [], swap };
+  return { result, states, mustUseFirst: targets?.mustUseFirst ?? [], swap, swapping };
 }

@@ -244,6 +244,7 @@ export function App() {
         plan={state.plan}
         result={planResult}
         aiStates={ai.states}
+        aiSwapping={ai.swapping}
         mustUseFirst={ai.mustUseFirst}
         onFindByVideo={() => go('video')}
         today={today}
