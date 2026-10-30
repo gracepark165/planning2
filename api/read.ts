@@ -37,8 +37,7 @@ export const INGREDIENTS_SYSTEM = `너는 요리 메뉴의 재료를 알려 주�
 3. 재료 이름만, 브랜드·양·수식어 없이 짧은 일반 이름으로 써 (예: "돼지고기", "대파").
 4. JSON만 출력해. 설명 문장은 쓰지 마.`;
 
-/** 온도: 낮게 (같은 재고면 비슷한 답이 나오게) */
-export const MENU_TEMPERATURE = 0.3;
+// 온도(temperature)는 넣지 않는다: 이 모델은 받지 않는다 (400 "temperature is deprecated for this model").
 
 export const AI_MODEL = 'claude-sonnet-5-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -240,7 +239,7 @@ type Content =
   | { type: 'text'; text: string }
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } };
 
-async function callClaude(deps: Deps, system: string, content: Content[], tool: Tool, temperature?: number): Promise<unknown> {
+async function callClaude(deps: Deps, system: string, content: Content[], tool: Tool): Promise<unknown> {
   const res = await deps.fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -251,7 +250,6 @@ async function callClaude(deps: Deps, system: string, content: Content[], tool: 
     body: JSON.stringify({
       model: AI_MODEL,
       max_tokens: 2000,
-      ...(temperature !== undefined ? { temperature } : {}),
       system,
       tools: [tool],
       // 이 모델은 도구 강제 지정(type 'tool'·'any')을 지원하지 않아서, auto로 두고 지시문으로 도구를 쓰게 한다
@@ -541,7 +539,7 @@ export async function handleRead(body: unknown, deps: Deps): Promise<{ status: n
     if (req.kind === 'menu') {
       const { kind: _, ...payload } = req;
       const data = await callShaped(
-        () => callClaude(deps, MENU_SYSTEM, [text(JSON.stringify(payload))], MENU_TOOL, MENU_TEMPERATURE),
+        () => callClaude(deps, MENU_SYSTEM, [text(JSON.stringify(payload))], MENU_TOOL),
         menuShapeOk,
       );
       return { status: 200, body: { ok: true, kind: 'menu', data } };
@@ -555,7 +553,6 @@ export async function handleRead(body: unknown, deps: Deps): Promise<{ status: n
             INGREDIENTS_SYSTEM,
             [text(JSON.stringify({ menu: req.menu, basicSeasonings: req.basicSeasonings }))],
             INGREDIENTS_TOOL,
-            MENU_TEMPERATURE,
           ),
         ingredientsShapeOk,
       );

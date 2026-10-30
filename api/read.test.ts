@@ -216,13 +216,13 @@ describe('메뉴 제안 /api/menu (V4-1b)', () => {
   };
   const menus = { menus: [{ slotIndex: 3, name: '두부 애호박 볶음', uses: ['두부'], keeps: ['계란'], buy: [], howto: '두부를 볶아요' }] };
 
-  it('요청 JSON을 그대로 보내고(재료 이름·수량·상태·남은 일수뿐), 온도는 낮게, 프롬프트는 메뉴용', async () => {
+  it('요청 JSON을 그대로 보내고(재료 이름·수량·상태·남은 일수뿐), 온도는 안 보냄(모델이 받지 않음), 프롬프트는 메뉴용', async () => {
     const { fn, calls } = fakeFetch({ [ANTHROPIC]: claudeSays('suggest_menus', menus) });
     const r = await handleRead(menuReq, deps(fn));
     expect(r).toEqual({ status: 200, body: { ok: true, kind: 'menu', data: menus } });
     expect(calls).toHaveLength(1);
     const body = calls[0].body as { temperature: number; system: string; messages: { content: { text: string }[] }[] };
-    expect(body.temperature).toBe(0.3);
+    expect(body.temperature).toBeUndefined();
     expect(body.system).toContain('1인 가구의 집밥 메뉴');
     const sent = JSON.parse(body.messages[0].content[0].text);
     expect(sent).toEqual({ ...menuReq, kind: undefined });
