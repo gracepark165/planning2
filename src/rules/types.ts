@@ -70,9 +70,12 @@ export interface Plan {
 }
 
 export interface PinnedMeal extends Recipe {
+  id: string;
   source: 'video';
   url: string;
   title: string;
+  /** "오늘 한 끼로 할게요"로 넣었으면 그날 (지나면 무시하고 다시 배치) */
+  date?: DateKey;
 }
 
 /** 장보기 목록 한 줄 */
@@ -80,6 +83,8 @@ export interface ShoppingItem {
   name: string;
   from: 'plan' | 'video';
   checked: boolean;
+  /** 플랜에서 온 재료를 ✕로 지웠으면 true (플랜이 계속 사야 할 재료로 내놓아도 숨긴다) */
+  removed?: boolean;
 }
 
 /** 첫 사용 안내 */
@@ -114,6 +119,8 @@ export interface DoneMeal {
   at: string;
   /** 확정한 날 (오늘 먹은 끼니가 있으면 플랜은 내일부터). 예전 기록에는 없음 */
   date?: DateKey;
+  /** 영상에서 넣은 고정 끼니를 확정했으면 그 끼니 (되돌리면 다시 고정 끼니로) */
+  pinned?: PinnedMeal;
 }
 
 /** 재료 사전 한 줄 */

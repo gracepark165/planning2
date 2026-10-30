@@ -56,7 +56,10 @@ export function TodayCard({ meal, items, today, onConfirm, onSwap, onUndo, onPla
       <div className="eyebrow" style={{ marginTop: 0 }}>
         오늘 저녁은 이거 어때요?
       </div>
-      <h3>{slot.recipe.name}</h3>
+      <h3>
+        {slot.recipe.name}
+        {slot.pinned && <span className="tag video">영상</span>}
+      </h3>
       <p>{reasonOf(slot.recipe, items, today)}</p>
       {slot.recipe.uses.length > 0 && (
         <div className="tags">

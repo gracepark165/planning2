@@ -7,7 +7,7 @@ import { addDays } from '../rules/date';
 import { autoExpiresAt, defaultLocation, shiftExpiry } from '../rules/expiry';
 import { findItem, portionQty } from '../rules/plan';
 import { stateOf } from '../rules/status';
-import { COUNT_MAX, COUNT_MIN } from '../rules/constants';
+import { COUNT_MAX, COUNT_MIN, MAX_MEALS_PER_WEEK } from '../rules/constants';
 import { rememberItems, type MyFoods } from './myFoods';
 import type {
   CatalogEntry,
@@ -17,6 +17,7 @@ import type {
   MealLog,
   NotifSettings,
   Onboarding,
+  PinnedMeal,
   Plan,
   Recipe,
   Remaining,
@@ -54,6 +55,15 @@ export type Action =
   | { type: 'clearRejected' }
   | { type: 'confirmMeal'; recipe: Recipe; today: DateKey; at: string }
   | { type: 'undoMeal'; at: string }
+  // 영상 확인 → 플랜·장보기 목록 (B-1)
+  /** 영상 메뉴를 고정 끼니로 넣는다. 사야 할 재료는 장보기 목록에. 빈 끼니가 없으면 집밥 횟수 +1 (최대 7) */
+  | { type: 'pinMeal'; meal: PinnedMeal; today: DateKey }
+  /** 고정 끼니 건너뛰기 = 영상 메뉴 지우기 */
+  | { type: 'removePinned'; id: string }
+  /** 장보기 목록 체크 (플랜에서 온 재료면 저장해 둔다) */
+  | { type: 'toggleShopping'; name: string }
+  /** 장보기 목록 ✕ */
+  | { type: 'removeShopping'; name: string }
   // 첫 사용 안내
   /** 오프닝 화면의 시작하기 */
   | { type: 'finishIntro' }
@@ -183,14 +193,17 @@ const updateAndRemember = (state: AppState, id: string, fn: (i: Item) => Item): 
 
 export function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
-    case 'addItems':
-      // 재고가 바뀌면 이번 주 추천을 첫 후보부터 다시 (프로토타입과 같음)
+    case 'addItems': {
+      // 재고가 바뀌면 이번 주 추천을 첫 후보부터 다시 (프로토타입과 같음). 산 재료는 장보기 목록에서 뺀다.
+      const added = new Set(action.items.map((i) => i.name));
       return {
         ...state,
         items: [...state.items, ...action.items],
         plan: { ...state.plan, swapIndex: {} },
         myFoods: rememberItems(state.myFoods, action.items),
+        shoppingList: state.shoppingList.filter((s) => !added.has(s.name)),
       };
+    }
     case 'shiftExpiry':
       return updateAndRemember(state, action.id, (i) => shiftExpiry(i, action.delta));
     case 'setRemaining':
@@ -239,6 +252,48 @@ export function reducer(state: AppState, action: Action): AppState {
       return confirmMeal(state, action.recipe, action.today, action.at);
     case 'undoMeal':
       return undoMeal(state, action.at);
+    case 'pinMeal': {
+      const { plan } = state;
+      const open = plan.mealsPerWeek - plan.doneMeals.length - plan.pinned.length;
+      const mealsPerWeek = open > 0 ? plan.mealsPerWeek : Math.min(MAX_MEALS_PER_WEEK, plan.mealsPerWeek + 1);
+      const listed = new Set(state.shoppingList.map((s) => s.name));
+      const newBuy = action.meal.buy.filter((n) => !listed.has(n));
+      return {
+        ...state,
+        plan: { ...plan, mealsPerWeek, pinned: [...plan.pinned, action.meal], swapIndex: {} },
+        // 이미 목록에 있던 재료(지웠던 플랜 재료 포함)는 영상 재료로 다시 보이게
+        shoppingList: [
+          ...state.shoppingList.map((s) =>
+            action.meal.buy.includes(s.name) ? { name: s.name, from: 'video' as const, checked: s.checked } : s,
+          ),
+          ...newBuy.map((name) => ({ name, from: 'video' as const, checked: false })),
+        ],
+      };
+    }
+    case 'removePinned':
+      return {
+        ...state,
+        plan: { ...state.plan, pinned: state.plan.pinned.filter((p) => p.id !== action.id), swapIndex: {} },
+      };
+    case 'toggleShopping': {
+      const cur = state.shoppingList.find((s) => s.name === action.name);
+      return {
+        ...state,
+        shoppingList: cur
+          ? state.shoppingList.map((s) => (s === cur ? { ...s, checked: !s.checked } : s))
+          : [...state.shoppingList, { name: action.name, from: 'plan', checked: true }],
+      };
+    }
+    case 'removeShopping': {
+      const cur = state.shoppingList.find((s) => s.name === action.name);
+      // 영상에서 담은 재료는 지우고, 플랜에서 온 재료는 다시 나오지 않게 숨김 표시
+      if (cur?.from === 'video') return { ...state, shoppingList: state.shoppingList.filter((s) => s !== cur) };
+      const hidden = { name: action.name, from: 'plan' as const, checked: false, removed: true };
+      return {
+        ...state,
+        shoppingList: cur ? state.shoppingList.map((s) => (s === cur ? hidden : s)) : [...state.shoppingList, hidden],
+      };
+    }
     case 'finishIntro':
       return { ...state, onboarding: { ...state.onboarding, introSeen: true } };
     case 'onboard': {
@@ -271,8 +326,14 @@ function confirmMeal(state: AppState, recipe: Recipe, today: DateKey, at: string
         : items.filter((i) => i.id !== it.id);
     logs.push(logOf(it, 'eat', today, at));
   }
-  const doneMeals = [...state.plan.doneMeals, { recipe: recipe.name, usedItems, soonUsed, at, date: today }];
-  return { ...state, items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };
+  // 영상에서 넣은 고정 끼니를 확정하면 고정 끼니에서 빼고, 되돌릴 수 있게 같이 기록한다
+  const pinned = state.plan.pinned.find((p) => p.id === (recipe as Partial<PinnedMeal>).id);
+  const doneMeals = [
+    ...state.plan.doneMeals,
+    { recipe: recipe.name, usedItems, soonUsed, at, date: today, ...(pinned ? { pinned } : {}) },
+  ];
+  const pins = pinned ? state.plan.pinned.filter((p) => p !== pinned) : state.plan.pinned;
+  return { ...state, items, logs, plan: { ...state.plan, doneMeals, pinned: pins, swapIndex: {} } };
 }
 
 /** 확정 되돌리기(확정 시각으로 찾음): 뺀 재료를 다시 넣고 그때 남긴 기록을 지운다. 이미 되돌렸으면 무시. */
@@ -289,5 +350,6 @@ function undoMeal(state: AppState, at: string): AppState {
   const usedIds = new Set(done.usedItems.map((i) => i.id));
   const logs = state.logs.filter((l) => !(l.at === done.at && l.action === 'eat' && usedIds.has(l.itemId)));
   const doneMeals = state.plan.doneMeals.filter((d) => d !== done);
-  return { ...state, items, logs, plan: { ...state.plan, doneMeals, swapIndex: {} } };
+  const pinned = done.pinned ? [...state.plan.pinned, done.pinned] : state.plan.pinned;
+  return { ...state, items, logs, plan: { ...state.plan, doneMeals, pinned, swapIndex: {} } };
 }

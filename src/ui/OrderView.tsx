@@ -25,16 +25,18 @@ interface Props {
   myFoods: MyFoods;
   onAdd: (items: Item[]) => void;
   onPickCatalog: () => void;
+  /** 글 입력칸에 미리 채울 글 (장보기 목록의 "샀어요 → 냉장고에 넣기") */
+  initialText?: string;
 }
 
 const PLACEHOLDER = '예) 닭가슴살 세봉지 소분, 우유 2개\n대파 소분 한봉지';
 
-export function OrderView({ today, myFoods, onAdd, onPickCatalog }: Props) {
+export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = '' }: Props) {
   /** 재료 사전 → 지난번 값 순으로 찾는다 */
   const lookup = useMemo(() => withMyFoods(findCatalog, myFoods), [myFoods]);
   const myNames = useMemo(() => Object.values(myFoods).map((m) => m.name), [myFoods]);
   const [step, setStep] = useState<Step>('start');
-  const [text, setText] = useState('');
+  const [text, setText] = useState(initialText);
   const [rows, setRows] = useState<DraftRow[]>([]);
   const [retailer, setRetailer] = useState(RETAILERS[0].name);
   const [thumb, setThumb] = useState<string | null>(null);

@@ -4,6 +4,8 @@
 //   1) 급한 재료 먼저: 얼른 먹어야 할 재료(오늘 내일 해요)를 쓰는 후보가 있는 동안, 오늘부터 하루씩 채운다
 //   2) 남은 끼니는 남은 날에 고르게: 날짜 = 시작일 + floor(j*남은날/남은끼니)
 //   (오늘 이미 먹은 끼니가 있으면 내일부터. 급한 재료가 없으면 예전과 같이 floor(i*7/N))
+// - 영상에서 넣은 고정 끼니(plan.pinned)는 먼저 놓는다: 쓰는 재료 중 가장 급한 것의 기한 안에서 가장 빠른 빈 날
+//   ("오늘 한 끼로" 넣은 것은 오늘). 바꾸기 없이 그대로 두고, 나머지 끼니는 남은 날에 위 규칙대로
 // - 후보: 필요한 재료(쓰는 것+상비)가 모두 (시뮬레이션) 재고에 있고, 쓰는 재료의 남은 일수 ≥ 그날, 건너뛴 레시피 제외
 // - 정렬: 쓰는 재료 중 가장 급한 것(남은 일수 최소) → 얼른 먹어야 할 재료를 많이 쓰는 순(가점)
 //   → 급함 점수 합 높은 순. 쓰는 재료가 없는 레시피는 맨 뒤
@@ -15,7 +17,7 @@ import { MAX_MEALS_PER_WEEK } from './constants';
 import { addDays } from './date';
 import { iga } from './josa';
 import { daysLeft, daysSinceEntered, stateOf, urgencyOf } from './status';
-import type { DateKey, DoneMeal, Item, Plan, Recipe } from './types';
+import type { DateKey, DoneMeal, Item, PinnedMeal, Plan, Recipe } from './types';
 
 export interface PlanSlot {
   /** 끼니 순번 (확정한 끼니 포함, 0부터) */
@@ -26,6 +28,8 @@ export interface PlanSlot {
   recipe: Recipe | null;
   /** 이 끼니의 후보 수 ("바꾸기"는 2개 이상일 때만) */
   candidateCount: number;
+  /** 영상에서 넣은 고정 끼니 (바꾸기 없음, 건너뛰기 = 지우기) */
+  pinned?: PinnedMeal;
 }
 
 export interface PlanResult {
@@ -89,36 +93,96 @@ export function makePlan(items: readonly Item[], recipes: readonly Recipe[], pla
   };
 
   const slots: PlanSlot[] = [];
+  const used = new Set<number>(); // 끼니가 놓인 날
   const place = (i: number, d: number, list: ReturnType<typeof candidatesFor>) => {
     const pick = list.length ? list[(plan.swapIndex[i] ?? 0) % list.length] : undefined;
     if (pick) {
       picked.add(pick.r.name);
       for (const u of pick.r.uses) sim.get(u)!.count -= 1;
     }
+    used.add(d);
     slots.push({ index: i, dayOffset: d, date: addDays(today, d), recipe: pick?.r ?? null, candidateCount: list.length });
+  };
+  /** from부터 to까지(포함) 비어 있는 가장 빠른 날 */
+  const freeDay = (from: number, to = WEEK_DAYS - 1) => {
+    for (let d = Math.max(from, 0); d <= Math.min(to, WEEK_DAYS - 1); d++) if (!used.has(d)) return d;
+    return undefined;
   };
 
   let i = plan.doneMeals.length;
-  // 오늘 이미 먹은 끼니가 있으면 내일부터
-  let day = plan.doneMeals.some((m) => m.date === today) ? 1 : 0;
+  // 오늘 이미 먹은 끼니가 있으면 오늘은 찬 날
+  if (plan.doneMeals.some((m) => m.date === today)) used.add(0);
 
-  // 1) 급한 재료 먼저: 얼른 먹어야 할 재료를 쓰는 후보가 그날 있으면 가장 빠른 날에
-  for (; i < n && day < WEEK_DAYS; i++, day++) {
-    const list = candidatesFor(day);
-    if (!list.some((c) => c.soon > 0)) break;
-    place(i, day, list);
+  // 영상에서 넣은 고정 끼니: 쓰는 재료는 먼저 따로 떼어 둔다 (다른 끼니가 쓰지 않게)
+  const lastDay = WEEK_DAYS - 1;
+  const deadline = (p: PinnedMeal) => {
+    const lefts = p.uses.filter(has).map(left);
+    return lefts.length ? Math.min(...lefts) : lastDay;
+  };
+  /** 고정 끼니의 급함: 얼른 먹어야 할 재료를 쓰면 그 남은 일수, 아니면 Infinity */
+  const pinUrgency = (p: PinnedMeal) => {
+    const lefts = p.uses.filter((u) => has(u) && isSoon(u)).map(left);
+    return lefts.length ? Math.min(...lefts) : Infinity;
+  };
+  const urgencyOfPin = new Map(plan.pinned.map((p) => [p, pinUrgency(p)]));
+  const deadlineOf = new Map(plan.pinned.map((p) => [p, deadline(p)]));
+  for (const p of plan.pinned) {
+    picked.add(p.name);
+    for (const u of p.uses) if (has(u)) sim.get(u)!.count -= 1;
+  }
+  const placePin = (p: PinnedMeal, d: number) => {
+    used.add(d);
+    slots.push({ index: i++, dayOffset: d, date: addDays(today, d), recipe: p, candidateCount: 1, pinned: p });
+  };
+  let regular = Math.max(0, n - i - plan.pinned.length); // 고정 끼니를 뺀 보통 끼니 수
+
+  // 0) "오늘 한 끼로" 넣은 영상 메뉴는 오늘 (오늘이 비어 있을 때)
+  const pending = plan.pinned.filter((p) => {
+    if (p.date !== today || used.has(0)) return true;
+    placePin(p, 0);
+    return false;
+  });
+  pending.sort((a, b) => urgencyOfPin.get(a)! - urgencyOfPin.get(b)! || deadlineOf.get(a)! - deadlineOf.get(b)!);
+
+  // 1) 급한 재료 먼저: 얼른 먹어야 할 재료를 쓰는 끼니를 가장 빠른 빈 날부터.
+  //    영상 메뉴도 얼른 먹어야 할 재료를 쓰면 같이 겨룬다 (남은 일수가 같으면 영상 메뉴 먼저)
+  let day = 0;
+  for (;;) {
+    const d = freeDay(day);
+    if (d === undefined) break;
+    const pin = pending[0] && urgencyOfPin.get(pending[0])! < Infinity ? pending[0] : undefined;
+    const list = regular > 0 ? candidatesFor(d) : [];
+    const reg = list.some((c) => c.soon > 0) ? Math.min(...list.filter((c) => c.soon > 0).map((c) => c.minLeft)) : Infinity;
+    if (pin && urgencyOfPin.get(pin)! <= reg) {
+      pending.shift();
+      placePin(pin, d);
+    } else if (reg < Infinity) {
+      place(i++, d, list);
+      regular--;
+    } else break;
+    day = d + 1;
   }
 
-  // 2) 남은 끼니는 남은 날에 고르게
-  const rest = n - i;
-  const span = WEEK_DAYS - day;
-  for (let j = 0; j < rest; j++, i++) {
-    const d = day + Math.floor((j * span) / rest);
-    place(i, d, candidatesFor(d));
+  // 2) 남은 영상 메뉴: 자기 재료의 기한 안에서 가장 빠른 빈 날 (없으면 가장 빠른 빈 날)
+  for (const p of pending) placePin(p, freeDay(0, deadlineOf.get(p)) ?? freeDay(0) ?? lastDay);
+
+  // 3) 남은 끼니는 남은 빈 날에 고르게
+  const free = Array.from({ length: WEEK_DAYS }, (_, d) => d).filter((d) => d >= day && !used.has(d));
+  const rest = Math.min(regular, free.length); // 하루에 한 끼
+  for (let j = 0; j < rest; j++) {
+    const d = free[Math.floor((j * free.length) / rest)];
+    place(i++, d, candidatesFor(d));
   }
+  slots.sort((a, b) => a.dayOffset - b.dayOffset);
 
   const leftover = [...sim.values()].filter((e) => e.count > 0);
   return { slots, leftover };
+}
+
+/** 레시피 표에서 상비 재료로만 쓰는 재료 (양파·버터·카레가루 …). 영상 메뉴에서도 이 재료는 빼지 않는다. */
+export function pantryNames(recipes: readonly Recipe[]): Set<string> {
+  const uses = new Set(recipes.flatMap((r) => r.uses));
+  return new Set(recipes.flatMap((r) => r.keeps).filter((k) => !uses.has(k)));
 }
 
 /** 플랜이 쓰지 못하고 남는 얼른 먹어야 할 재료 이름 (중복 없이, 급한 순) */

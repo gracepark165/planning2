@@ -2,8 +2,8 @@ import { type ReactNode, useCallback, useEffect, useReducer, useRef, useState } 
 import { PLAN_RECIPES, findCatalog } from '../data';
 import { todayKey } from '../rules/date';
 import { makePlan, todayMeal } from '../rules/plan';
-import { eul, eun, withJosa } from '../rules/josa';
-import type { Recipe } from '../rules/types';
+import { eul, eun, ro, withJosa } from '../rules/josa';
+import type { PinnedMeal, Recipe } from '../rules/types';
 import { loadState, saveState } from '../state/persist';
 import { withMyFoods } from '../state/myFoods';
 import {
@@ -42,6 +42,8 @@ export function App() {
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   const [orderRound, setOrderRound] = useState(0);
+  /** 장보기 올리기 글 입력칸에 미리 채울 글 (장보기 목록에서 산 재료) */
+  const [orderText, setOrderText] = useState('');
   const toastTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => saveState(state), [state]);
@@ -90,6 +92,19 @@ export function App() {
     if (name) undoMeal(name, at);
   };
   const swap = (slotIndex: number) => dispatch({ type: 'swap', slotIndex });
+
+  /** 영상 확인 결과 → 이번 주 플랜(고정 끼니) / 오늘 한 끼 */
+  const pinMeal = (meal: PinnedMeal, mode: 'week' | 'today') => {
+    dispatch({ type: 'pinMeal', meal, today });
+    const extra = meal.buy.length ? ` 사야 할 재료 ${meal.buy.length}개는 장보기 목록에 담았어요` : '';
+    if (mode === 'today') {
+      go('home');
+      showToast(`오늘 한 끼를 ${meal.name}${ro(meal.name)} 정했어요.${extra}`);
+    } else {
+      go('plan');
+      showToast(`${meal.name}${eul(meal.name)} 이번 주 플랜에 넣었어요.${extra}`);
+    }
+  };
 
   const sheetItem = state.items.find((i) => i.id === sheetId);
   const closeSheet = useCallback(() => setSheetId(null), []);
@@ -160,6 +175,20 @@ export function App() {
         onClearRejected={() => dispatch({ type: 'clearRejected' })}
         onConfirm={confirmMeal}
         onUndo={undoAt}
+        onRemovePinned={(id) => {
+          const name = state.plan.pinned.find((p) => p.id === id)?.name;
+          dispatch({ type: 'removePinned', id });
+          if (name) showToast(`영상 메뉴 ${withJosa(name, eul)} 뺐어요`);
+        }}
+        shoppingList={state.shoppingList}
+        onToggleShop={(name) => dispatch({ type: 'toggleShopping', name })}
+        onRemoveShop={(name) => dispatch({ type: 'removeShopping', name })}
+        onBought={(names) => {
+          // 바로 읽지 않고, 글 입력칸에 채워서 장보기 올리기로
+          setOrderText(names.join('\n'));
+          setOrderRound((n) => n + 1);
+          go('order');
+        }}
       />
     );
   } else if (screen === 'add') {
@@ -172,17 +201,19 @@ export function App() {
         {view}
         {/* 영상 확인·장보기 올리기는 진행 중인 단계를 기억하도록 다른 탭에 가도 화면을 숨기기만 한다 */}
         <div hidden={screen !== 'video'}>
-          <VideoView items={state.items} today={today} />
+          <VideoView items={state.items} today={today} onPin={pinMeal} />
         </div>
         <div hidden={screen !== 'order'}>
           <OrderView
             key={orderRound}
+            initialText={orderText}
             today={today}
             myFoods={state.myFoods}
             onPickCatalog={() => go('add')}
             onAdd={(items) => {
               dispatch({ type: 'addItems', items });
               setOrderRound((n) => n + 1); // 넣고 나면 다음에는 처음 화면부터
+              setOrderText('');
               go('plan');
               showToast('냉장고에 넣었어요. 이번 주 먹을 순서예요');
             }}

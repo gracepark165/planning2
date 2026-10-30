@@ -5,11 +5,26 @@ import { useEffect, useRef, useState } from 'react';
 import { youtubeIdOf } from '../../api/read';
 import { AI_FAILURE_TEXT, readVideo } from '../ai/client';
 import { videoMenusOf, type VideoMenu } from '../ai/convert';
-import { SUBSTITUTES, VIDEO_EXAMPLES } from '../data';
+import { PLAN_RECIPES, SUBSTITUTES, VIDEO_EXAMPLES } from '../data';
+import { ro } from '../rules/josa';
+import { pantryNames } from '../rules/plan';
 import { dDayLabel, daysLeft, stateOf } from '../rules/status';
-import type { DateKey, Item } from '../rules/types';
-import { checkIngredients, splitManualIngredients, subQuestion, subReason, videoHeadline } from '../rules/videoCheck';
+import type { DateKey, Item, PinnedMeal } from '../rules/types';
+import {
+  checkIngredients,
+  splitManualIngredients,
+  subQuestion,
+  subReason,
+  videoHeadline,
+  videoMealOf,
+  type VideoChoices,
+} from '../rules/videoCheck';
+import { newId } from './id';
 import { BackButton, StateBadge, Tile } from './parts';
+
+/** 영상 메뉴에서 빼지 않는 상비 재료 (레시피 표에서 상비 재료로만 쓰는 재료) */
+const PANTRY = pantryNames(PLAN_RECIPES);
+const NO_CHOICES: VideoChoices = { subs: {}, skipBuy: [] };
 
 interface Recipe extends VideoMenu {
   /** AI가 읽은 결과인지 (아니면 예시·직접 입력) */
@@ -21,9 +36,20 @@ interface Recipe extends VideoMenu {
 // loading = 예시 읽는 척, reading = AI가 읽는 중, pick = 메뉴가 여러 개
 type Step = 'input' | 'loading' | 'reading' | 'pick' | 'confirm' | 'result' | 'unknown' | 'manual';
 
-export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
+interface Props {
+  items: Item[];
+  today: DateKey;
+  /** 결과 화면의 "이번 주 플랜에 넣을게요"(week) / "오늘 한 끼로 할게요"(today) */
+  onPin: (meal: PinnedMeal, mode: 'week' | 'today') => void;
+}
+
+export function VideoView({ items, today, onPin }: Props) {
   const [step, setStep] = useState<Step>('input');
   const [url, setUrl] = useState('');
+  /** 확인 중인 영상 링크 (결과 화면에서는 입력칸을 비우므로 따로 기억) */
+  const [sourceUrl, setSourceUrl] = useState('');
+  /** 결과 화면에서 고른 것: 대체할지/살지, 장보기 목록에 담지 않을 재료 */
+  const [choices, setChoices] = useState<VideoChoices>(NO_CHOICES);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [manualTitle, setManualTitle] = useState('');
   const [manualIngredients, setManualIngredients] = useState('');
@@ -48,12 +74,16 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
     round.current++;
     setStep('input');
     setRecipe(null);
+    setChoices(NO_CHOICES);
+    setSourceUrl('');
     window.scrollTo(0, 0);
   };
 
   const readExample = (id: string) => {
     const v = VIDEO_EXAMPLES.find((x) => x.id === id)!;
     setUrl(v.url);
+    setSourceUrl(v.url);
+    setChoices(NO_CHOICES);
     setRecipe({ title: v.title, names: v.ingredients.map((i) => i.name), skipped: v.skipped });
     setStep('loading');
   };
@@ -74,6 +104,8 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
       return;
     }
     const my = ++round.current;
+    setSourceUrl(url.trim());
+    setChoices(NO_CHOICES);
     setStep('reading');
     const res = await readVideo(url.trim());
     if (my !== round.current) return;
@@ -213,6 +245,7 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
         return;
       }
       setManualError('');
+      setChoices(NO_CHOICES);
       setRecipe({ title: manualTitle.trim() || '직접 입력한 메뉴', names, skipped });
       setStep('result');
       window.scrollTo(0, 0);
@@ -290,6 +323,26 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
   // 결과
   const rows = checkIngredients(r.names, items, today, SUBSTITUTES);
   const nSub = rows.filter((x) => x.kind === 'sub').length;
+  const undecided = rows.filter((x) => x.kind === 'sub' && !choices.subs[x.name]).length;
+  const setSub = (name: string, c: 'sub' | 'buy') => setChoices((ch) => ({ ...ch, subs: { ...ch.subs, [name]: c } }));
+  const toggleBuy = (name: string) =>
+    setChoices((ch) => ({
+      ...ch,
+      skipBuy: ch.skipBuy.includes(name) ? ch.skipBuy.filter((n) => n !== name) : [...ch.skipBuy, name],
+    }));
+  const pin = (mode: 'week' | 'today') => {
+    const meal: PinnedMeal = {
+      id: newId(),
+      name: r.title,
+      ...videoMealOf(rows, choices, PANTRY),
+      source: 'video',
+      url: sourceUrl,
+      title: r.title,
+      ...(mode === 'today' ? { date: today } : {}),
+    };
+    onPin(meal, mode);
+    reset();
+  };
 
   return (
     <>
@@ -319,6 +372,7 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
           }
           if (x.kind === 'sub') {
             const reason = subReason(x, today);
+            const choice = choices.subs[x.name];
             return (
               <div key={x.name} className="row" style={{ display: 'block' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -328,7 +382,7 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
                   </div>
                   <span className="badge b-none">없어요</span>
                 </div>
-                <div className="sub-card">
+                <div className={`sub-card ${choice === 'sub' ? 'chosen' : ''}`}>
                   <b>{subQuestion(x.name, x.sub.name)}</b>
                   <span>{reason.text}</span>
                   {reason.state && (
@@ -337,6 +391,24 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
                     </span>
                   )}
                   {x.group.tip && <span>{x.group.tip}</span>}
+                  <div className="sub-acts">
+                    <button
+                      className={`small-btn ${choice === 'sub' ? 'on' : 'alt'}`}
+                      aria-pressed={choice === 'sub'}
+                      onClick={() => setSub(x.name, 'sub')}
+                    >
+                      {choice === 'sub' && '✓ '}
+                      {x.sub.name}
+                      {ro(x.sub.name)} 할게요
+                    </button>
+                    <button
+                      className={`small-btn ${choice === 'buy' ? 'on' : 'alt'}`}
+                      aria-pressed={choice === 'buy'}
+                      onClick={() => setSub(x.name, 'buy')}
+                    >
+                      {choice === 'buy' && '✓ '}그냥 살게요
+                    </button>
+                  </div>
                 </div>
               </div>
             );
@@ -348,7 +420,10 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
                 <div className="nm">{x.name}</div>
                 <div className="meta">냉장고에 없어요</div>
               </div>
-              <span className="badge b-none">없어요</span>
+              <label className="buy-check">
+                <input type="checkbox" checked={!choices.skipBuy.includes(x.name)} onChange={() => toggleBuy(x.name)} />
+                장보기 목록에 담기
+              </label>
             </div>
           );
         })}
@@ -357,9 +432,20 @@ export function VideoView({ items, today }: { items: Item[]; today: DateKey }) {
         {r.skipped.length > 0 ? `${r.skipped.join('·')} 같은 기본 양념은 빼고 확인했어요. ` : '기본 양념은 빼고 확인했어요. '}
         양은 비교하지 않아요. 대체는 같은 종류 재료끼리만 제안해요. 맛이나 식감, 알레르기는 직접 판단해 주세요.
       </p>
-      <button className="cta ghost" onClick={reset}>
-        다른 영상 확인하기
-      </button>
+      <div className="video-actions">
+        {undecided > 0 && <p className="note">대체할지 고르지 않은 재료 {undecided}개는 장보기 목록에 담아요.</p>}
+        <button className="cta" onClick={() => pin('week')}>
+          이번 주 플랜에 넣을게요
+        </button>
+        <div className="ctas">
+          <button className="cta ghost" onClick={() => pin('today')}>
+            오늘 한 끼로 할게요
+          </button>
+          <button className="cta ghost" onClick={reset}>
+            다른 영상 확인하기
+          </button>
+        </div>
+      </div>
     </>
   );
 }

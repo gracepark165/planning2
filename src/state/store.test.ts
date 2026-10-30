@@ -296,3 +296,58 @@ describe('오프닝 화면', () => {
     expect(showIntro(s)).toBe(false);
   });
 });
+
+describe('영상 메뉴 → 플랜·장보기 목록 (B-1)', () => {
+  const curry = { id: 'v1', name: '버터크림치킨카레', uses: ['닭안심', '우유'], keeps: ['카레가루', '양파', '버터'], buy: [],
+    source: 'video' as const, url: 'u', title: '버터크림치킨카레' };
+  const jeyuk = { ...curry, id: 'v2', name: '제육볶음', uses: ['삼겹살', '대파'], keeps: ['양파'], buy: ['고추장'] };
+
+  it('이번 주 플랜에 넣기: 고정 끼니로, 사야 할 재료는 장보기 목록에 (영상)', () => {
+    const s = reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, today });
+    expect(s.plan.pinned).toEqual([jeyuk]);
+    expect(s.plan.mealsPerWeek).toBe(4);
+    expect(s.shoppingList).toEqual([{ name: '고추장', from: 'video', checked: false }]);
+  });
+
+  it('빈 끼니가 없으면 집밥 횟수 +1 (최대 7)', () => {
+    let s = { ...initialState(today), plan: { ...initialState(today).plan, mealsPerWeek: 2 } };
+    s = reducer(s, { type: 'pinMeal', meal: curry, today });
+    s = reducer(s, { type: 'pinMeal', meal: jeyuk, today });
+    expect(s.plan.mealsPerWeek).toBe(2);
+    s = reducer(s, { type: 'pinMeal', meal: { ...curry, id: 'v3' }, today });
+    expect(s.plan.mealsPerWeek).toBe(3);
+    const full = { ...s, plan: { ...s.plan, mealsPerWeek: 7, pinned: [1, 2, 3, 4, 5, 6, 7].map((n) => ({ ...curry, id: `p${n}` })) } };
+    expect(reducer(full, { type: 'pinMeal', meal: { ...curry, id: 'p8' }, today }).plan.mealsPerWeek).toBe(7);
+  });
+
+  it('확정하면 쓰는 재료가 빠지고 고정 끼니는 완료로, 되돌리면 고정 끼니도 돌아온다', () => {
+    const s1 = reducer(initialState(today), { type: 'pinMeal', meal: curry, today });
+    const s2 = reducer(s1, { type: 'confirmMeal', recipe: curry, today, at: 'T' });
+    expect(s2.items.map((i) => i.name)).not.toContain('닭안심');
+    expect(s2.items.map((i) => i.name)).toContain('카레가루');
+    expect(s2.plan.pinned).toEqual([]);
+    expect(s2.plan.doneMeals[0]).toMatchObject({ recipe: '버터크림치킨카레', pinned: curry });
+    const s3 = reducer(s2, { type: 'undoMeal', at: 'T' });
+    expect(s3.plan.pinned).toEqual([curry]);
+    expect(s3.items.map((i) => i.name)).toContain('닭안심');
+  });
+
+  it('건너뛰기 = 영상 메뉴 지우기', () => {
+    const s = reducer(reducer(initialState(today), { type: 'pinMeal', meal: curry, today }), { type: 'removePinned', id: 'v1' });
+    expect(s.plan.pinned).toEqual([]);
+  });
+
+  it('장보기 목록: 체크, ✕로 지우기(플랜 재료는 숨김), 냉장고에 넣으면 목록에서 빠진다', () => {
+    let s = reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, today });
+    s = reducer(s, { type: 'toggleShopping', name: '고추장' });
+    expect(s.shoppingList).toEqual([{ name: '고추장', from: 'video', checked: true }]);
+    s = reducer(s, { type: 'toggleShopping', name: '감자' }); // 플랜에서 온 재료를 체크
+    expect(s.shoppingList.at(-1)).toEqual({ name: '감자', from: 'plan', checked: true });
+    s = reducer(s, { type: 'removeShopping', name: '당근' }); // 플랜 재료를 ✕
+    expect(s.shoppingList.at(-1)).toEqual({ name: '당근', from: 'plan', checked: false, removed: true });
+    s = reducer(s, { type: 'removeShopping', name: '고추장' }); // 영상 재료를 ✕
+    expect(s.shoppingList.map((i) => i.name)).not.toContain('고추장');
+    s = reducer(s, { type: 'addItems', items: [newItemFromCatalog(findCatalog('감자')!, today, 'g1')] });
+    expect(s.shoppingList.map((i) => i.name)).not.toContain('감자');
+  });
+});

@@ -8,8 +8,8 @@
 import { canonicalName } from '../data';
 import { iga, ro } from './josa';
 import { findItem } from './plan';
-import { HOME_SECTION_ORDER, dDayLabel, daysLeft, stateOf } from './status';
-import type { DateKey, Item, SubstituteGroup, SubstituteTable } from './types';
+import { HOME_SECTION_ORDER, dDayLabel, daysLeft, isStaple, stateOf } from './status';
+import type { DateKey, Item, Recipe, SubstituteGroup, SubstituteTable } from './types';
 
 export type VideoRow =
   | { name: string; kind: 'have'; item: Item }
@@ -86,4 +86,37 @@ export function splitManualIngredients(text: string, table: SubstituteTable): { 
 export function videoHeadline(rows: readonly VideoRow[]): string {
   const have = rows.filter((r) => r.kind === 'have').length;
   return `${rows.length}개 중 ${have}개가 냉장고에 있어요`;
+}
+
+/** 결과 화면에서 고른 것: 대체 제안마다 대체(sub)/그냥 살게요(buy), 장보기 목록에 담지 않을 없는 재료 */
+export interface VideoChoices {
+  subs: Record<string, 'sub' | 'buy'>;
+  skipBuy: string[];
+}
+
+/**
+ * 영상 메뉴 → 끼니의 쓰는 재료·상비 재료·사야 할 재료 (B-1).
+ * - 있는 재료는 쓰는 재료. 단 상비로 보는 재료(레시피 표의 상비 재료, 양념·소스, 면·곡물)는 빼지 않는다.
+ * - 대체를 고르면 대체 재료를 쓰고, 그냥 살게요·고르지 않음이면 원래 재료를 산다.
+ * - 대체할 수 없는 없는 재료는 장보기 목록에 담는다 (체크를 풀면 뺀다).
+ */
+export function videoMealOf(
+  rows: readonly VideoRow[],
+  choices: VideoChoices,
+  pantry: ReadonlySet<string>,
+): Pick<Recipe, 'uses' | 'keeps' | 'buy'> {
+  const uses: string[] = [];
+  const keeps: string[] = [];
+  const buy: string[] = [];
+  const add = (list: string[], name: string) => !list.includes(name) && list.push(name);
+  for (const row of rows) {
+    if (row.kind === 'have') {
+      const it = row.item;
+      add(pantry.has(it.name) || isStaple(it.name, it.group) ? keeps : uses, it.name);
+    } else if (row.kind === 'sub') {
+      if (choices.subs[row.name] === 'sub') add(uses, row.sub.name);
+      else add(buy, row.name);
+    } else if (!choices.skipBuy.includes(row.name)) add(buy, row.name);
+  }
+  return { uses, keeps, buy };
 }

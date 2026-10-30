@@ -292,3 +292,72 @@ describe('오늘의 한 끼 (B-2): 플랜의 오늘 끼니를 그대로 쓴다',
     expect(at(inv, { doneMeals: done })).toEqual({ kind: 'none' });
   });
 });
+
+describe('영상에서 넣은 고정 끼니 (B-1)', () => {
+  const curry = {
+    id: 'v1', name: '버터크림치킨카레', uses: ['닭안심', '우유'], keeps: ['카레가루', '양파', '버터'], buy: [],
+    source: 'video' as const, url: 'u', title: '버터크림치킨카레',
+  };
+  const plan4 = (p: Partial<Plan> = {}) => makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [curry], ...p }), today);
+
+  it('가장 급한 재료(닭안심 D-1)의 기한 안에서 가장 가까운 빈 날에, 나머지는 그 주변에', () => {
+    const { slots } = plan4();
+    expect(slots.map((s) => [s.dayOffset, s.recipe?.name])).toEqual([
+      [0, '버터크림치킨카레'],
+      [1, MANDU],
+      [2, BULGOGI],
+      [3, SAMGYUP], // 우유는 영상 메뉴가 써서 파스타 대신 다음 후보
+    ]);
+    expect(slots[0]).toMatchObject({ pinned: curry, candidateCount: 1 });
+  });
+
+  it('급하지 않은 영상 메뉴는 얼른 먹어야 할 재료 끼니를 밀어내지 않는다 (자기 재료 기한 안의 가장 빠른 빈 날)', () => {
+    const jeyuk = { ...curry, id: 'v3', name: '제육볶음', uses: ['삼겹살', '대파'], keeps: ['양파'], buy: ['고추장'] };
+    const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [jeyuk] }), today);
+    expect(slots.map((s) => [s.dayOffset, s.recipe?.name])).toEqual([
+      [0, CURRY],
+      [1, MANDU],
+      [2, PASTA], // 대파(소분 1봉)를 제육볶음이 써서 소불고기 덮밥(대파 상비)은 못 만듦 → 우유 쓰는 파스타
+      [3, '제육볶음'], // 급한 재료 끼니 다음, 삼겹살·대파 D-5 안
+    ]);
+    // 닭안심이 오늘까지여도 오늘은 닭안심 끼니
+    const todayOnly = inv.map((i) => (i.name === '닭안심' ? { ...i, expiresAt: today } : i));
+    const t = makePlan(todayOnly, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [jeyuk] }), today);
+    expect(t.slots[0].recipe?.name).toBe(CURRY);
+  });
+
+  it('영상 메뉴가 얼른 먹어야 할 재료를 쓰면 급한 순서대로 경쟁한다', () => {
+    // 버터크림치킨카레(닭안심 D-1)는 오이·소고기(D-2)보다 급해서 오늘
+    const { slots } = plan4();
+    expect(slots[0].recipe?.name).toBe('버터크림치킨카레');
+  });
+
+  it('고정 끼니는 다시 짜도(바꾸기·집밥 횟수) 그대로, 바꾸기 기록은 다른 끼니에만', () => {
+    const { slots } = plan4({ swapIndex: { 0: 3, 1: 1 } });
+    expect(slots[0].recipe?.name).toBe('버터크림치킨카레');
+    expect(makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 6, pinned: [curry] }), today).slots[0].recipe?.name).toBe(
+      '버터크림치킨카레',
+    );
+  });
+
+  it('오늘 한 끼로 고른 영상 메뉴는 오늘에', () => {
+    const later = { ...curry, id: 'v2', name: '삼겹 덮밥', uses: ['삼겹살'], keeps: [] };
+    const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [{ ...later, date: today }] }), today);
+    expect(slots[0]).toMatchObject({ dayOffset: 0, recipe: { name: '삼겹 덮밥' } });
+    // 날짜가 지난 "오늘"은 무시하고 다시 배치 (급한 재료 끼니 다음, 삼겹살 기한 안)
+    const stale = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, pinned: [{ ...later, date: addDays(today, -1) }] }), today);
+    expect(stale.slots.find((s) => s.pinned)!.dayOffset).toBe(3);
+  });
+
+  it('오늘의 한 끼도 고정 끼니를 그대로 보여준다', () => {
+    const plan = planOf({ mealsPerWeek: 4, pinned: [curry] });
+    const t = todayMeal(makePlan(inv, PLAN_RECIPES, plan, today), plan, inv, today);
+    expect(t.kind === 'suggest' && t.slot.recipe.name).toBe('버터크림치킨카레');
+  });
+
+  it('고정 끼니의 사야 할 재료도 한 번에 사야 할 재료에 들어간다', () => {
+    const jeyuk = { ...curry, id: 'v3', name: '제육볶음', uses: ['삼겹살', '대파'], keeps: ['양파'], buy: ['고추장'] };
+    const plan = planOf({ mealsPerWeek: 4, pinned: [jeyuk] });
+    expect(summarizePlan(makePlan(inv, PLAN_RECIPES, plan, today), inv, plan, today).buyAll).toContain('고추장');
+  });
+});

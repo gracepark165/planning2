@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SUBSTITUTES, VIDEO_EXAMPLES } from '../data';
+import { PLAN_RECIPES, SUBSTITUTES, VIDEO_EXAMPLES } from '../data';
+import { pantryNames } from './plan';
 import { makeSampleInventory } from '../data/sampleInventory';
 import { addDays } from './date';
 import type { Item, SubstituteTable } from './types';
@@ -10,6 +11,7 @@ import {
   subReason,
   substitutesFor,
   videoHeadline,
+  videoMealOf,
   type VideoRow,
 } from './videoCheck';
 
@@ -133,5 +135,44 @@ describe('직접 입력 (FR-30)', () => {
 
   it('빈 입력', () => {
     expect(splitManualIngredients(' , ', SUBSTITUTES)).toEqual({ names: [], skipped: [] });
+  });
+});
+
+describe('영상 메뉴 → 끼니 (B-1)', () => {
+  const rowsOf = (id: string) =>
+    checkIngredients(VIDEO_EXAMPLES.find((v) => v.id === id)!.ingredients.map((i) => i.name), inv, today, SUBSTITUTES);
+
+  const pantry = pantryNames(PLAN_RECIPES);
+  const mealOf = (id: string, choices: Parameters<typeof videoMealOf>[1]) => videoMealOf(rowsOf(id), choices, pantry);
+
+  it('상비로 보는 재료: 레시피 표에서 상비 재료로만 쓰는 재료', () => {
+    expect([...pantry].sort()).toEqual(['계란', '버터', '스파게티면', '양파', '카레가루']);
+  });
+
+  it('버터크림치킨카레: 닭안심으로 할게요 → 닭안심을 쓰고, 상비 재료(카레가루·양파·버터)는 빼지 않는다', () => {
+    expect(mealOf('curry', { subs: { 닭다리살: 'sub' }, skipBuy: [] })).toEqual({
+      uses: ['닭안심', '우유'],
+      keeps: ['카레가루', '양파', '버터'],
+      buy: [],
+    });
+  });
+
+  it('그냥 살게요: 원래 재료를 사야 할 재료로', () => {
+    const meal = mealOf('curry', { subs: { 닭다리살: 'buy' }, skipBuy: [] });
+    expect(meal.uses).not.toContain('닭안심');
+    expect(meal.buy).toEqual(['닭다리살']);
+  });
+
+  it('제육볶음: 없는 재료(고추장)는 기본으로 장보기 목록에, 체크를 풀면 빠진다', () => {
+    expect(mealOf('jeyuk', { subs: { '돼지고기 앞다리살': 'sub' }, skipBuy: [] })).toEqual({
+      uses: ['삼겹살', '대파'],
+      keeps: ['양파'],
+      buy: ['고추장'],
+    });
+    expect(mealOf('jeyuk', { subs: { '돼지고기 앞다리살': 'sub' }, skipBuy: ['고추장'] }).buy).toEqual([]);
+  });
+
+  it('대체를 고르지 않은 재료는 장보기 목록에 담는다', () => {
+    expect(mealOf('jeyuk', { subs: {}, skipBuy: [] }).buy).toEqual(['돼지고기 앞다리살', '고추장']);
   });
 });

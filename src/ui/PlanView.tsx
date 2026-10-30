@@ -12,8 +12,9 @@ import {
   type PlanSlot,
 } from '../rules/plan';
 import { formatDayLabel } from '../rules/date';
+import { shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
-import type { DateKey, Item, Plan, Recipe } from '../rules/types';
+import type { DateKey, Item, Plan, Recipe, ShoppingItem } from '../rules/types';
 import { UseTag } from './parts';
 
 const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
@@ -30,11 +31,38 @@ interface Props {
   onSkip: (recipe: Recipe) => void;
   onUndo: (at: string) => void;
   onClearRejected: () => void;
+  /** 영상에서 넣은 고정 끼니의 건너뛰기 = 지우기 */
+  onRemovePinned: (id: string) => void;
+  /** 장보기 목록 (저장된 줄) */
+  shoppingList: ShoppingItem[];
+  onToggleShop: (name: string) => void;
+  onRemoveShop: (name: string) => void;
+  /** "샀어요 → 냉장고에 넣기": 체크한 재료 이름 */
+  onBought: (names: string[]) => void;
 }
 
-export function PlanView({ items, plan, result, today, onMeals, onConfirm, onSwap, onSkip, onUndo, onClearRejected }: Props) {
+export function PlanView({
+  items,
+  plan,
+  result,
+  today,
+  onMeals,
+  onConfirm,
+  onSwap,
+  onSkip,
+  onUndo,
+  onClearRejected,
+  onRemovePinned,
+  shoppingList,
+  onToggleShop,
+  onRemoveShop,
+  onBought,
+}: Props) {
   const { soonTotal, soonSaved, buyAll, lost } = summarizePlan(result, items, plan, today);
   const owned = new Set(items.map((i) => i.name));
+  // 이번 주 사야 할 재료 = 플랜의 사야 할 재료 + 영상에서 담은 재료 (B-1)
+  const shopping = shoppingView(buyAll, shoppingList, [...owned]);
+  const bought = shopping.filter((s) => s.checked).map((s) => s.name);
   // 고른 집밥 횟수로 얼른 먹어야 할 재료를 다 못 쓰면 안내 (A-4)
   const uncovered = uncoveredSoon(result, items, today);
   const coverMeals = uncovered.length ? minMealsToCover(items, PLAN_RECIPES, plan, today) : null;
@@ -98,6 +126,7 @@ export function PlanView({ items, plan, result, today, onMeals, onConfirm, onSwa
                 {dayHead(slot)}
                 <div className="nm" style={{ fontWeight: 700, fontSize: 16 }}>
                   {slot.recipe.name}
+                  {slot.pinned && <span className="tag video">영상</span>}
                 </div>
                 <div style={{ color: 'var(--sub)', fontSize: 13, marginTop: 2 }}>
                   {reasonOf(slot.recipe, items, today)}
@@ -128,7 +157,10 @@ export function PlanView({ items, plan, result, today, onMeals, onConfirm, onSwa
                       바꾸기
                     </button>
                   )}
-                  <button className="small-btn alt" onClick={() => onSkip(slot.recipe!)}>
+                  <button
+                    className="small-btn alt"
+                    onClick={() => (slot.pinned ? onRemovePinned(slot.pinned.id) : onSkip(slot.recipe!))}
+                  >
                     건너뛰기
                   </button>
                 </div>
@@ -156,10 +188,28 @@ export function PlanView({ items, plan, result, today, onMeals, onConfirm, onSwa
         </button>
       )}
 
-      {buyAll.length > 0 && (
+      {shopping.length > 0 && (
         <div className="card blue">
           <h3>이번 주 사야 할 재료</h3>
-          <p>{buyAll.join(', ')} · 냉장고에 없는 재료라 따로 모았어요.</p>
+          <ul className="shop">
+            {shopping.map((it) => (
+              <li key={it.name}>
+                <label>
+                  <input type="checkbox" checked={it.checked} onChange={() => onToggleShop(it.name)} />
+                  <span className={it.checked ? 'done' : ''}>{it.name}</span>
+                  {it.from === 'video' && <span className="tag video">영상</span>}
+                </label>
+                <button className="shop-x" aria-label={`${it.name} 지우기`} onClick={() => onRemoveShop(it.name)}>
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+          {bought.length > 0 && (
+            <button className="small-btn" onClick={() => onBought(bought)}>
+              샀어요 → 냉장고에 넣기
+            </button>
+          )}
         </div>
       )}
       {lost.length > 0 && (

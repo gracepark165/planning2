@@ -66,7 +66,7 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
   padding:12px 18px;border-radius:14px;font-size:14px;font-weight:500;z-index:30;max-width:90%;box-shadow:var(--shadow)}
 .sub-card{margin-top:10px;background:var(--accent-bg);border-radius:14px;padding:12px 14px}
 .sub-card b{display:block;font-size:15px}
-.sub-card span{display:block;color:var(--sub);font-size:13px;margin-top:2px}
+.sub-card>span{display:block;color:var(--sub);font-size:13px;margin-top:2px}
 .sub-card .sub-badge{margin-top:6px}
 .note{color:var(--sub);font-size:12.5px;margin:14px 0 0}
 .pulse{display:flex;flex-direction:column;align-items:center;gap:16px;padding:80px 0;color:var(--sub)}
@@ -129,6 +129,25 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
 .opening h1{font-size:26px;margin:8px 0 12px}
 .opening p{margin:0 0 8px;color:var(--sub);font-size:16px;line-height:1.6;word-break:keep-all;text-wrap:balance}
 .opening .cta{max-width:432px;flex:none}
+/* 영상 확인 → 행동 (B-1) */
+.sub-card.chosen{box-shadow:inset 0 0 0 2px var(--accent)}
+.sub-acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.sub-acts .small-btn{min-height:44px;white-space:nowrap}
+.sub-acts .small-btn.alt{background:var(--bg)}
+.small-btn.on{background:var(--accent);color:var(--on-accent)}
+.buy-check{flex:none;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--sub);min-height:44px;cursor:pointer}
+.buy-check input,.shop input{width:20px;height:20px;accent-color:var(--accent);margin:0}
+.video-actions{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));background:var(--bg);padding:8px 0 4px;margin-top:8px;box-shadow:0 -12px 12px -12px rgba(0,0,0,.15)}
+.video-actions .cta{margin-top:8px}
+.video-actions .ctas .cta{font-size:15px;padding:14px 8px}
+.tag.video{margin-left:6px;vertical-align:2px;background:var(--accent-bg);color:var(--accent);font-weight:700}
+.shop{list-style:none;margin:8px 0 0;padding:0}
+.shop li{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;border-top:1px solid rgba(49,130,246,.15)}
+.shop li:first-child{border-top:0}
+.shop label{display:flex;align-items:center;gap:10px;flex:1;min-width:0;font-size:15px;cursor:pointer}
+.shop .done{text-decoration:line-through;color:var(--sub)}
+.shop-x{flex:none;width:44px;height:44px;color:var(--sub);font-size:16px}
+.card.blue>.small-btn{margin-top:8px;min-height:44px;background:var(--bg)}
 .fab-space{height:calc(56px + env(safe-area-inset-bottom,0px))}
 .note.how{display:block;text-decoration:underline;margin-top:20px}
 .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--accent-bg);color:var(--accent);font-weight:700;font-size:15px;padding:12px 20px;border-radius:999px;box-shadow:var(--shadow);z-index:5}
