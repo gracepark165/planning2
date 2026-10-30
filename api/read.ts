@@ -10,10 +10,35 @@
 // 수정명세 v4부터는 메뉴 제안(/api/menu)·메뉴 이름 → 재료(/api/ingredients)도 이 함수가 한다 (vercel.json에서 연결).
 // AI가 낸 메뉴는 앱의 규칙 코드(src/rules/menuCheck.ts)가 재고와 다시 맞춰 본다.
 //
-// 배포 때 다른 파일을 불러오다 깨지지 않도록 이 파일은 src/의 소스 파일을 import하지 않는다 (같은 폴더의 _prompts.ts만).
+// 배포 때 다른 파일을 불러오다 깨지지 않도록 이 파일은 다른 파일을 import하지 않는다 (AI 지시문도 이 파일 안에 둔다).
 // 재료 사전 이름 목록은 앱이 요청에 담아 보낸다(vocabulary).
 
-import { INGREDIENTS_SYSTEM, MENU_SYSTEM, MENU_TEMPERATURE } from './_prompts';
+// ───────────────────────── AI 지시문 (수정명세 v4) ─────────────────────────
+// AI가 낸 결과는 그대로 쓰지 않고 앱의 규칙 코드(src/rules/menuCheck.ts)가 다시 검사한다.
+
+/** 메뉴 제안 (V4-1b): 규칙 메뉴로 못 채운 칸만 */
+export const MENU_SYSTEM = `너는 1인 가구의 집밥 메뉴를 짜는 도우미야.
+규칙:
+1. 메뉴는 1인분, 30분 안에 만들 수 있는 흔한 한국 가정식 위주로 제안해.
+2. uses(이번 끼니에 다 쓰는 재료)와 keeps(조금만 쓰는 재료)에는 반드시 stock에 있는 이름을 글자 그대로 써.
+3. stock에 없는 재료가 꼭 필요하면 buy에 넣어. buy는 한 메뉴에 2개 이하.
+4. basicSeasonings는 uses, keeps, buy 어디에도 넣지 마.
+5. mustUseFirst에 있는 재료를 가능한 한 많이, 앞 날짜 끼니에 먼저 써.
+6. 각 재료의 daysLeft보다 늦은 날짜의 끼니에 그 재료를 쓰지 마.
+7. excludeMenus와 같거나 거의 같은 메뉴는 내지 마. 이번 응답 안에서도 메뉴 이름이 겹치지 않게 해.
+8. howto는 40자 이내 한 문장, 해요체로 써.
+9. JSON만 출력해. 설명 문장은 쓰지 마.`;
+
+/** 메뉴 이름 → 흔한 재료 (V4-5) */
+export const INGREDIENTS_SYSTEM = `너는 요리 메뉴의 재료를 알려 주는 도우미야.
+규칙:
+1. 1인분 기준으로 이 메뉴에 흔히 들어가는 재료를 3~8개 골라.
+2. basicSeasonings(기본 양념)는 넣지 마.
+3. 재료 이름만, 브랜드·양·수식어 없이 짧은 일반 이름으로 써 (예: "돼지고기", "대파").
+4. JSON만 출력해. 설명 문장은 쓰지 마.`;
+
+/** 온도: 낮게 (같은 재고면 비슷한 답이 나오게) */
+export const MENU_TEMPERATURE = 0.3;
 
 export const AI_MODEL = 'claude-sonnet-5-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
