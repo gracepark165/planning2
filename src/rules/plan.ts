@@ -14,7 +14,7 @@
 // - "바꾸기"는 같은 끼니의 다음 후보로 넘긴다
 
 import { MAX_MEALS_PER_WEEK } from './constants';
-import { addDays } from './date';
+import { addDays, inThisWeek } from './date';
 import { iga } from './josa';
 import { daysLeft, daysSinceEntered, stateOf, urgencyOf } from './status';
 import type { DateKey, DoneMeal, Item, PinnedMeal, Plan, Recipe } from './types';
@@ -53,8 +53,16 @@ export function findItem(items: readonly Item[], name: string, today: DateKey): 
 /** 한 재료로 몇 끼를 쓸 수 있는지: 소분 품목은 개수, 아니면 1 */
 export const mealsIn = (item: Item) => (item.portioned ? Math.max(item.count ?? 1, 0) : 1);
 
+/**
+ * 이번 주(월~일)에 확정한 끼니. 집밥 횟수에서 빼는 것은 이것만 (지난주에 먹은 끼니가 쌓여 플랜이 비지 않게).
+ * 날짜가 없는 예전 확정 기록은 세지 않는다.
+ */
+export const doneThisWeek = (plan: Plan, today: DateKey): DoneMeal[] =>
+  plan.doneMeals.filter((m) => m.date !== undefined && inThisWeek(m.date, today));
+
 export function makePlan(items: readonly Item[], recipes: readonly Recipe[], plan: Plan, today: DateKey): PlanResult {
   const n = plan.mealsPerWeek;
+  const done = doneThisWeek(plan, today);
   // 이름 → { 가장 급한 재료, 남은 끼니 수 }
   const sim = new Map<string, { item: Item; count: number }>();
   for (const i of items) {
@@ -69,7 +77,7 @@ export function makePlan(items: readonly Item[], recipes: readonly Recipe[], pla
   const left = (name: string) => daysLeft(sim.get(name)!.item, today);
   const isSoon = (name: string) => stateOf(sim.get(name)!.item, today) === 'soon';
 
-  const picked = new Set(plan.doneMeals.map((m) => m.recipe));
+  const picked = new Set(done.map((m) => m.recipe));
 
   /** 그날 끼니의 후보 (바꾸기 순서대로) */
   const candidatesFor = (d: number) => {
@@ -109,9 +117,9 @@ export function makePlan(items: readonly Item[], recipes: readonly Recipe[], pla
     return undefined;
   };
 
-  let i = plan.doneMeals.length;
+  let i = done.length;
   // 오늘 이미 먹은 끼니가 있으면 오늘은 찬 날
-  if (plan.doneMeals.some((m) => m.date === today)) used.add(0);
+  if (done.some((m) => m.date === today)) used.add(0);
 
   // 영상에서 넣은 고정 끼니: 쓰는 재료는 먼저 따로 떼어 둔다 (다른 끼니가 쓰지 않게)
   const lastDay = WEEK_DAYS - 1;
@@ -273,7 +281,7 @@ export function summarizePlan(result: PlanResult, items: readonly Item[], plan: 
   const owned = new Set(items.map((i) => i.name));
 
   const soonNow = items.filter((i) => stateOf(i, today) === 'soon');
-  const doneSoon = plan.doneMeals.reduce((a, d) => a + d.soonUsed.length, 0);
+  const doneSoon = doneThisWeek(plan, today).reduce((a, d) => a + d.soonUsed.length, 0);
 
   return {
     soonTotal: soonNow.length + doneSoon,

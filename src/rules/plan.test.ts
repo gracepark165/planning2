@@ -198,15 +198,24 @@ describe('규칙 세부', () => {
     const { slots } = makePlan(items, recipes, planOf({ mealsPerWeek: 3 }), today);
     expect(slots.map((s) => s.recipe?.name)).toEqual(['볶음밥', '카레', '샐러드']);
     // 이미 확정한 메뉴도 뒤로 간다
-    const done = [{ recipe: '볶음밥', usedItems: [], soonUsed: [], at: '' }];
+    const done = [{ recipe: '볶음밥', usedItems: [], soonUsed: [], at: '', date: addDays(today, -1) }];
     const after = makePlan(items, recipes, planOf({ mealsPerWeek: 3, doneMeals: done }), today);
     expect(after.slots.map((s) => s.recipe?.name)).toEqual(['카레', '샐러드']);
   });
 
-  it('이미 확정한 끼니 수만큼 앞 끼니는 건너뛴다', () => {
-    const done = [{ recipe: 'x', usedItems: [], soonUsed: [], at: '' }];
+  it('이번 주에 이미 확정한 끼니 수만큼 앞 끼니는 건너뛴다', () => {
+    const done = [{ recipe: 'x', usedItems: [], soonUsed: [], at: '', date: addDays(today, -1) }]; // 10/26(월)
     const { slots } = makePlan(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4, doneMeals: done }), today);
     expect(slots.map((s) => s.index)).toEqual([1, 2, 3]);
+  });
+
+  it('지난주에 확정한 끼니·날짜 없는 예전 기록은 세지 않는다 (주가 바뀌면 플랜이 다시 N끼)', () => {
+    const old = [1, 2, 3, 4].map((n) => ({ recipe: `x${n}`, usedItems: [], soonUsed: ['a'], at: '', date: addDays(today, -1 - n) }));
+    const noDate = [{ recipe: 'y', usedItems: [], soonUsed: [], at: '' }];
+    const plan = planOf({ mealsPerWeek: 4, doneMeals: [...old, ...noDate] });
+    const result = makePlan(inv, PLAN_RECIPES, plan, today);
+    expect(result.slots).toHaveLength(4);
+    expect(summarizePlan(result, inv, plan, today).soonTotal).toBe(4); // 지난주에 쓴 재료는 세지 않음
   });
 
   it('같은 입력이면 같은 결과', () => {
@@ -243,7 +252,10 @@ describe('플랜 요약', () => {
   });
 
   it('이미 확정한 끼니의 곧 상할 재료도 센다', () => {
-    const plan = planOf({ mealsPerWeek: 4, doneMeals: [{ recipe: 'x', usedItems: [], soonUsed: ['a', 'b'], at: '' }] });
+    const plan = planOf({
+      mealsPerWeek: 4,
+      doneMeals: [{ recipe: 'x', usedItems: [], soonUsed: ['a', 'b'], at: '', date: addDays(today, -1) }],
+    });
     const s = summarizePlan(makePlan(inv, PLAN_RECIPES, plan, today), inv, plan, today);
     expect(s.soonTotal).toBe(6);
   });
@@ -288,8 +300,8 @@ describe('오늘의 한 끼 (B-2): 플랜의 오늘 끼니를 그대로 쓴다',
 
   it('만들 수 있는 메뉴가 없거나 이번 주 끼니를 다 먹었으면 none', () => {
     expect(at([])).toEqual({ kind: 'none' });
-    const done = [1, 2, 3, 4].map((n) => ({ recipe: `x${n}`, usedItems: [], soonUsed: [], at: `T${n}`, date: addDays(today, -n) }));
-    expect(at(inv, { doneMeals: done })).toEqual({ kind: 'none' });
+    const done = [{ recipe: 'x', usedItems: [], soonUsed: [], at: 'T', date: addDays(today, -1) }]; // 이번 주 월요일
+    expect(at(inv, { mealsPerWeek: 1, doneMeals: done })).toEqual({ kind: 'none' });
   });
 });
 

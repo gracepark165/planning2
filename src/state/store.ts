@@ -5,7 +5,7 @@ import { findKind } from '../data';
 import { makeSampleInventory } from '../data/sampleInventory';
 import { addDays } from '../rules/date';
 import { autoExpiresAt, defaultLocation, shiftExpiry } from '../rules/expiry';
-import { findItem, portionQty } from '../rules/plan';
+import { doneThisWeek, findItem, portionQty } from '../rules/plan';
 import { stateOf } from '../rules/status';
 import { COUNT_MAX, COUNT_MIN, MAX_MEALS_PER_WEEK } from '../rules/constants';
 import { rememberItems, type MyFoods } from './myFoods';
@@ -262,7 +262,7 @@ export function reducer(state: AppState, action: Action): AppState {
       return undoMeal(state, action.at);
     case 'pinMeal': {
       const { plan } = state;
-      const open = plan.mealsPerWeek - plan.doneMeals.length - plan.pinned.length;
+      const open = plan.mealsPerWeek - doneThisWeek(plan, action.today).length - plan.pinned.length;
       const mealsPerWeek = open > 0 ? plan.mealsPerWeek : Math.min(MAX_MEALS_PER_WEEK, plan.mealsPerWeek + 1);
       const listed = new Set(state.shoppingList.map((s) => s.name));
       const newBuy = action.meal.buy.filter((n) => !listed.has(n));

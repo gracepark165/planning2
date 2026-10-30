@@ -155,6 +155,12 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
 .log-list{list-style:none;margin:8px 0 0;padding:0;font-size:14px;color:var(--sub)}
 .log-list li{padding:4px 0}
 .log-list b{color:var(--fg);font-weight:500;margin-right:6px}
+/* 이번 주 요약 (B-5) */
+.card.week{margin-top:8px}
+.card.week .week-lead{margin:4px 0 0;color:var(--fg);font-size:15px;font-weight:500;word-break:keep-all}
+.week-stats{list-style:none;margin:10px 0 0;padding:10px 0 0;border-top:1px solid var(--line);font-size:13.5px;color:var(--sub)}
+.week-stats li{padding:2px 0}
+.week-stats b{color:var(--fg);font-weight:700}
 .fab-space{height:calc(56px + env(safe-area-inset-bottom,0px))}
 .note.how{display:block;text-decoration:underline;margin-top:20px}
 .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--accent-bg);color:var(--accent);font-weight:700;font-size:15px;padding:12px 20px;border-radius:999px;box-shadow:var(--shadow);z-index:5}

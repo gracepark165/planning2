@@ -170,6 +170,7 @@ export function App() {
     view = (
       <PlanView
         items={state.items}
+        logs={state.logs}
         plan={state.plan}
         result={planResult}
         today={today}

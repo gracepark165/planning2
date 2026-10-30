@@ -4,6 +4,7 @@ import { PLAN_RECIPES } from '../data';
 import { MAX_MEALS_PER_WEEK, MIN_MEALS_PER_WEEK, STATE_META } from '../rules/constants';
 import {
   coverageText,
+  doneThisWeek,
   minMealsToCover,
   reasonOf,
   summarizePlan,
@@ -11,16 +12,19 @@ import {
   type PlanResult,
   type PlanSlot,
 } from '../rules/plan';
-import { formatDayLabel } from '../rules/date';
+import { formatDate, formatDayLabel, weekRange } from '../rules/date';
+import { weekSummary } from '../rules/weekSummary';
 import { shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
-import type { DateKey, Item, Plan, Recipe, ShoppingItem } from '../rules/types';
+import type { DateKey, Item, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
 import { UseTag } from './parts';
 
 const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
 
 interface Props {
   items: Item[];
+  /** 다 먹었어요·버렸어요 기록 (이번 주 요약) */
+  logs: MealLog[];
   plan: Plan;
   /** 이번 주 플랜 (App에서 한 번만 짜서 홈의 오늘의 한 끼와 같이 쓴다) */
   result: PlanResult;
@@ -43,6 +47,7 @@ interface Props {
 
 export function PlanView({
   items,
+  logs,
   plan,
   result,
   today,
@@ -71,8 +76,33 @@ export function PlanView({
     <div className={`when ${slot.dayOffset === 0 ? 'today' : ''}`}>{formatDayLabel(slot.date, today)}</div>
   );
 
+  const week = weekSummary(logs, items, today);
+  const range = weekRange(today);
+
   return (
     <>
+      {/* 이번 주 요약 (B-5): 월~일 */}
+      <div className="card week">
+        <div className="eyebrow" style={{ marginTop: 0 }}>
+          이번 주 요약 · {formatDate(range.start)} ~ {formatDate(range.end)}
+        </div>
+        <p className="week-lead">{week.sentence}</p>
+        {week.kind === 'summary' && (
+          <ul className="week-stats">
+            <li>
+              먹은 재료 <b>{week.eaten}개</b> · 그중 얼른 먹어야 할 것 <b>{week.eatenSoon}개</b>
+            </li>
+            <li>
+              버린 재료 <b>{week.discarded}개</b>
+              {week.topReason && ` · 가장 많은 이유: ${week.topReason}`}
+            </li>
+            <li>
+              지금 얼른 먹어야 할 재료 <b>{week.soonNow}개</b>가 남아 있어요
+            </li>
+          </ul>
+        )}
+      </div>
+
       <h1>이번 주 먹을 순서예요</h1>
       <p className="lead">
         {soonTotal
@@ -103,7 +133,7 @@ export function PlanView({
       )}
 
       <div style={{ marginTop: 8 }}>
-        {plan.doneMeals.map((d) => (
+        {doneThisWeek(plan, today).map((d) => (
           <div key={`${d.recipe}-${d.at}`} className="day done">
             <div className="body">
               <div className="when">✓ 먹었어요</div>
