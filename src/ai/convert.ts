@@ -90,6 +90,15 @@ export function orderToDrafts(
   });
 }
 
+/**
+ * 냉장고에 넣지 않는 줄을 뺀다 (2026-10-30): 재료 사전에 없는 재료를 AI가 생수·음료나 실온 레토르트 간편식으로 읽었으면.
+ * 뺀 줄은 주문 화면의 상품명(없으면 읽은 이름)으로 돌려준다 (화면에 한 줄로 알림).
+ */
+export function splitNotStocked(rows: readonly DraftRow[]): { rows: DraftRow[]; skipped: string[] } {
+  const out = (r: DraftRow) => !r.catalogName && !!findKind(r.kind)?.notStocked;
+  return { rows: rows.filter((r) => !out(r)), skipped: rows.filter(out).map((r) => r.raw || r.name) };
+}
+
 // ───────────────────────── 글 입력 보완 ─────────────────────────
 
 /** 규칙으로 못 읽은 줄: 개수를 못 읽었거나, 사전에 없는 이름 */

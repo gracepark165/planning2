@@ -5,7 +5,17 @@ import { issuesOf } from '../state/textDraft';
 import { draftFromParsed } from '../state/textDraft';
 import { parseItem } from '../rules/textInput';
 import { slicePlan } from './client';
-import { kindListOf, mergeTextAi, needsAiHelp, orderDateOf, orderToDrafts, retailerOf, videoMenusOf, vocabularyOf } from './convert';
+import {
+  kindListOf,
+  mergeTextAi,
+  needsAiHelp,
+  orderDateOf,
+  orderToDrafts,
+  retailerOf,
+  splitNotStocked,
+  videoMenusOf,
+  vocabularyOf,
+} from './convert';
 
 const today = '2026-10-28';
 let n = 0;
@@ -177,5 +187,49 @@ describe('AI에 보내는 것', () => {
       expect(p.pieceRatio + p.stepRatio * (p.pieces - 1)).toBeCloseTo(ratio);
       expect(p.pieceRatio).toBeGreaterThan(p.stepRatio); // 조각끼리 겹친다
     }
+  });
+});
+
+describe('냉장고에 넣지 않는 것: 생수·음료, 레토르트 간편식', () => {
+  // B마트 캡처에서 읽은 줄 (2026-10-30 실제 시험)
+  const ai = {
+    retailer: 'B마트' as const,
+    items: [
+      { name: '미나리', product: '신선누리 미나리 150g', kind: 'leafVeg' },
+      { name: '사골곰탕', product: '비비고 사골곰탕 500g', kind: 'retort', storage: '실온' as const },
+      { name: '생수', product: '몽베스트 330ml 6입', kind: 'drink' },
+      { name: '떡국떡', product: '[배민이시] 국산 떡국떡 400g' },
+    ],
+  };
+
+  it('음료·레토르트 종류로 읽은 줄은 빼고, 뺀 상품 이름을 돌려준다', () => {
+    const { rows, skipped } = splitNotStocked(orderToDrafts(ai, today, today, key, findCatalog));
+    expect(rows.map((r) => r.name)).toEqual(['미나리', '떡국떡']);
+    expect(skipped).toEqual(['비비고 사골곰탕 500g', '몽베스트 330ml 6입']);
+  });
+
+  it('재료 사전에 있는 재료는 종류와 상관없이 그대로 둔다', () => {
+    const { rows } = splitNotStocked(orderToDrafts({ items: [{ name: '우유', kind: 'drink' }] }, today, today, key, findCatalog));
+    expect(rows.map((r) => r.name)).toEqual(['우유']);
+  });
+
+  it('종류 표: 음료(생수 포함)와 레토르트는 넣지 않는 종류', () => {
+    const not = KINDS.filter((k) => k.notStocked).map((k) => k.id);
+    expect(not.sort()).toEqual(['drink', 'retort']);
+    expect(KINDS.find((k) => k.id === 'drink')!.examples).toContain('생수');
+  });
+});
+
+describe('떡류는 기본 냉장', () => {
+  it('재료 사전의 떡과 떡 종류는 냉장', () => {
+    expect(findCatalog('떡국떡')!.location).toBe('냉장');
+    expect(findCatalog('떡볶이떡')!.location).toBe('냉장');
+    expect(KINDS.find((k) => k.id === 'riceCake')).toMatchObject({ location: '냉장' });
+    expect(KINDS.find((k) => k.id === 'bread')!.examples).not.toContain('떡');
+  });
+
+  it('사전에 없는 떡(가래떡)을 떡 종류로 읽으면 냉장', () => {
+    const [row] = orderToDrafts({ items: [{ name: '가래떡', kind: 'riceCake' }] }, today, today, key, findCatalog);
+    expect(row.location).toBe('냉장');
   });
 });

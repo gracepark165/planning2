@@ -161,8 +161,9 @@ export function newItemFromPick(
 ): Item | undefined {
   const entry = lookup(pick.name);
   if (entry) return newItemFromCatalog(entry, today, id);
-  const kind = findKind(pick.customKind);
   const name = pick.name.trim();
+  // "면·곡물·빵" 분류에서 직접 적은 떡(가래떡 등)은 빵이 아니라 떡 종류(냉장)로
+  const kind = findKind(pick.customKind === 'bread' && name.includes('떡') ? 'riceCake' : pick.customKind);
   if (!kind || !name) return undefined;
   return {
     id,

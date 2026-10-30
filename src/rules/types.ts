@@ -178,6 +178,8 @@ export interface FoodKind {
   group: FoodGroup;
   /** 냉동 보관일 때의 기간. 없으면 days */
   freezerDays?: number;
+  /** 냉장고에 넣지 않는 종류 (생수·음료, 실온 레토르트 간편식). 이 종류로 읽은 줄은 확인 화면에서 뺀다 */
+  notStocked?: boolean;
 }
 
 /** 사전에 없는 재료를 넣을 때 정한 값 (다음에 같은 재료가 나오면 자동으로 채운다) */

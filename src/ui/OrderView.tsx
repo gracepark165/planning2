@@ -4,7 +4,7 @@
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { AI_FAILURE_TEXT, readOrderImage, readTextLines, type AiFailure } from '../ai/client';
-import { mergeTextAi, needsAiHelp, orderDateOf, orderToDrafts, retailerOf } from '../ai/convert';
+import { mergeTextAi, needsAiHelp, orderDateOf, orderToDrafts, retailerOf, splitNotStocked } from '../ai/convert';
 import { CATALOG, ORDER_EXAMPLE_ITEMS, RETAILERS, findCatalog } from '../data';
 import { addDays, formatDate } from '../rules/date';
 import { autoExpiresAt, checkinDate, defaultLocation } from '../rules/expiry';
@@ -38,6 +38,14 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
   const [step, setStep] = useState<Step>('start');
   const [text, setText] = useState(initialText);
   const [rows, setRows] = useState<DraftRow[]>([]);
+  /** 냉장고에 넣지 않아서 뺀 상품 (생수·음료, 실온 레토르트 간편식) */
+  const [skipped, setSkipped] = useState<string[]>([]);
+  /** 읽은 줄 중 냉장고에 넣지 않는 것은 빼고 보여준다 */
+  const showRows = (all: DraftRow[]) => {
+    const split = splitNotStocked(all);
+    setRows(split.rows);
+    setSkipped(split.skipped);
+  };
   const [retailer, setRetailer] = useState(RETAILERS[0].name);
   const [thumb, setThumb] = useState<string | null>(null);
   /** 예시 결과를 보여주는 이유 (AI 실패 등). 없으면 사용자가 예시를 고른 것 */
@@ -63,7 +71,7 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
     const targets = parsed.filter(needsAiHelp);
     window.scrollTo(0, 0);
     if (!targets.length) {
-      setRows(parsed);
+      showRows(parsed);
       setStep('text');
       return;
     }
@@ -72,7 +80,7 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
     const res = await readTextLines(targets.map((r) => r.raw), myNames);
     if (my !== round.current) return;
     // AI가 없거나 실패해도 규칙으로 읽은 결과는 그대로 보여준다
-    setRows(res.ok ? mergeTextAi(parsed, targets.map((r) => r.key), res.data, today, lookup) : parsed);
+    showRows(res.ok ? mergeTextAi(parsed, targets.map((r) => r.key), res.data, today, lookup) : parsed);
     setStep('text');
   };
 
@@ -109,7 +117,7 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
     }
     setRetailer(r.name);
     setOrderDate(od);
-    setRows(drafts);
+    showRows(drafts);
     setStep('aiConfirm');
   };
 
@@ -127,6 +135,10 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
     setRows([]);
     setStep('start');
   };
+
+  const skippedNote = skipped.length > 0 && (
+    <p className="note">생수·음료와 실온 간편식(레토르트)은 냉장고에 넣지 않아요: {skipped.join(', ')}</p>
+  );
 
   const retailerPicker = (inDate: DateKey, od: DateKey, onPick: (name: string) => void): ReactNode => {
     const r = RETAILERS.find((x) => x.name === retailer)!;
@@ -150,7 +162,17 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
   };
 
   if (step === 'text') {
-    return <TextConfirm lookup={lookup} rows={rows} today={today} onChange={setRows} onBack={back} onSubmit={submitRows} />;
+    return (
+      <TextConfirm
+        lookup={lookup}
+        rows={rows}
+        today={today}
+        onChange={setRows}
+        onBack={back}
+        onSubmit={submitRows}
+        header={skippedNote}
+      />
+    );
   }
 
   if (step === 'aiConfirm') {
@@ -168,6 +190,7 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
           <>
             {thumb && <img className="thumb" src={thumb} alt="올린 주문 화면" />}
             {retailerPicker(inDate, orderDate, pickRetailer)}
+            {skippedNote}
           </>
         }
         footnote="AI가 주문 화면을 읽은 결과예요. 화면에 소비기한이 적혀 있으면 그 날짜를, 없으면 입고일 + 기본 기간표(임시)를 썼어요. 사전에 없는 재료는 AI가 고른 종류의 기본 기간(임시)이나 지난번에 정한 값을 써요. 넣은 뒤에도 냉장고에서 고칠 수 있어요."

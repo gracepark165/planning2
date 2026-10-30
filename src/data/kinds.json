@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "note": "종류별 기본 기간표 (임시, 검증 전). 재료 사전에 없는 재료를 AI가 종류로만 분류하면, 소비기한은 이 표로 규칙이 계산한다 (AI는 날짜를 정하지 않음). 값은 재료 사전의 비슷한 재료와 맞추고, 모르면 짧게 잡았다. freezerDays는 냉동 보관일 때 쓰는 값. group은 상비 재료 제외·소분 규칙용. id는 api/read.ts의 KIND_IDS와 같아야 한다 (테스트가 확인).",
+  "note": "종류별 기본 기간표 (임시, 검증 전). 재료 사전에 없는 재료를 AI가 종류로만 분류하면, 소비기한은 이 표로 규칙이 계산한다 (AI는 날짜를 정하지 않음). 값은 재료 사전의 비슷한 재료와 맞추고, 모르면 짧게 잡았다. freezerDays는 냉동 보관일 때 쓰는 값. group은 상비 재료 제외·소분 규칙용. notStocked는 냉장고에 넣지 않는 종류(생수·음료, 실온 레토르트 간편식): 주문 화면·글 입력에서 이 종류로 읽은 줄은 확인 화면에서 뺀다 (2026-10-30). id는 api/read.ts의 KIND_IDS와 같아야 한다 (테스트가 확인).",
   "kinds": [
     { "id": "leafVeg", "label": "잎채소", "examples": "상추, 깻잎, 시금치, 샐러드", "days": 5, "location": "냉장", "group": "veg" },
     { "id": "veg", "label": "채소", "examples": "애호박, 가지, 브로콜리, 파프리카, 콩나물", "days": 7, "location": "냉장", "group": "veg", "freezerDays": 30 },
@@ -19,13 +19,15 @@
     { "id": "tofu", "label": "두부·묵", "examples": "순두부, 도토리묵, 유부", "days": 7, "location": "냉장", "group": "etc" },
     { "id": "kimchi", "label": "김치·장아찌", "examples": "배추김치, 깍두기, 단무지, 피클", "days": 30, "location": "냉장", "group": "etc" },
     { "id": "deli", "label": "반찬·조리식품", "examples": "멸치볶음, 잡채, 도시락, 샐러드 완제품", "days": 3, "location": "냉장", "group": "etc" },
-    { "id": "mealKit", "label": "밀키트·간편식", "examples": "냉장 밀키트, 국·찌개 팩", "days": 5, "location": "냉장", "group": "etc" },
+    { "id": "mealKit", "label": "밀키트·간편식", "examples": "냉장 밀키트, 냉장 국·찌개", "days": 5, "location": "냉장", "group": "etc" },
+    { "id": "retort", "label": "실온 간편식(레토르트)", "examples": "레토르트 곰탕·국 팩, 3분 카레·짜장, 즉석밥", "days": 180, "location": "실온", "group": "etc", "notStocked": true },
     { "id": "frozenFood", "label": "냉동식품", "examples": "만두, 냉동피자, 볶음밥, 아이스크림", "days": 60, "location": "냉동", "group": "frozenFood" },
-    { "id": "bread", "label": "빵·떡", "examples": "베이글, 모닝빵, 떡", "days": 3, "location": "실온", "group": "etc", "freezerDays": 30 },
+    { "id": "bread", "label": "빵", "examples": "베이글, 모닝빵, 식빵", "days": 3, "location": "실온", "group": "etc", "freezerDays": 30 },
+    { "id": "riceCake", "label": "떡", "examples": "떡볶이떡, 떡국떡, 가래떡, 절편", "days": 3, "location": "냉장", "group": "etc", "freezerDays": 30 },
     { "id": "freshNoodle", "label": "생면", "examples": "우동면, 칼국수면, 생면 파스타", "days": 7, "location": "냉장", "group": "grain" },
     { "id": "grain", "label": "쌀·건면·곡물", "examples": "쌀, 소면, 라면, 시리얼, 오트밀", "days": 180, "location": "실온", "group": "grain" },
     { "id": "sauce", "label": "양념·소스", "examples": "된장, 케첩, 마요네즈, 굴소스", "days": 180, "location": "냉장", "group": "sauce" },
     { "id": "dryGoods", "label": "가루·건조식품", "examples": "밀가루, 부침가루, 김, 멸치, 견과", "days": 180, "location": "실온", "group": "sauce" },
-    { "id": "drink", "label": "음료", "examples": "주스, 탄산수, 커피 음료", "days": 14, "location": "냉장", "group": "etc" }
+    { "id": "drink", "label": "음료", "examples": "생수, 주스, 탄산수, 커피 음료", "days": 14, "location": "냉장", "group": "etc", "notStocked": true }
   ]
 }

@@ -7,6 +7,7 @@ import { DISCARD_REASONS } from '../rules/constants';
 import {
   initialState,
   newItemFromCatalog,
+  newItemFromPick,
   reducer,
   showIntro,
   showNotifAsk,
@@ -504,5 +505,14 @@ describe('산 재료는 장보기 목록에서 빠진다 (V3-7-1)', () => {
   it('제안하지 않는 쌍(대파 ↔ 양파)은 빼지 않는다', () => {
     const s = reducer({ ...initialState(today), shoppingList: list(['대파']) }, { type: 'addItems', items: added('양파') });
     expect(s.shoppingList.map((i) => i.name)).toEqual(['대파']);
+  });
+});
+
+describe('직접 적은 떡은 떡 종류(냉장)로', () => {
+  it('면·곡물·빵 분류에서 이름에 "떡"이 들어가면 냉장 떡, 아니면 빵(실온)', () => {
+    const rice = newItemFromPick({ name: '가래떡', customKind: 'bread' }, today, 'r1', findCatalog)!;
+    expect(rice).toMatchObject({ location: '냉장', expiryBasis: 'kind' });
+    const bread = newItemFromPick({ name: '치아바타', customKind: 'bread' }, today, 'b1', findCatalog)!;
+    expect(bread.location).toBe('실온');
   });
 });
