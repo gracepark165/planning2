@@ -4,23 +4,25 @@ import { PLAN_RECIPES } from '../data';
 import { MAX_MEALS_PER_WEEK, MIN_MEALS_PER_WEEK, STATE_META } from '../rules/constants';
 import {
   coverageText,
-  findItem,
-  makePlan,
   minMealsToCover,
   reasonOf,
   summarizePlan,
   uncoveredSoon,
+  type PlanResult,
   type PlanSlot,
 } from '../rules/plan';
 import { formatDayLabel } from '../rules/date';
-import { dDayLabel, daysLeft, stateOf } from '../rules/status';
+import { dDayLabel, daysLeft } from '../rules/status';
 import type { DateKey, Item, Plan, Recipe } from '../rules/types';
+import { UseTag } from './parts';
 
 const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
 
 interface Props {
   items: Item[];
   plan: Plan;
+  /** 이번 주 플랜 (App에서 한 번만 짜서 홈의 오늘의 한 끼와 같이 쓴다) */
+  result: PlanResult;
   today: DateKey;
   onMeals: (n: number) => void;
   onConfirm: (recipe: Recipe) => void;
@@ -30,25 +32,12 @@ interface Props {
   onClearRejected: () => void;
 }
 
-export function PlanView({ items, plan, today, onMeals, onConfirm, onSwap, onSkip, onUndo, onClearRejected }: Props) {
-  const result = makePlan(items, PLAN_RECIPES, plan, today);
+export function PlanView({ items, plan, result, today, onMeals, onConfirm, onSwap, onSkip, onUndo, onClearRejected }: Props) {
   const { soonTotal, soonSaved, buyAll, lost } = summarizePlan(result, items, plan, today);
   const owned = new Set(items.map((i) => i.name));
   // 고른 집밥 횟수로 얼른 먹어야 할 재료를 다 못 쓰면 안내 (A-4)
   const uncovered = uncoveredSoon(result, items, today);
   const coverMeals = uncovered.length ? minMealsToCover(items, PLAN_RECIPES, plan, today) : null;
-
-  const tagFor = (name: string) => {
-    const it = findItem(items, name, today);
-    const st = it ? stateOf(it, today) : 'ok';
-    const cls = st === 'soon' ? 'hot' : st === 'buried' ? 'bur' : '';
-    const extra = st === 'soon' && it ? ` · ${dDayLabel(daysLeft(it, today))}` : st === 'buried' ? ` · ${STATE_META.buried.label}` : '';
-    return (
-      <span key={name} className={`tag ${cls}`}>
-        {name + extra}
-      </span>
-    );
-  };
 
   const dayHead = (slot: PlanSlot) => (
     <div className={`when ${slot.dayOffset === 0 ? 'today' : ''}`}>{formatDayLabel(slot.date, today)}</div>
@@ -114,7 +103,9 @@ export function PlanView({ items, plan, today, onMeals, onConfirm, onSwap, onSki
                   {reasonOf(slot.recipe, items, today)}
                 </div>
                 <div className="tags">
-                  {slot.recipe.uses.map(tagFor)}
+                  {slot.recipe.uses.map((n) => (
+                    <UseTag key={n} name={n} items={items} today={today} />
+                  ))}
                   {slot.recipe.keeps.map((n) => (
                     <span key={n} className="tag">
                       {n}

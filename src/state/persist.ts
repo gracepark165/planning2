@@ -57,6 +57,7 @@ export function migrate(data: unknown): AppState | null {
     shoppingList: arr(data.shoppingList),
     // 이미 쓰던 사람에게는 첫 사용 안내를 다시 보여주지 않는다
     onboarding: {
+      introSeen: true,
       seen: true,
       mode: items.some((i) => i.sample) ? 'sample' : 'mine',
       sampleAsked: false,

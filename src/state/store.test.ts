@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findCatalog } from '../data';
 import { loadState, saveState, STORAGE_KEY } from './persist';
-import { initialState, newItemFromCatalog, reducer, showOnboarding, showSamplePrompt } from './store';
+import { initialState, newItemFromCatalog, reducer, showIntro, showOnboarding, showSamplePrompt } from './store';
 
 const today = '2026-10-27';
 
@@ -64,7 +64,7 @@ describe('재고 상태 바꾸기', () => {
     const s0 = initialState(today);
     const s1 = {
       ...s0,
-      onboarding: { seen: true, mode: 'mine' as const, sampleAsked: true },
+      onboarding: { introSeen: true, seen: true, mode: 'mine' as const, sampleAsked: true },
       notif: { ...s0.notif, optedLater: true, bannerClosedOn: today },
     };
     const s2 = reducer(s1, { type: 'reset', today });
@@ -231,7 +231,7 @@ describe('첫 사용 안내 (B-6)', () => {
   it('처음 열면 안내 카드를 보여주고, 예시 재료에는 예시 표시가 있다', () => {
     const s = initialState(today);
     expect(showOnboarding(s)).toBe(true);
-    expect(s.onboarding).toEqual({ seen: false, mode: 'sample', sampleAsked: false });
+    expect(s.onboarding).toEqual({ introSeen: false, seen: false, mode: 'sample', sampleAsked: false });
     expect(s.items.every((i) => i.sample)).toBe(true);
   });
 
@@ -277,5 +277,22 @@ describe('첫 사용 안내 (B-6)', () => {
     const reset = reducer(reducer(s, { type: 'reset', today }), { type: 'addItems', items: [mine] });
     expect(showOnboarding(reset)).toBe(false);
     expect(showSamplePrompt(reset)).toBe(false);
+  });
+});
+
+describe('오프닝 화면', () => {
+  it('처음 열면 오프닝 화면, 시작하기를 누르면 다시 안 나온다', () => {
+    const s0 = initialState(today);
+    expect(showIntro(s0)).toBe(true);
+    const s1 = reducer(s0, { type: 'finishIntro' });
+    expect(showIntro(s1)).toBe(false);
+    // 오프닝 다음에 첫 사용 안내 카드
+    expect(showOnboarding(s1)).toBe(true);
+    expect(s1.items).toEqual(s0.items);
+  });
+
+  it('예시 재료로 되돌려도 오프닝은 다시 안 나온다', () => {
+    const s = reducer(reducer(initialState(today), { type: 'finishIntro' }), { type: 'reset', today });
+    expect(showIntro(s)).toBe(false);
   });
 });

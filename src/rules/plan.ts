@@ -15,7 +15,7 @@ import { MAX_MEALS_PER_WEEK } from './constants';
 import { addDays } from './date';
 import { iga } from './josa';
 import { daysLeft, daysSinceEntered, stateOf, urgencyOf } from './status';
-import type { DateKey, Item, Plan, Recipe } from './types';
+import type { DateKey, DoneMeal, Item, Plan, Recipe } from './types';
 
 export interface PlanSlot {
   /** 끼니 순번 (확정한 끼니 포함, 0부터) */
@@ -147,6 +147,26 @@ export function minMealsToCover(items: readonly Item[], recipes: readonly Recipe
 export function coverageText(names: readonly string[], m: number | null): string {
   const head = `얼른 먹어야 할 재료 ${names.length}개(${names.join(', ')})가 남아요.`;
   return m === null ? `${head} 따로 챙겨 드세요.` : `${head} 집밥을 ${m}번으로 늘리면 모두 먹을 수 있어요.`;
+}
+
+/** 홈의 오늘의 한 끼 (B-2). 따로 계산하지 않고 플랜의 오늘 끼니(day 0)를 그대로 쓴다. */
+export type TodayMeal =
+  /** 오늘 확정한 끼니가 있음: "오늘 한 끼 완료 · {메뉴}" */
+  | { kind: 'done'; meal: DoneMeal }
+  /** 플랜의 오늘 끼니 */
+  | { kind: 'suggest'; slot: PlanSlot & { recipe: Recipe } }
+  /** 급한 재료가 없고 오늘 끼니가 가볍게 먹는 메뉴 */
+  | { kind: 'calm' }
+  /** 오늘 끼니가 없거나 만들 수 있는 메뉴가 없음 */
+  | { kind: 'none' };
+
+export function todayMeal(result: PlanResult, plan: Plan, items: readonly Item[], today: DateKey): TodayMeal {
+  const done = plan.doneMeals.filter((m) => m.date === today).at(-1);
+  if (done) return { kind: 'done', meal: done };
+  const slot = result.slots.find((s) => s.dayOffset === 0);
+  if (!slot?.recipe) return { kind: 'none' };
+  if (!slot.recipe.uses.length && !items.some((i) => stateOf(i, today) === 'soon')) return { kind: 'calm' };
+  return { kind: 'suggest', slot: slot as PlanSlot & { recipe: Recipe } };
 }
 
 /** 배치 이유 문장 (규칙으로 만든다) */

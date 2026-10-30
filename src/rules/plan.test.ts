@@ -4,7 +4,7 @@ import { makeSampleInventory } from '../data/sampleInventory';
 import { emptyPlan } from '../state/store';
 import { addDays } from './date';
 import { daysLeft } from './status';
-import { coverageText, makePlan, minMealsToCover, reasonOf, summarizePlan, uncoveredSoon } from './plan';
+import { coverageText, makePlan, minMealsToCover, reasonOf, summarizePlan, todayMeal, uncoveredSoon } from './plan';
 import type { Item, Plan, Recipe } from './types';
 
 const today = '2026-10-27';
@@ -246,5 +246,49 @@ describe('플랜 요약', () => {
     const plan = planOf({ mealsPerWeek: 4, doneMeals: [{ recipe: 'x', usedItems: [], soonUsed: ['a', 'b'], at: '' }] });
     const s = summarizePlan(makePlan(inv, PLAN_RECIPES, plan, today), inv, plan, today);
     expect(s.soonTotal).toBe(6);
+  });
+});
+
+describe('오늘의 한 끼 (B-2): 플랜의 오늘 끼니를 그대로 쓴다', () => {
+  const at = (items: Item[], p: Partial<Plan> = {}) => {
+    const plan = planOf({ mealsPerWeek: 4, ...p });
+    return todayMeal(makePlan(items, PLAN_RECIPES, plan, today), plan, items, today);
+  };
+
+  it('추천: 플랜의 첫 끼니(오늘)와 같은 메뉴', () => {
+    const t = at(inv);
+    expect(t.kind).toBe('suggest');
+    if (t.kind === 'suggest') expect(t.slot).toMatchObject({ index: 0, dayOffset: 0, recipe: { name: CURRY } });
+  });
+
+  it('다른 메뉴 = 오늘 끼니의 바꾸기', () => {
+    const t = at(inv, { swapIndex: { 0: 1 } });
+    expect(t.kind === 'suggest' && t.slot.recipe.name).toBe(names(4, { swapIndex: { 0: 1 } })[0]);
+  });
+
+  it('오늘 확정한 끼니가 있으면 완료 (가장 최근 것)', () => {
+    const done = [
+      { recipe: 'x', usedItems: [], soonUsed: [], at: 'T0', date: addDays(today, -1) },
+      { recipe: CURRY, usedItems: [], soonUsed: [], at: 'T1', date: today },
+    ];
+    expect(at(inv, { doneMeals: done })).toEqual({ kind: 'done', meal: done[1] });
+    // 어제 먹은 것만 있으면 오늘은 다시 추천
+    expect(at(inv, { doneMeals: [done[0]] }).kind).toBe('suggest');
+  });
+
+  it('급한 재료가 없고 오늘 끼니가 "가볍게 먹어요"면 한 줄 안내', () => {
+    const calm = [item('계란', 20, 0), item('대파', 10, 0)];
+    expect(at(calm)).toEqual({ kind: 'calm' });
+  });
+
+  it('급한 재료가 있으면 가볍게 먹는 메뉴라도 추천으로 보여준다', () => {
+    const t = at([item('계란', 20, 0), item('대파', 10, 0), item('두부', 1, 0)]);
+    expect(t.kind === 'suggest' && t.slot.recipe.name).toBe('계란말이 한 끼');
+  });
+
+  it('만들 수 있는 메뉴가 없거나 이번 주 끼니를 다 먹었으면 none', () => {
+    expect(at([])).toEqual({ kind: 'none' });
+    const done = [1, 2, 3, 4].map((n) => ({ recipe: `x${n}`, usedItems: [], soonUsed: [], at: `T${n}`, date: addDays(today, -n) }));
+    expect(at(inv, { doneMeals: done })).toEqual({ kind: 'none' });
   });
 });

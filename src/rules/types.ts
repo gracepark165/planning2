@@ -84,6 +84,8 @@ export interface ShoppingItem {
 
 /** 첫 사용 안내 */
 export interface Onboarding {
+  /** 오프닝 화면에서 시작하기를 눌렀는지 (처음 한 번만 보여준다) */
+  introSeen: boolean;
   /** 안내 카드에서 버튼을 한 번 골랐는지 */
   seen: boolean;
   mode: 'sample' | 'mine';

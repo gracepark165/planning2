@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { BURIED_AGO, LOCATIONS, SOON_DAYS, STATE_META } from '../rules/constants';
 import {
   countByState,
@@ -43,7 +43,6 @@ interface Props {
   today: DateKey;
   onOpen: (id: string) => void;
   onAdd: () => void;
-  onPlan: () => void;
   onReset: () => void;
   onClear: () => void;
   onOrder: () => void;
@@ -53,6 +52,8 @@ interface Props {
   /** 내 재료를 넣은 뒤 "예시 재료는 지울까요?" */
   samplePrompt: boolean;
   onSamplePrompt: (remove: boolean) => void;
+  /** 마스코트 카드 아래 오늘의 한 끼 (B-2) */
+  todayCard: ReactNode;
 }
 
 export function HomeView({
@@ -61,7 +62,6 @@ export function HomeView({
   today,
   onOpen,
   onAdd,
-  onPlan,
   onReset,
   onClear,
   onOrder,
@@ -69,6 +69,7 @@ export function HomeView({
   onOnboard,
   samplePrompt,
   onSamplePrompt,
+  todayCard,
 }: Props) {
   const [loc, setLoc] = useState<LocFilter>('전체');
   const [filter, setFilter] = useState<StateFilter>('전체');
@@ -147,11 +148,9 @@ export function HomeView({
         <span className="ver">{formatDate(today)}</span>
         <h1>{title}</h1>
         <p className="lead">{lead}</p>
-        <button className="pill" onClick={onPlan}>
-          오늘 뭐 먹지? ›
-        </button>
         <img className="mascot" alt="" src="/mascot.webp" />
       </div>
+      {todayCard}
 
       <div className="seg" style={{ marginTop: 16 }}>
         {(['전체', ...LOCATIONS] as LocFilter[]).map((l) => (

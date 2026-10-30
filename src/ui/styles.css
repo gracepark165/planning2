@@ -105,7 +105,6 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
 .hero{position:relative;overflow:hidden;margin-top:8px;padding:22px 20px 20px;border-radius:28px;background:linear-gradient(180deg,var(--hero),var(--hero2))}
 .hero h1{margin:6px 0 4px;font-size:24px;max-width:70%}
 .hero .lead{margin:0 0 16px;font-size:14px;max-width:64%}
-.hero .pill{display:inline-block;background:var(--white);color:var(--fg);font-weight:700;font-size:14px;padding:10px 16px;border-radius:999px;box-shadow:var(--shadow)}
 .mascot{position:absolute;right:12px;bottom:0;width:124px;height:auto;max-width:34%}
 .card.onboard h3{word-break:keep-all}
 .card.onboard .cta{margin-top:12px}
@@ -114,6 +113,22 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
 .notice span{flex:1;min-width:0}
 .notice .small-btn{flex:none;min-height:40px;white-space:nowrap}
 .row .nm .tag.sample{margin-left:6px;vertical-align:2px;font-weight:500}
+.card.today h3{font-size:18px;margin:2px 0 2px}
+.card.today .small-btn.alt{background:var(--bg)}
+.today-link{display:block;margin-top:10px;font-size:14px;font-weight:700;color:var(--accent)}
+.today-done{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.today-done b{min-width:0;word-break:keep-all}
+.today-done .small-btn{flex:none;min-height:44px;white-space:nowrap}
+.today-calm{margin:12px 4px;color:var(--sub);font-size:14px}
+/* 오프닝 화면: 화면 전체, 하단 탭 위로 */
+.opening{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;overflow-y:auto;
+  padding:24px max(24px,env(safe-area-inset-right,0px)) calc(24px + env(safe-area-inset-bottom,0px)) max(24px,env(safe-area-inset-left,0px));
+  background:linear-gradient(180deg,var(--hero),var(--bg) 70%);text-align:center}
+.opening-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;max-width:360px;padding:24px 0}
+.opening-mascot{width:180px;height:auto;margin-bottom:12px}
+.opening h1{font-size:26px;margin:8px 0 12px}
+.opening p{margin:0 0 8px;color:var(--sub);font-size:16px;line-height:1.6;word-break:keep-all;text-wrap:balance}
+.opening .cta{max-width:432px;flex:none}
 .fab-space{height:calc(56px + env(safe-area-inset-bottom,0px))}
 .note.how{display:block;text-decoration:underline;margin-top:20px}
 .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--accent-bg);color:var(--accent);font-weight:700;font-size:15px;padding:12px 20px;border-radius:999px;box-shadow:var(--shadow);z-index:5}

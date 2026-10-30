@@ -1,15 +1,27 @@
 import { type ReactNode, useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { findCatalog } from '../data';
+import { PLAN_RECIPES, findCatalog } from '../data';
 import { todayKey } from '../rules/date';
+import { makePlan, todayMeal } from '../rules/plan';
 import { eul, eun, withJosa } from '../rules/josa';
+import type { Recipe } from '../rules/types';
 import { loadState, saveState } from '../state/persist';
 import { withMyFoods } from '../state/myFoods';
-import { initialState, newItemFromPick, reducer, showOnboarding, showSamplePrompt, type AddPick } from '../state/store';
+import {
+  initialState,
+  newItemFromPick,
+  reducer,
+  showIntro,
+  showOnboarding,
+  showSamplePrompt,
+  type AddPick,
+} from '../state/store';
 import { AddView } from './AddView';
 import { HomeView } from './HomeView';
 import { ItemSheet } from './ItemSheet';
+import { OpeningView } from './OpeningView';
 import { OrderView } from './OrderView';
 import { PlanView } from './PlanView';
+import { TodayCard } from './TodayCard';
 import { VideoView } from './VideoView';
 import { TabBar, type TabKey } from './TabBar';
 import { newId } from './id';
@@ -61,8 +73,29 @@ export function App() {
     showToast(`${recipeName}에 쓴 재료를 냉장고로 되돌렸어요`);
   };
 
+  // 이번 주 플랜은 여기서 한 번만 짠다. 홈의 오늘의 한 끼와 이번 주 화면이 같은 결과를 본다.
+  const planResult = makePlan(state.items, PLAN_RECIPES, state.plan, today);
+
+  /** "이걸로 할게요" (홈·이번 주 화면 공통): 쓴 재료를 빼고, 되돌리기를 보여준다 */
+  const confirmMeal = (recipe: Recipe) => {
+    const at = new Date().toISOString();
+    dispatch({ type: 'confirmMeal', recipe, today, at });
+    showToast(`${recipe.name}에 쓴 재료를 냉장고에서 뺐어요`, {
+      label: '되돌리기',
+      run: () => undoMeal(recipe.name, at),
+    });
+  };
+  const undoAt = (at: string) => {
+    const name = state.plan.doneMeals.find((d) => d.at === at)?.recipe;
+    if (name) undoMeal(name, at);
+  };
+  const swap = (slotIndex: number) => dispatch({ type: 'swap', slotIndex });
+
   const sheetItem = state.items.find((i) => i.id === sheetId);
   const closeSheet = useCallback(() => setSheetId(null), []);
+
+  // 처음 열었을 때 한 번만 오프닝 화면 (하단 탭 없이)
+  if (showIntro(state)) return <OpeningView onStart={() => dispatch({ type: 'finishIntro' })} />;
 
   let view: ReactNode = null;
   if (screen === 'home') {
@@ -73,7 +106,17 @@ export function App() {
         today={today}
         onOpen={setSheetId}
         onAdd={() => go('add')}
-        onPlan={() => go('plan')}
+        todayCard={
+          <TodayCard
+            meal={todayMeal(planResult, state.plan, state.items, today)}
+            items={state.items}
+            today={today}
+            onConfirm={confirmMeal}
+            onSwap={swap}
+            onUndo={undoAt}
+            onPlan={() => go('plan')}
+          />
+        }
         onReset={() => {
           if (!window.confirm('지금 냉장고를 지우고 예시 재료로 되돌릴까요?')) return;
           dispatch({ type: 'reset', today });
@@ -106,26 +149,17 @@ export function App() {
       <PlanView
         items={state.items}
         plan={state.plan}
+        result={planResult}
         today={today}
         onMeals={(mealsPerWeek) => dispatch({ type: 'setMeals', mealsPerWeek })}
-        onSwap={(slotIndex) => dispatch({ type: 'swap', slotIndex })}
+        onSwap={swap}
         onSkip={(recipe) => {
           dispatch({ type: 'skip', recipe: recipe.name });
           showToast(`${withJosa(recipe.name, eun)} 건너뛰었어요`);
         }}
         onClearRejected={() => dispatch({ type: 'clearRejected' })}
-        onConfirm={(recipe) => {
-          const at = new Date().toISOString();
-          dispatch({ type: 'confirmMeal', recipe, today, at });
-          showToast(`${recipe.name}에 쓴 재료를 냉장고에서 뺐어요`, {
-            label: '되돌리기',
-            run: () => undoMeal(recipe.name, at),
-          });
-        }}
-        onUndo={(at) => {
-          const name = state.plan.doneMeals.find((d) => d.at === at)?.recipe;
-          if (name) undoMeal(name, at);
-        }}
+        onConfirm={confirmMeal}
+        onUndo={undoAt}
       />
     );
   } else if (screen === 'add') {

@@ -55,6 +55,8 @@ export type Action =
   | { type: 'confirmMeal'; recipe: Recipe; today: DateKey; at: string }
   | { type: 'undoMeal'; at: string }
   // 첫 사용 안내
+  /** 오프닝 화면의 시작하기 */
+  | { type: 'finishIntro' }
   /** 안내 카드: 내 재료로 시작할게요(mine, 예시 재료를 지움) / 예시로 둘러볼게요(sample) */
   | { type: 'onboard'; mode: Onboarding['mode'] }
   /** "예시 재료는 지울까요?": 지우기(remove) / 놔둘게요 */
@@ -80,7 +82,7 @@ export function initialState(today: DateKey): AppState {
     plan: emptyPlan(),
     myFoods: {},
     shoppingList: [],
-    onboarding: { seen: false, mode: 'sample', sampleAsked: false },
+    onboarding: { introSeen: false, seen: false, mode: 'sample', sampleAsked: false },
     notif: defaultNotif(),
   };
 }
@@ -147,7 +149,10 @@ export function newItemFromPick(
   };
 }
 
-/** 첫 방문 안내 카드를 보여줄지 */
+/** 처음 열었을 때 오프닝 화면을 보여줄지 */
+export const showIntro = (state: AppState) => !state.onboarding.introSeen;
+
+/** 첫 방문 안내 카드를 보여줄지 (오프닝 다음) */
 export const showOnboarding = (state: AppState) => !state.onboarding.seen;
 
 /** "예시 재료는 지울까요?": 안내 카드를 고른 뒤, 예시 재료와 내 재료가 같이 있을 때 한 번만 */
@@ -234,6 +239,8 @@ export function reducer(state: AppState, action: Action): AppState {
       return confirmMeal(state, action.recipe, action.today, action.at);
     case 'undoMeal':
       return undoMeal(state, action.at);
+    case 'finishIntro':
+      return { ...state, onboarding: { ...state.onboarding, introSeen: true } };
     case 'onboard': {
       const next = action.mode === 'mine' ? withoutSamples(state) : state;
       return { ...next, onboarding: { ...state.onboarding, seen: true, mode: action.mode } };
