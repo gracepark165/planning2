@@ -51,6 +51,8 @@ describe('최근 7일 요약 (B-5 → V3-2)', () => {
       soonNow: 2,
       sentence: '최근 7일 동안 얼른 먹어야 할 재료 2개를 먹었어요. 2개는 아직 남아 있어요.',
       showSoonNowLine: false, // 문장에 이미 "2개는 아직 남아 있어요"가 있어서 아래 줄은 뺀다 (V3-6-1)
+      showEatenLine: true,
+      showDiscardLine: true,
     });
   });
 
@@ -79,7 +81,7 @@ describe('최근 7일 요약 (B-5 → V3-2)', () => {
       eatenSoon: 0,
       discarded: 1,
       topReason: null,
-      sentence: '최근 7일 동안 먹은 재료 1개 중 얼른 먹어야 할 재료는 아직 없어요.',
+      sentence: '최근 7일 동안 재료 1개를 먹었어요.', // V4-6-2
       showSoonNowLine: true,
     });
   });
@@ -100,5 +102,22 @@ describe('최근 7일 요약 (B-5 → V3-2)', () => {
       log('2026-10-28', 'discard', { discardReason: '상했어요' }),
     ];
     expect(recentSummary(logs, fridge, today)).toMatchObject({ topReason: '상했어요' });
+  });
+});
+
+describe('요약 문장·0개 줄 (V4-6-1·2)', () => {
+  it('급한 재료를 먹었는데 남은 게 없으면 "아직 남아 있어요"를 붙이지 않고, 0개인 줄은 숨긴다', () => {
+    const s = recentSummary([log('2026-10-28', 'eat', { stateAtAction: 'soon' })], [item('양파', 14)], today);
+    expect(s).toMatchObject({
+      sentence: '최근 7일 동안 얼른 먹어야 할 재료 1개를 먹었어요.',
+      showEatenLine: true,
+      showDiscardLine: false, // 버린 재료 0개
+      showSoonNowLine: false, // 지금 얼른 먹어야 할 재료 0개
+    });
+  });
+
+  it('먹은 재료가 0개면 먹은 줄도 숨긴다', () => {
+    const s = recentSummary([log('2026-10-28', 'discard', { discardReason: '상했어요' })], fridge, today);
+    expect(s).toMatchObject({ showEatenLine: false, showDiscardLine: true, showSoonNowLine: true });
   });
 });

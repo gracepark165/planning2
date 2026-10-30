@@ -31,3 +31,9 @@ export function boughtAs(listName: string, addedName: string, table: SubstituteT
   const g = groupOf(a, table);
   return !never && g !== undefined && g === groupOf(b, table);
 }
+
+/** 확정하려는 메뉴의 사야 할 재료 중 아직 냉장고에 없는 것 (V4-6-5: "상추는 준비됐어요?") */
+export function missingToBuy(recipe: { buy: readonly string[] }, items: readonly { name: string }[]): string[] {
+  const have = new Set(items.map((i) => canonicalName(i.name)));
+  return recipe.buy.filter((n) => !have.has(canonicalName(n)));
+}

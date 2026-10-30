@@ -47,6 +47,10 @@ export interface Item {
   note?: string;
   /** 처음 열 때 넣어 둔 예시 재료 */
   sample?: boolean;
+  /** 사용자가 재료 시트에서 고른 사용 방식 (V4-3). 없으면 사전·단위로 정한다 (소분은 늘 한 끼에 1개) */
+  portion?: 'level' | 'whole';
+  /** 앱에 넣은 날 (입고일과 다를 수 있음). 그날 동안 홈에 "새로" 태그 (V4-4) */
+  addedOn?: DateKey;
 }
 
 export interface MealLog {
@@ -148,6 +152,8 @@ export interface CatalogEntry {
   group: FoodGroup;
   /** 직접 추가 화면에서 고를 때 넣는 기본 수량 */
   defaultQty?: string;
+  /** 사용 방식 기본값 (V4-3). 없으면 품목군으로 정한다 */
+  portion?: 'level' | 'whole';
   /** 직접 추가 화면의 타일에 보이는지 */
   picker?: boolean;
   /** 재료 사전이 아니라 "지난번 값"(기기에 기억한 내 재료)에서 온 항목 */

@@ -59,7 +59,9 @@ export function TodayCard({ meal, items, today, onConfirm, onSwap, onUndo, onPla
       <h3>
         {slot.recipe.name}
         {slot.pinned && <span className="tag video">영상</span>}
+        {slot.ai && <span className="tag ai">AI 제안</span>}
       </h3>
+      {slot.ai?.howto && <div className="ai-howto">{slot.ai.howto}</div>}
       <p>{reasonOf(slot.recipe, items, today)}</p>
       {slot.recipe.uses.length > 0 && (
         <div className="tags">

@@ -1,7 +1,16 @@
 // 브라우저에서 AI 읽기 서버 함수(/api/read)를 부른다.
 // 실패해도 앱은 멈추지 않는다: 부른 쪽이 reason을 보고 예시 결과·직접 입력으로 넘어간다.
 
-import type { OrderAiResult, ReadErrorCode, ReadResponse, TextAiResult, VideoAiResult } from '../../api/read';
+import type {
+  IngredientsAiResult,
+  MenuAiResult,
+  MenuRequest,
+  OrderAiResult,
+  ReadErrorCode,
+  ReadResponse,
+  TextAiResult,
+  VideoAiResult,
+} from '../../api/read';
 import { CATALOG } from '../data';
 import { kindListOf, vocabularyOf } from './convert';
 
@@ -16,18 +25,23 @@ const TIMEOUT_MS = 60_000;
  * 주문 화면·글 입력은 종류 목록도 보내서, 사전에 없는 재료를 종류로 분류하게 한다.
  */
 async function post<T>(body: object, kind: string, extraNames: string[] = []): Promise<AiResult<T>> {
+  return postTo<T>(ENDPOINT, {
+    ...body,
+    kind,
+    vocabulary: [...vocabularyOf(CATALOG), ...extraNames].slice(0, 400),
+    ...(kind === 'video' ? {} : { kinds: kindListOf() }),
+  });
+}
+
+async function postTo<T>(endpoint: string, payload: { kind: string } & Record<string, unknown>): Promise<AiResult<T>> {
+  const { kind } = payload;
   const ctrl = new AbortController();
   const timer = window.setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(ENDPOINT, {
+    const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        ...body,
-        kind,
-        vocabulary: [...vocabularyOf(CATALOG), ...extraNames].slice(0, 400),
-        ...(kind === 'video' ? {} : { kinds: kindListOf() }),
-      }),
+      body: JSON.stringify(payload),
       signal: ctrl.signal,
     });
     let json: ReadResponse;
@@ -121,6 +135,13 @@ export async function readOrderImage(file: File, today: string, extraNames: stri
 export const readVideo = (url: string) => post<VideoAiResult>({ url }, 'video');
 
 export const readTextLines = (lines: string[], extraNames: string[] = []) => post<TextAiResult>({ lines }, 'text', extraNames);
+
+/** 메뉴 제안 (V4-1b): 규칙 메뉴로 못 채운 칸만. 재료 이름·수량·상태·남은 일수만 보낸다 */
+export const suggestMenus = (req: MenuRequest) => postTo<MenuAiResult>('/api/menu', { ...(req as unknown as Record<string, unknown>), kind: 'menu' });
+
+/** 메뉴 이름 → 흔한 재료 (V4-5) */
+export const fetchIngredients = (menu: string, basicSeasonings: readonly string[]) =>
+  postTo<IngredientsAiResult>('/api/ingredients', { kind: 'ingredients', menu, basicSeasonings: [...basicSeasonings] });
 
 /** 실패 이유 → 화면 문구 */
 export const AI_FAILURE_TEXT: Record<AiFailure, string> = {

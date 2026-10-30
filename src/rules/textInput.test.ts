@@ -21,7 +21,7 @@ function docTables(): string[][][] {
   );
 }
 
-const [ITEM_ROWS, SPLIT_ROWS] = docTables();
+const [ITEM_ROWS, SPLIT_ROWS, WHEN_ROWS] = docTables();
 const NONE = '—';
 const NEED: Record<string, ParseNeed> = { 개수: 'count', 소비기한: 'expiry', 이름: 'name' };
 
@@ -82,5 +82,30 @@ describe('여러 항목 나누기 (문서 5장 예시)', () => {
   it('빈 입력이면 빈 목록', () => {
     expect(parseTextInput('', CATALOG)).toEqual([]);
     expect(parseTextInput('  ⏎ , '.replaceAll('⏎', '\n'), CATALOG)).toEqual([]);
+  });
+});
+
+describe('언제 샀는지·얼마나 남았는지 (문서 6장, V4-2·V4-3)', () => {
+  it('표를 찾았다', () => {
+    expect(WHEN_ROWS.length).toBeGreaterThanOrEqual(15);
+    for (const r of WHEN_ROWS) expect(r).toHaveLength(6);
+  });
+
+  it.each(WHEN_ROWS)('%s', (input, name, count, unit, ago, remaining) => {
+    const got = parseItem(input, CATALOG);
+    expect({ name: got.name, count: got.count, unit: got.unit, enteredAgo: got.enteredAgo, remaining: got.remaining }).toEqual({
+      name,
+      count: Number(count),
+      unit,
+      enteredAgo: ago === NONE ? undefined : Number(ago),
+      remaining: remaining === NONE ? undefined : remaining,
+    });
+  });
+
+  it('시점·남은 양 말이 없으면 읽지 않는다 (기존 줄은 그대로)', () => {
+    for (const [input, count] of [['닭안심 여섯 덩어리 소분', 6], ['소고기 불고기용 소분 일곱팩', 7]] as const) {
+      const got = parseItem(input, CATALOG);
+      expect([got.enteredAgo, got.remaining, got.count]).toEqual([undefined, undefined, count]);
+    }
   });
 });

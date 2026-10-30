@@ -199,3 +199,65 @@ describe('서버 함수', () => {
     expect((await handleRead({ kind: 'text', lines: ['x'] }, later)).status).toBe(200);
   });
 });
+
+describe('메뉴 제안 /api/menu (V4-1b)', () => {
+  beforeEach(resetRateLimit);
+  const menuReq = {
+    kind: 'menu',
+    today: '2026-10-30',
+    slots: [{ index: 3, date: '2026-11-04' }],
+    stock: [
+      { name: '두부', qty: '1모', daysLeft: 7, state: 'ok', portion: 'whole' },
+      { name: '계란', qty: '10구', daysLeft: 14, state: 'ok', portion: 'level', level: '넉넉해요' },
+    ],
+    mustUseFirst: ['두부'],
+    excludeMenus: ['닭가슴살 샐러드'],
+    basicSeasonings: ['소금', '간장'],
+  };
+  const menus = { menus: [{ slotIndex: 3, name: '두부 애호박 볶음', uses: ['두부'], keeps: ['계란'], buy: [], howto: '두부를 볶아요' }] };
+
+  it('요청 JSON을 그대로 보내고(재료 이름·수량·상태·남은 일수뿐), 온도는 낮게, 프롬프트는 메뉴용', async () => {
+    const { fn, calls } = fakeFetch({ [ANTHROPIC]: claudeSays('suggest_menus', menus) });
+    const r = await handleRead(menuReq, deps(fn));
+    expect(r).toEqual({ status: 200, body: { ok: true, kind: 'menu', data: menus } });
+    expect(calls).toHaveLength(1);
+    const body = calls[0].body as { temperature: number; system: string; messages: { content: { text: string }[] }[] };
+    expect(body.temperature).toBe(0.3);
+    expect(body.system).toContain('1인 가구의 집밥 메뉴');
+    const sent = JSON.parse(body.messages[0].content[0].text);
+    expect(sent).toEqual({ ...menuReq, kind: undefined });
+  });
+
+  it('형식이 다르면 한 번만 다시 부르고, 두 번 틀리면 실패(앱이 폴백)', async () => {
+    let n = 0;
+    const { fn, calls } = fakeFetch({
+      [ANTHROPIC]: () => (n++ === 0 ? claudeSays('suggest_menus', { menus: '아무거나' })() : claudeSays('suggest_menus', menus)()),
+    });
+    expect((await handleRead(menuReq, deps(fn))).body).toEqual({ ok: true, kind: 'menu', data: menus });
+    expect(calls).toHaveLength(2);
+    const bad = fakeFetch({ [ANTHROPIC]: claudeSays('suggest_menus', { nope: 1 }) });
+    const r = await handleRead(menuReq, deps(bad.fn));
+    expect(r.body).toMatchObject({ ok: false, error: 'ai-failed' });
+    expect(bad.calls).toHaveLength(2);
+  });
+
+  it('요청 검사: 칸·재료가 없거나 너무 많으면 거절', () => {
+    expect(parseRequest({ ...menuReq, slots: [] })).toBe('bad-request');
+    expect(parseRequest({ ...menuReq, stock: 'x' })).toBe('bad-request');
+    expect(parseRequest({ ...menuReq, stock: Array.from({ length: 200 }, (_, i) => ({ ...menuReq.stock[0], name: `재료${i}` })) })).toBe('too-large');
+  });
+});
+
+describe('메뉴 이름 → 재료 /api/ingredients (V4-5)', () => {
+  beforeEach(resetRateLimit);
+  it('메뉴 이름만 보내고 재료 목록을 돌려준다', async () => {
+    const data = { ingredients: ['두부', '김치', '돼지고기'] };
+    const { fn, calls } = fakeFetch({ [ANTHROPIC]: claudeSays('list_ingredients', data) });
+    const r = await handleRead({ kind: 'ingredients', menu: '두부김치', basicSeasonings: ['소금'] }, deps(fn));
+    expect(r).toEqual({ status: 200, body: { ok: true, kind: 'ingredients', data } });
+    expect(JSON.stringify(calls[0].body)).toContain('두부김치');
+  });
+  it('메뉴 이름이 없으면 거절', () => {
+    expect(parseRequest({ kind: 'ingredients', menu: '' })).toBe('bad-request');
+  });
+});

@@ -1,5 +1,9 @@
 {
   "functions": {
     "api/read.ts": { "maxDuration": 60 }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/menu", "destination": "/api/read" },
+    { "source": "/api/ingredients", "destination": "/api/read" }
+  ]
 }

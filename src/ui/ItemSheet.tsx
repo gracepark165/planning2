@@ -4,10 +4,11 @@ import { useEffect } from 'react';
 import { findCatalog } from '../data';
 import { COUNT_MAX, COUNT_MIN, LOCATIONS, REMAINING_LEVELS } from '../rules/constants';
 import { formatDate } from '../rules/date';
-import { expiryBasisText, usualShelfText } from '../rules/expiry';
+import { basisNote, enteredText, expiryBasisText } from '../rules/expiry';
 import { dDayLabel, daysLeft, daysSinceEntered, stateOf } from '../rules/status';
 import type { DateKey, Item, Location, Remaining } from '../rules/types';
-import { StateBadge } from './parts';
+import { portionOf } from '../rules/portion';
+import { EnteredPicker, StateBadge } from './parts';
 
 interface Props {
   item: Item;
@@ -19,9 +20,13 @@ interface Props {
   onLocation: (l: Location) => void;
   onCount: (delta: number) => void;
   onRemove: () => void;
+  /** 들어온 날 바꾸기 (V4-2) */
+  onEntered: (enteredAt: string) => void;
+  /** 한 번에 다 써요 / 여러 번 나눠 써요 (V4-3) */
+  onPortion: (portion: 'level' | 'whole') => void;
 }
 
-export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish, onLocation, onCount, onRemove }: Props) {
+export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish, onLocation, onCount, onRemove, onEntered, onPortion }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -29,7 +34,7 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
   }, [onClose]);
 
   const left = daysLeft(item, today);
-  const usual = usualShelfText(item);
+  const usual = basisNote(item);
 
   return (
     <div className="sheet-bg" onClick={onClose}>
@@ -90,6 +95,16 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
           ))}
         </div>
 
+        {!item.portioned && (
+          <div className="seg" style={{ marginTop: 8 }} role="group" aria-label="쓰는 방식">
+            {(['whole', 'level'] as const).map((p) => (
+              <button key={p} className={portionOf(item) === p ? 'on' : ''} onClick={() => onPortion(p)}>
+                {p === 'whole' ? '한 번에 다 써요' : '여러 번 나눠 써요'}
+              </button>
+            ))}
+          </div>
+        )}
+
         {item.portioned && (
           <>
             <div className="eyebrow" style={{ marginTop: 14 }}>
@@ -112,6 +127,11 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
             </div>
           </>
         )}
+
+        <div className="eyebrow" style={{ marginTop: 14 }}>
+          들어온 날
+        </div>
+        <EnteredPicker key={item.id} value={item.enteredAt} today={today} onChange={onEntered} />
 
         <div className="eyebrow" style={{ marginTop: 14 }}>
           보관 위치
@@ -150,6 +170,3 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
     </div>
   );
 }
-
-/** 입고일 문구. 도착 예정(입고일이 미래)이면 음수가 되지 않게 */
-const enteredText = (ago: number) => (ago >= 0 ? `들어온 지 ${ago}일` : `${-ago}일 뒤 들어와요`);

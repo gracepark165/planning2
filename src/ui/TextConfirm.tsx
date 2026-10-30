@@ -14,6 +14,7 @@ import {
   chooseExpiryDays,
   issuesOf,
   renameRow,
+  setDraftEnteredAt,
   setDraftLocation,
   shiftDraftCount,
   shiftDraftExpiry,
@@ -21,7 +22,7 @@ import {
   unportionAsOne,
   type DraftRow,
 } from '../state/textDraft';
-import { BackButton, Tile } from './parts';
+import { BackButton, EnteredPicker, Tile } from './parts';
 
 interface Props {
   rows: DraftRow[];
@@ -86,7 +87,7 @@ export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, he
               </button>
             </div>
 
-            {(issues.length > 0 || r.byAi || r.expiryBasis === 'kind' || r.expiryBasis === 'mine') && (
+            {(issues.length > 0 || r.byAi || r.expiryBasis === 'kind' || r.expiryBasis === 'mine' || r.enteredRead || r.remaining) && (
               <div className="tags">
                 {r.byAi && <span className="badge b-info">AI가 읽었어요</span>}
                 {r.expiryBasis === 'label' && <span className="badge b-ok">소비기한 표기 읽음</span>}
@@ -94,6 +95,10 @@ export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, he
                   <span className="badge b-info">비슷한 종류: {findKind(r.kind)?.label}</span>
                 )}
                 {r.expiryBasis === 'mine' && <span className="badge b-ok">지난번 값</span>}
+                {r.remaining && <span className="badge b-info">남은 양 {r.remaining}</span>}
+                {r.enteredRead && r.enteredAt && (
+                  <span className="badge b-info">들어온 날을 {formatDate(r.enteredAt)}로 읽었어요</span>
+                )}
                 {issues.map((i) => (
                   <span key={i} className={`badge ${i === 'name' ? 'b-buried' : 'b-soon'}`}>
                     {ISSUE_TEXT[i]}
@@ -174,6 +179,14 @@ export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, he
                 >
                   {r.portioned ? '소분했어요' : '소분 안 함'}
                 </button>
+              </div>
+              <div className="field">
+                <span>들어온 날</span>
+                <EnteredPicker
+                  value={r.enteredAt ?? today}
+                  today={today}
+                  onChange={(d) => update(r.key, (x) => ({ ...setDraftEnteredAt(x, d, lookup), enteredRead: false }))}
+                />
               </div>
               <div className="field">
                 <span>보관</span>

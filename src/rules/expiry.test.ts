@@ -8,7 +8,9 @@ import {
   refreshAutoExpiry,
   shelfDaysFor,
   shiftExpiry,
-  usualShelfText,
+  setEntered,
+  basisNote,
+  enteredText,
 } from './expiry';
 import { emojiOf } from './emoji';
 import { makeSampleInventory } from '../data/sampleInventory';
@@ -132,18 +134,22 @@ describe('기준 문구 (A-3: N일은 입고일과 소비기한의 차이)', () 
     expect(expiryBasisText({ ...base, expiryBasis: 'mine' })).toBe('지난번에 정한 기간 · 보통 7일');
   });
 
-  it('보통 기간 안내: 기간표로 정한 값에만, N은 날짜 차이', () => {
-    expect(usualShelfText(base)).toBe('이 재료는 보통 7일 두고 먹어요 · 기간표는 검증 전 임시 값이에요');
-    expect(usualShelfText({ ...base, portioned: true, expiresAt: '2026-11-26' })).toBe(
-      '소분해 두면 보통 30일 두고 먹어요 · 기간표는 검증 전 임시 값이에요',
-    );
-    expect(usualShelfText({ ...base, expiryBasis: 'mine' })).toBe('이 재료는 보통 7일 두고 먹어요');
-    for (const b of ['label', 'user', 'sample'] as const) expect(usualShelfText({ ...base, expiryBasis: b })).toBeNull();
+  it('근거 아래 줄: "보통 N일"은 근거 줄에만, 아래에는 임시 값 안내만 (V4-6-3)', () => {
+    expect(basisNote(base)).toBe('기간표는 검증 전 임시 값이에요');
+    expect(basisNote({ ...base, expiryBasis: 'kind' })).toBe('기간표는 검증 전 임시 값이에요');
+    for (const b of ['mine', 'label', 'user', 'sample'] as const) expect(basisNote({ ...base, expiryBasis: b })).toBeNull();
+  });
+
+  it('들어온 날 문구: 오늘·어제·N일·앞으로 (V4-6-4)', () => {
+    expect(enteredText(0)).toBe('오늘 들어왔어요');
+    expect(enteredText(1)).toBe('어제 들어왔어요');
+    expect(enteredText(5)).toBe('들어온 지 5일');
+    expect(enteredText(-2)).toBe('2일 뒤 들어와요');
   });
 
   // 화면에 "보통 N일"이 나오면 N은 반드시 (소비기한 − 입고일)
   const usualN = (i: Item) =>
-    [expiryBasisText(i), usualShelfText(i) ?? ''].flatMap((t) => [...t.matchAll(/보통 (\d+)일/g)].map((m) => Number(m[1])));
+    [expiryBasisText(i), basisNote(i) ?? ''].flatMap((t) => [...t.matchAll(/보통 (\d+)일/g)].map((m) => Number(m[1])));
   const gap = (i: Item) => Math.round((Date.parse(i.expiresAt) - Date.parse(i.enteredAt)) / 86400000);
 
   it('예시 재료 전부: "보통 N일"이 있으면 N = 소비기한 − 입고일 (예시는 문구 자체가 없음)', () => {
@@ -157,7 +163,7 @@ describe('기준 문구 (A-3: N일은 입고일과 소비기한의 차이)', () 
   it('사전 재료를 직접 추가해도 N = 소비기한 − 입고일', () => {
     for (const name of ['대파', '우유', '닭가슴살', '감자']) {
       const i = newItemFromCatalog(cat(name), '2026-10-30', 'x');
-      expect(usualN(i)).toEqual([gap(i), gap(i)]);
+      expect(usualN(i)).toEqual([gap(i)]); // 근거 줄 한 번만 (같은 말 반복 없음)
     }
   });
 });
@@ -168,5 +174,20 @@ describe('이모지 타일', () => {
     expect(emojiOf('소고기', cat('우삼겹'))).toBe('🥩'); // 사전에 이모지 없음 → 핵심재료
     expect(emojiOf('닭고기', undefined)).toBe('🍗');
     expect(emojiOf('', undefined)).toBe('🍽️');
+  });
+});
+
+describe('입고일 바꾸기 (V4-2)', () => {
+  it('기간표로 정한 소비기한은 입고일을 따라 같이 움직인다 (기간 그대로)', () => {
+    const moved = setEntered(base, '2026-10-20'); // base: 10/27 입고, 11/03 소비기한 (7일)
+    expect(moved).toMatchObject({ enteredAt: '2026-10-20', expiresAt: '2026-10-27', expiryBasis: 'table' });
+    expect(setEntered({ ...base, expiryBasis: 'kind' }, '2026-10-20').expiresAt).toBe('2026-10-27');
+    expect(setEntered({ ...base, expiryBasis: 'mine' }, '2026-10-20').expiresAt).toBe('2026-10-27');
+  });
+
+  it('주문 화면에 적힌 소비기한·직접 고친 값·예시 재료는 그대로 둔다', () => {
+    for (const b of ['label', 'user', 'sample'] as const) {
+      expect(setEntered({ ...base, expiryBasis: b }, '2026-10-20')).toMatchObject({ enteredAt: '2026-10-20', expiresAt: '2026-11-03' });
+    }
   });
 });

@@ -2,7 +2,7 @@
 // 나중에 AI를 붙일 때는 이 "읽기" 단계만 바꾸고, 결과 형태(ParsedLine)와 확인 화면은 그대로 쓴다.
 
 import { COUNT_MAX, COUNT_MIN, ITEM_SEPARATORS, KOREAN_NUMBERS, PORTION_WORD, UNIT_ALIASES } from './constants';
-import type { CatalogEntry } from './types';
+import type { CatalogEntry, Remaining } from './types';
 
 /** 사용자에게 다시 물어야 하는 것 */
 export type ParseNeed =
@@ -27,6 +27,10 @@ export interface ParsedLine {
   /** 무게·부피 같은 참고 정보 ('400g') */
   note?: string;
   needs: ParseNeed[];
+  /** 언제 샀는지 읽었으면 며칠 전 (입고일 = 오늘 − 이 값, V4-2) */
+  enteredAgo?: number;
+  /** 얼마나 남았는지 읽었으면 (V4-3) */
+  remaining?: Remaining;
 }
 
 const escapeRe = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -52,6 +56,33 @@ const AFTER_NAME_OK_RE = new RegExp(`^(?:\\s|\\d|$|(?:${NUM_WORDS})\\s*(?:${UNIT
 
 /** 남은 글자에 읽지 못한 숫자 말이 있는지: "한판", "두세봉", "2" */
 const LEFTOVER_NUM_RE = new RegExp(`\\d|(?:^|\\s)(?:${NUM_WORDS})`);
+
+// ── 언제 샀는지 (V4-2): 앞에 있는 것부터 맞춘다 ("일주일 전"이 "N일 전"보다 먼저) ──
+const NUM = `(\\d+|${NUM_WORDS})`;
+const BOUGHT_TAIL = '(?:\\s*에)?(?:\\s*(?:산\\s*거|산\\s*것|샀음|샀어요|샀어|구매(?:함|했어요)?))?';
+const WHEN_RULES: [RegExp, (m: RegExpExecArray) => number][] = [
+  [new RegExp(`일주일\\s*전${BOUGHT_TAIL}`), () => 7],
+  [new RegExp(`지난\\s*주${BOUGHT_TAIL}`), () => 7],
+  [new RegExp(`(?:한\\s*)?달\\s*전${BOUGHT_TAIL}|지난\\s*달${BOUGHT_TAIL}`), () => 30],
+  [new RegExp(`${NUM}\\s*주\\s*전${BOUGHT_TAIL}`), (m) => toNumber(m[1]) * 7],
+  [new RegExp(`${NUM}\\s*일\\s*전${BOUGHT_TAIL}`), (m) => toNumber(m[1])],
+  [new RegExp(`이틀\\s*전${BOUGHT_TAIL}`), () => 2],
+  [new RegExp(`사흘\\s*전${BOUGHT_TAIL}`), () => 3],
+  [new RegExp(`(?:그저께|그제)${BOUGHT_TAIL}`), () => 2],
+  [new RegExp(`어제${BOUGHT_TAIL}`), () => 1],
+  [new RegExp(`오늘${BOUGHT_TAIL}`), () => 0],
+];
+
+// ── 얼마나 남았는지 (V4-3) ──
+const LEFT_TAIL = '(?:\\s*남(?:음|았어요|았어|은))?';
+const REMAINING_RULES: [RegExp, Remaining][] = [
+  [new RegExp(`반\\s*(?:쯤|정도)${LEFT_TAIL}`), '반쯤'],
+  [/반\s*남(?:음|았어요|았어|은)/, '반쯤'],
+  [/조금\s*남(?:음|았어요|았어|은)/, '조금'],
+  [/거의\s*다\s*(?:씀|썼어요|썼어)/, '조금'],
+  [/안\s*뜯은(?:\s*(?:거|것))?/, '넉넉해요'],
+  [new RegExp(`새\\s*(?:거|것)(?!${HANGUL})`), '넉넉해요'],
+];
 
 const toNumber = (w: string) => (/^\d+$/.test(w) ? Number(w) : KOREAN_NUMBERS[w]);
 const squash = (t: string) => t.replace(/\s+/g, ' ').trim();
@@ -103,6 +134,24 @@ export function parseItem(raw: string, catalog: readonly CatalogEntry[]): Parsed
   // 1) 소분
   const portioned = text.includes(PORTION_WORD);
   text = text.replace(PORTION_RE, ' ');
+
+  // 1-1) 언제 샀는지·얼마나 남았는지: 이름·개수를 읽기 전에 지운다 ("지난주에 산거"의 숫자 말·글자가 섞이지 않게)
+  let enteredAgo: number | undefined;
+  for (const [re, days] of WHEN_RULES) {
+    const m = re.exec(text);
+    if (!m) continue;
+    enteredAgo = days(m);
+    text = cut(text, m.index, m.index + m[0].length);
+    break;
+  }
+  let remaining: Remaining | undefined;
+  for (const [re, level] of REMAINING_RULES) {
+    const m = re.exec(text);
+    if (!m) continue;
+    remaining = level;
+    text = cut(text, m.index, m.index + m[0].length);
+    break;
+  }
 
   // 2) 무게·부피 → 메모
   let note: string | undefined;
@@ -164,6 +213,8 @@ export function parseItem(raw: string, catalog: readonly CatalogEntry[]): Parsed
     unit: unit ?? '개',
     note,
     needs,
+    ...(enteredAgo !== undefined ? { enteredAgo } : {}),
+    ...(remaining ? { remaining } : {}),
   };
 }
 

@@ -12,6 +12,7 @@ import {
   orderDateOf,
   orderToDrafts,
   retailerOf,
+  ingredientsOf,
   splitNotStocked,
   videoMenusOf,
   vocabularyOf,
@@ -231,5 +232,19 @@ describe('떡류는 기본 냉장', () => {
   it('사전에 없는 떡(가래떡)을 떡 종류로 읽으면 냉장', () => {
     const [row] = orderToDrafts({ items: [{ name: '가래떡', kind: 'riceCake' }] }, today, today, key, findCatalog);
     expect(row.location).toBe('냉장');
+  });
+});
+
+describe('메뉴 이름 → 재료 칩 (V4-5, 가짜 AI 응답)', () => {
+  it('두부김치: 기본 양념은 빼고, 다른 이름은 대표 이름으로, 중복은 한 번만', () => {
+    expect(ingredientsOf({ ingredients: ['두부', '김치', '돼지고기', '대파', '간장', '참기름', '달걀', '계란', ' 두부 '] }, SUBSTITUTES)).toEqual([
+      '두부', '김치', '돼지고기', '대파', '계란',
+    ]);
+  });
+  it('8개가 넘으면 자르고, 깨진 답이면 빈 목록 (앱이 "재료를 한 개 이상 적어 주세요")', () => {
+    const many = Array.from({ length: 12 }, (_, i) => `재료${i}`);
+    expect(ingredientsOf({ ingredients: many }, SUBSTITUTES)).toHaveLength(8);
+    expect(ingredientsOf({ ingredients: '두부' } as never, SUBSTITUTES)).toEqual([]);
+    expect(ingredientsOf(null as never, SUBSTITUTES)).toEqual([]);
   });
 });

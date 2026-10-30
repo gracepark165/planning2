@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { PLAN_RECIPES } from '../data';
+import { CATALOG, PLAN_RECIPES, findCatalog } from '../data';
+import { parseTextInput } from './textInput';
+import { draftFromParsed, draftToItem } from '../state/textDraft';
 import { makeSampleInventory } from '../data/sampleInventory';
 import { emptyPlan } from '../state/store';
 import { addDays } from './date';
@@ -193,11 +195,11 @@ describe('규칙 세부', () => {
     expect(slots[0].recipe?.name).toBe('B+C요리');
   });
 
-  it('소분 품목은 한 끼에 1개씩, 개수만큼 여러 끼에 쓴다', () => {
+  it('소분 품목은 한 끼에 1개씩, 개수만큼 여러 끼에 쓴다 (메뉴는 겹치지 않게)', () => {
     const items = [item('닭안심', 90, 0, { portioned: true, count: 3, unit: '덩이', qty: '소분 3덩이' })];
-    const recipes = [rec('닭안심 구이', ['닭안심'])];
+    const recipes = [rec('닭안심 구이', ['닭안심']), rec('닭안심 카레', ['닭안심']), rec('닭안심 샐러드', ['닭안심'])];
     const { slots, leftover } = makePlan(items, recipes, planOf({ mealsPerWeek: 4 }), today);
-    expect(slots.map((s) => s.recipe?.name ?? null)).toEqual(['닭안심 구이', '닭안심 구이', '닭안심 구이', null]);
+    expect(slots.map((s) => s.recipe?.name ?? null)).toEqual(['닭안심 구이', '닭안심 카레', '닭안심 샐러드', null]);
     expect(leftover).toEqual([]);
   });
 
@@ -246,7 +248,7 @@ describe('플랜 요약', () => {
       soonTotal: 4, // 닭안심, 소고기 불고기용, 오이, 우유
       soonSaved: 4,
       buyAll: ['감자', '당근', '생크림'],
-      lost: ['삼겹살', '삼겹 베이컨'], // 대파는 소불고기의 상비 재료라 빠짐
+      lost: ['우유', '삼겹살', '삼겹 베이컨'], // 우유(900ml)는 나눠 쓰는 재료라 파스타 한 끼 뒤에도 남는다 (V4-3). 대파는 소불고기의 상비 재료라 빠짐
     });
   });
 
@@ -257,7 +259,7 @@ describe('플랜 요약', () => {
       buyAll: ['감자', '당근'],
       lost: ['소고기 불고기용', '우유', '삼겹살', '삼겹 베이컨', '대파', '새우살'],
     });
-    expect(summary(7)).toEqual({ soonTotal: 4, soonSaved: 4, buyAll: ['감자', '당근', '생크림', '상추'], lost: [] });
+    expect(summary(7)).toEqual({ soonTotal: 4, soonSaved: 4, buyAll: ['감자', '당근', '생크림', '상추'], lost: ['우유'] });
   });
 
   it('이미 확정한 끼니의 곧 상할 재료도 센다', () => {
@@ -327,7 +329,7 @@ describe('영상에서 넣은 고정 끼니 (B-1)', () => {
       [0, '버터크림치킨카레'],
       [1, MANDU],
       [2, BULGOGI],
-      [3, SAMGYUP], // 우유는 영상 메뉴가 써서 파스타 대신 다음 후보
+      [3, PASTA], // 우유는 나눠 쓰는 재료라 영상 메뉴가 한 단계 써도 파스타에 또 쓸 수 있다 (V4-3)
     ]);
     expect(slots[0]).toMatchObject({ pinned: curry, candidateCount: 1 });
   });
@@ -428,5 +430,35 @@ describe('영상 메뉴가 급한 재료를 밀어내지 않는다 (V3-1)', () =
     const after = makePlan(items, PLAN_RECIPES, planOf({ mealsPerWeek: 5, doneMeals: done, pinned: [jeyuk] }), today);
     expect(after.slots.every((s) => s.dayOffset >= 1)).toBe(true); // 오늘은 이미 먹은 끼니 자리
     expect(uncoveredSoon(after, items, today)).toEqual([]);
+  });
+});
+
+describe('나눠 쓰는 재료는 여러 끼에 (V4-3)', () => {
+  it('계란 10구(넉넉해요)는 앞으로 7일 플랜에서 최대 3끼에 들어간다', () => {
+    const egg = item('계란', 21, 0, { qty: '10구' });
+    const recipes = ['계란말이', '계란찜', '계란국', '계란볶음밥', '스크램블'].map((n) => rec(n, ['계란']));
+    const { slots } = makePlan([egg], recipes, planOf({ mealsPerWeek: 5 }), today);
+    expect(slots.filter((s) => s.recipe?.uses.includes('계란'))).toHaveLength(3);
+  });
+});
+
+describe('같은 메뉴는 한 번만 (V4-1a)', () => {
+  // 수정명세 v4 재현 시나리오 재료
+  const REPRO = '닭가슴살 세봉지 소분, 계란 10구 지난주에 산거, 우유 반쯤 남음\n두부 1모, 김치 1통, 애호박 1개, 방울토마토 1팩';
+  const reproItems = () =>
+    parseTextInput(REPRO, CATALOG).map((l, k) => draftToItem(draftFromParsed(l, `r${k}`, today, findCatalog), today, `r${k}`, findCatalog));
+
+  it('재현 시나리오(집밥 4번): 규칙 플랜에 같은 이름 메뉴가 두 번 나오지 않는다 (빈 칸은 AI가 채운다)', () => {
+    const { slots } = makePlan(reproItems(), PLAN_RECIPES, planOf({ mealsPerWeek: 4 }), today);
+    const named = slots.flatMap((s) => (s.recipe ? [s.recipe.name] : []));
+    expect(new Set(named).size).toBe(named.length);
+    expect(named.filter((n) => n === '닭가슴살 샐러드')).toHaveLength(1);
+  });
+
+  it('오늘 먹은 메뉴도 다시 나오지 않는다, 영상 고정 끼니는 예외', () => {
+    const items = [item('닭안심', 90, 0, { portioned: true, count: 3, unit: '덩이', qty: '소분 3덩이' })];
+    const recipes = [rec('닭안심 구이', ['닭안심'])];
+    const done = [{ recipe: '닭안심 구이', usedItems: [], soonUsed: [], at: 'T', date: today }];
+    expect(makePlan(items, recipes, planOf({ mealsPerWeek: 3, doneMeals: done }), today).slots.map((s) => s.recipe)).toEqual([null, null]);
   });
 });

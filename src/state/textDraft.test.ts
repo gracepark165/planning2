@@ -160,3 +160,26 @@ describe('재고로 바꾸기', () => {
     expect(() => draftToItem(draft('대파 소분'), today, 'x', findCatalog)).toThrow();
   });
 });
+
+describe('언제 샀는지·얼마나 남았는지 → 확인 화면 줄 (V4-2·V4-3)', () => {
+  const day = '2026-10-30';
+  const d = (text: string) => draftFromParsed(parseItem(text, CATALOG), 'k', day, findCatalog);
+
+  it('계란 10구 지난주에 산거 → 이름 계란, 입고일 10/23, 소비기한 11/13(D-14), 읽었다고 표시', () => {
+    const r = d('계란 10구 지난주에 산거');
+    expect(r).toMatchObject({ name: '계란', enteredAt: '2026-10-23', expiresAt: '2026-11-13', enteredRead: true });
+    expect(draftToItem(r, day, 'i1', findCatalog)).toMatchObject({ enteredAt: '2026-10-23', expiresAt: '2026-11-13' });
+  });
+
+  it('우유 반쯤 남음 → 남은 양 반쯤으로 들어간다', () => {
+    const r = d('우유 반쯤 남음');
+    expect(r).toMatchObject({ name: '우유', remaining: '반쯤' });
+    expect(draftToItem(r, day, 'i2', findCatalog).remaining).toBe('반쯤');
+  });
+
+  it('아무 말이 없으면 입고일 오늘, 넉넉해요', () => {
+    const r = d('두부 1모');
+    expect(r.enteredRead).toBeFalsy();
+    expect(draftToItem(r, day, 'i3', findCatalog)).toMatchObject({ enteredAt: day, remaining: '넉넉해요' });
+  });
+});

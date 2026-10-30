@@ -7,7 +7,7 @@ import { findKind } from '../data';
 import { autoExpiresAt, defaultLocation, kindLocation, kindShelfDays } from '../rules/expiry';
 import { portionQty } from '../rules/plan';
 import type { ParsedLine } from '../rules/textInput';
-import type { CatalogEntry, DateKey, ExpiryBasis, Item, ItemSource, Location } from '../rules/types';
+import type { CatalogEntry, DateKey, ExpiryBasis, Item, ItemSource, Location, Remaining } from '../rules/types';
 
 type Lookup = (name: string) => CatalogEntry | undefined;
 
@@ -38,6 +38,10 @@ export interface DraftRow {
   kind?: string;
   /** 고른 보관 위치 (AI가 읽은 보관 방법, 또는 사용자가 누른 것). 없으면 사전·종류의 기본 위치. */
   locationPick?: Location;
+  /** 남은 양 ("반쯤 남음"을 읽었으면). 없으면 넉넉해요 (V4-3) */
+  remaining?: Remaining;
+  /** 글에서 언제 샀는지 읽어서 입고일을 정했으면 true ("들어온 날을 …로 읽었어요", V4-2) */
+  enteredRead?: boolean;
 }
 
 export type DraftIssue = 'name' | 'count' | 'expiry';
@@ -97,6 +101,9 @@ export function draftFromParsed(line: ParsedLine, key: string, today: DateKey, l
     location: '냉장',
     expiryBasis: 'table',
     nameChecked: !line.needs.includes('name') || !!mine,
+    // "지난주에 산거" → 입고일, "반쯤 남음" → 남은 양 (V4-2·V4-3)
+    ...(line.enteredAgo !== undefined ? { enteredAt: addDays(today, -line.enteredAgo), enteredRead: true } : {}),
+    ...(line.remaining ? { remaining: line.remaining } : {}),
   };
   return refresh(row, today, lookup);
 }
@@ -187,7 +194,7 @@ export function draftToItem(row: DraftRow, today: DateKey, id: string, lookup: L
     enteredAt: baseDate(row, today),
     expiresAt: row.expiresAt!,
     expiryBasis: row.expiryBasis,
-    remaining: '넉넉해요',
+    remaining: row.remaining ?? '넉넉해요',
     source: row.source ?? 'text',
     portioned: row.portioned,
     ...(row.portioned ? { count: row.count, unit: row.unit } : {}),

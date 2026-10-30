@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { findCatalog } from '../data';
 import { addDays } from '../rules/date';
+import { countByState } from '../rules/status';
 import { loadState, saveState, STORAGE_KEY } from './persist';
 import { discardLabel } from '../rules/logs';
 import { DISCARD_REASONS } from '../rules/constants';
@@ -514,5 +515,58 @@ describe('직접 적은 떡은 떡 종류(냉장)로', () => {
     expect(rice).toMatchObject({ location: '냉장', expiryBasis: 'kind' });
     const bread = newItemFromPick({ name: '치아바타', customKind: 'bread' }, today, 'b1', findCatalog)!;
     expect(bread.location).toBe('실온');
+  });
+});
+
+describe('방금 넣은 재료 (V4-4)', () => {
+  it('냉장고에 넣으면 넣은 날을 남긴다 (입고일과 따로, "새로" 태그용)', () => {
+    const item = { ...newItemFromCatalog(findCatalog('두부')!, today, 'n1'), enteredAt: '2026-10-20' };
+    const s = reducer(initialState(today), { type: 'addItems', items: [item], today });
+    expect(s.items.at(-1)).toMatchObject({ enteredAt: '2026-10-20', addedOn: today });
+  });
+
+  it('되돌리기로 다시 넣을 때는 원래 넣은 날을 그대로 둔다', () => {
+    const item = { ...newItemFromCatalog(findCatalog('두부')!, today, 'n1'), addedOn: '2026-10-01' };
+    const s = reducer(initialState(today), { type: 'addItems', items: [item] });
+    expect(s.items.at(-1)!.addedOn).toBe('2026-10-01');
+  });
+});
+
+describe('재료 시트에서 들어온 날 바꾸기 (V4-2)', () => {
+  it('입고일을 2주 전으로 바꾸면 소비기한이 같이 당겨지고, 잊혀지는 중 판정도 바로 바뀐다', () => {
+    const egg = newItemFromCatalog(findCatalog('양파')!, today, 'e1'); // 25일, 실온
+    let s = reducer({ ...initialState(today), items: [egg] }, { type: 'setEnteredAt', id: 'e1', enteredAt: addDays(today, -14) });
+    expect(s.items[0]).toMatchObject({ enteredAt: addDays(today, -14), expiresAt: addDays(today, 11) });
+    expect(countByState(s.items, today).buried).toBe(1);
+    s = reducer(s, { type: 'setEnteredAt', id: 'e1', enteredAt: today });
+    expect(countByState(s.items, today).buried).toBe(0);
+  });
+});
+
+describe('나눠 쓰는 재료는 한 끼에 한 단계씩 (V4-3)', () => {
+  const milk = { ...newItemFromCatalog(findCatalog('우유')!, today, 'm1'), remaining: '반쯤' as const };
+  const latte = { name: '우유 라떼', uses: ['우유'], keeps: [], buy: [] };
+
+  it('우유(반쯤)를 쓰는 메뉴를 확정하면 조금, 또 확정하면 빠지고, 되돌리면 조금으로 돌아온다', () => {
+    let s = reducer({ ...initialState(today), items: [milk] }, { type: 'confirmMeal', recipe: latte, today, at: 'T1' });
+    expect(s.items).toEqual([{ ...milk, remaining: '조금' }]);
+    s = reducer(s, { type: 'confirmMeal', recipe: latte, today, at: 'T2' });
+    expect(s.items).toEqual([]);
+    s = reducer(s, { type: 'undoMeal', at: 'T2' });
+    expect(s.items[0].remaining).toBe('조금');
+    s = reducer(s, { type: 'undoMeal', at: 'T1' });
+    expect(s.items[0].remaining).toBe('반쯤');
+  });
+
+  it('한 번에 쓰는 재료는 통째로 빠진다', () => {
+    const tofu = newItemFromCatalog(findCatalog('두부')!, today, 't1');
+    const s = reducer({ ...initialState(today), items: [tofu] }, { type: 'confirmMeal', recipe: { name: '두부조림', uses: ['두부'], keeps: [], buy: [] }, today, at: 'T' });
+    expect(s.items).toEqual([]);
+  });
+
+  it('재료 시트에서 "한 번에 다 써요 / 여러 번 나눠 써요"를 바꾼다', () => {
+    const tofu = newItemFromCatalog(findCatalog('두부')!, today, 't1');
+    const s = reducer({ ...initialState(today), items: [tofu] }, { type: 'setPortion', id: 't1', portion: 'level' });
+    expect(s.items[0].portion).toBe('level');
   });
 });

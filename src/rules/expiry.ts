@@ -40,6 +40,17 @@ export function shiftExpiry(item: Item, delta: number): Item {
   return { ...item, expiresAt, expiryBasis: 'user' };
 }
 
+/**
+ * 입고일 바꾸기 (V4-2). 기간으로 정한 소비기한(기간표·비슷한 종류·지난번 값)은 기간을 그대로 두고 같이 옮긴다.
+ * 주문 화면에 적힌 값·직접 고친 값·예시 재료는 소비기한을 그대로 둔다.
+ */
+export function setEntered(item: Item, enteredAt: DateKey): Item {
+  if (enteredAt === item.enteredAt) return item;
+  const byPeriod = item.expiryBasis === 'table' || item.expiryBasis === 'kind' || item.expiryBasis === 'mine';
+  const expiresAt = byPeriod ? addDays(item.expiresAt, daysBetween(item.enteredAt, enteredAt)) : item.expiresAt;
+  return { ...item, enteredAt, expiresAt };
+}
+
 /** 기본 보관 위치. 소분한 육류·해산물·냉동식품은 냉동 (임시 가정). 사전에 없으면 냉장. */
 export function defaultLocation(entry: CatalogEntry | undefined, portioned: boolean): Location {
   if (!entry) return '냉장';
@@ -94,12 +105,18 @@ export function expiryBasisText(item: Basis): string {
 }
 
 /**
- * 기준 안내 문구: "이 재료는 보통 N일 두고 먹어요" (N = 소비기한 − 입고일).
- * 기간표로 정한 값에만 보여준다. 표기·고친 값·예시 재료면 null.
+ * 근거 줄 아래 안내 (V4-6-3): "보통 N일"은 이미 근거 줄에 있으니 반복하지 않고,
+ * 기간표로 정한 값이면 임시 값이라는 것만 알린다. 그 밖(표기·고친 값·지난번 값·예시)은 null.
  */
-export function usualShelfText(item: Basis & Pick<Item, 'portioned'>): string | null {
-  if (item.expiryBasis !== 'table' && item.expiryBasis !== 'kind' && item.expiryBasis !== 'mine') return null;
-  const n = keepDays(item);
-  const text = item.portioned ? `소분해 두면 보통 ${n}일 두고 먹어요` : `이 재료는 보통 ${n}일 두고 먹어요`;
-  return item.expiryBasis !== 'mine' && SHELF_TABLE_IS_PROVISIONAL ? `${text} · 기간표는 검증 전 임시 값이에요` : text;
+export function basisNote(item: Pick<Item, 'expiryBasis'>): string | null {
+  if (item.expiryBasis !== 'table' && item.expiryBasis !== 'kind') return null;
+  return SHELF_TABLE_IS_PROVISIONAL ? '기간표는 검증 전 임시 값이에요' : null;
+}
+
+/** 들어온 날 문구 (V4-6-4): '오늘 들어왔어요' / '어제 들어왔어요' / '들어온 지 N일' / 도착 예정이면 'N일 뒤 들어와요' */
+export function enteredText(ago: number): string {
+  if (ago < 0) return `${-ago}일 뒤 들어와요`;
+  if (ago === 0) return '오늘 들어왔어요';
+  if (ago === 1) return '어제 들어왔어요';
+  return `들어온 지 ${ago}일`;
 }

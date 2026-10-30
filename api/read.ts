@@ -7,8 +7,13 @@
 // AI는 "읽기"만 한다: 주문 화면 사진 → 재료 목록, 영상 → 메뉴·재료, 규칙으로 못 읽은 글 줄 → 재료.
 // 상태 판정·소비기한·플랜·대체 제안은 앱의 규칙 코드가 한다.
 //
-// 배포 때 다른 파일을 불러오다 깨지지 않도록 이 파일은 다른 소스 파일을 import하지 않는다.
+// 수정명세 v4부터는 메뉴 제안(/api/menu)·메뉴 이름 → 재료(/api/ingredients)도 이 함수가 한다 (vercel.json에서 연결).
+// AI가 낸 메뉴는 앱의 규칙 코드(src/rules/menuCheck.ts)가 재고와 다시 맞춰 본다.
+//
+// 배포 때 다른 파일을 불러오다 깨지지 않도록 이 파일은 src/의 소스 파일을 import하지 않는다 (같은 폴더의 _prompts.ts만).
 // 재료 사전 이름 목록은 앱이 요청에 담아 보낸다(vocabulary).
+
+import { INGREDIENTS_SYSTEM, MENU_SYSTEM, MENU_TEMPERATURE } from './_prompts';
 
 export const AI_MODEL = 'claude-sonnet-5-5';
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -25,6 +30,10 @@ export const LIMITS = {
   lines: 20,
   lineChars: 120,
   urlChars: 300,
+  /** 메뉴 제안: 재고 줄 수, 칸 수, 제외 메뉴 수 */
+  stock: 80,
+  slots: 7,
+  menuNames: 40,
   /** 한 사람(IP)이 RATE_WINDOW_MS 동안 부를 수 있는 횟수. 서버 인스턴스마다 따로 세는 대략적인 제한. */
   ratePerWindow: 20,
   rateWindowMs: 10 * 60 * 1000,
@@ -45,7 +54,35 @@ export type ReadErrorCode =
 export type ReadRequest =
   | { kind: 'order'; images: string[]; mediaType: string; vocabulary: string[]; kinds: string[]; today: string }
   | { kind: 'video'; url: string; vocabulary: string[] }
-  | { kind: 'text'; lines: string[]; vocabulary: string[]; kinds: string[] };
+  | { kind: 'text'; lines: string[]; vocabulary: string[]; kinds: string[] }
+  | ({ kind: 'menu' } & MenuRequest)
+  | { kind: 'ingredients'; menu: string; basicSeasonings: string[] };
+
+/** 메뉴 제안 요청 (앱이 보내는 것: 재료 이름·수량·상태·남은 일수뿐, 사용자 식별 정보 없음) */
+export interface MenuRequest {
+  today: string;
+  slots: { index: number; date: string }[];
+  stock: { name: string; qty: string; daysLeft: number; state: string; portion: string; level?: string }[];
+  mustUseFirst: string[];
+  excludeMenus: string[];
+  basicSeasonings: string[];
+}
+
+/** AI가 낸 메뉴 한 개 (앱이 다시 검사한다) */
+export interface MenuAiItem {
+  slotIndex: number;
+  name: string;
+  uses: string[];
+  keeps: string[];
+  buy: string[];
+  howto: string;
+}
+export interface MenuAiResult {
+  menus: MenuAiItem[];
+}
+export interface IngredientsAiResult {
+  ingredients: string[];
+}
 
 export interface OrderAiItem {
   name: string;
@@ -93,6 +130,8 @@ export type ReadResponse =
   | { ok: true; kind: 'order'; data: OrderAiResult }
   | { ok: true; kind: 'video'; data: VideoAiResult }
   | { ok: true; kind: 'text'; data: TextAiResult }
+  | { ok: true; kind: 'menu'; data: MenuAiResult }
+  | { ok: true; kind: 'ingredients'; data: IngredientsAiResult }
   | { ok: false; error: ReadErrorCode; detail?: string };
 
 // ───────────────────────── 유튜브 ─────────────────────────
@@ -176,7 +215,7 @@ type Content =
   | { type: 'text'; text: string }
   | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } };
 
-async function callClaude(deps: Deps, system: string, content: Content[], tool: Tool): Promise<unknown> {
+async function callClaude(deps: Deps, system: string, content: Content[], tool: Tool, temperature?: number): Promise<unknown> {
   const res = await deps.fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -187,6 +226,7 @@ async function callClaude(deps: Deps, system: string, content: Content[], tool: 
     body: JSON.stringify({
       model: AI_MODEL,
       max_tokens: 2000,
+      ...(temperature !== undefined ? { temperature } : {}),
       system,
       tools: [tool],
       // 이 모델은 도구 강제 지정(type 'tool'·'any')을 지원하지 않아서, auto로 두고 지시문으로 도구를 쓰게 한다
@@ -354,9 +394,98 @@ export function parseRequest(body: unknown): ReadRequest | ReadErrorCode {
       if (!lines || !lines.length) return 'bad-request';
       return { kind: 'text', lines, vocabulary, kinds };
     }
+    case 'menu': {
+      const strs = (v: unknown, max: number) => strList(v, max, LIMITS.wordChars);
+      if (!isStr(b.today, 10) || !Array.isArray(b.slots) || !Array.isArray(b.stock)) return 'bad-request';
+      if (!b.slots.length || !b.stock.length) return 'bad-request';
+      if (b.slots.length > LIMITS.slots || b.stock.length > LIMITS.stock) return 'too-large';
+      const slotsOk = b.slots.every(
+        (s) => s && typeof s === 'object' && Number.isInteger((s as { index: unknown }).index) && isStr((s as { date: unknown }).date, 10),
+      );
+      const stockOk = b.stock.every((s) => {
+        const x = s as Record<string, unknown>;
+        return x && isStr(x.name, LIMITS.wordChars) && isStr(x.qty, LIMITS.wordChars) && typeof x.daysLeft === 'number' &&
+          isStr(x.state, 10) && isStr(x.portion, 10) && (x.level === undefined || isStr(x.level, 10));
+      });
+      const mustUseFirst = strs(b.mustUseFirst ?? [], LIMITS.stock);
+      const excludeMenus = strs(b.excludeMenus ?? [], LIMITS.menuNames);
+      const basicSeasonings = strs(b.basicSeasonings ?? [], 20);
+      if (!slotsOk || !stockOk || !mustUseFirst || !excludeMenus || !basicSeasonings) return 'bad-request';
+      return {
+        kind: 'menu',
+        today: b.today,
+        slots: (b.slots as MenuRequest['slots']).map(({ index, date }) => ({ index, date })),
+        stock: (b.stock as MenuRequest['stock']).map(({ name, qty, daysLeft, state, portion, level }) => ({
+          name, qty, daysLeft, state, portion, ...(level ? { level } : {}),
+        })),
+        mustUseFirst,
+        excludeMenus,
+        basicSeasonings,
+      };
+    }
+    case 'ingredients': {
+      const basicSeasonings = strList(b.basicSeasonings ?? [], 20, LIMITS.wordChars);
+      if (!isStr(b.menu, LIMITS.wordChars) || !b.menu.trim() || !basicSeasonings) return 'bad-request';
+      return { kind: 'ingredients', menu: b.menu.trim(), basicSeasonings };
+    }
     default:
       return 'bad-request';
   }
+}
+
+const MENU_TOOL: Tool = {
+  name: 'suggest_menus',
+  description: '빈 끼니 칸마다 메뉴 하나씩 제안한다',
+  input_schema: {
+    type: 'object',
+    properties: {
+      menus: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            slotIndex: { type: 'integer', description: '요청 slots의 index' },
+            name: { type: 'string', description: '메뉴 이름' },
+            uses: { type: 'array', items: { type: 'string' }, description: '이번 끼니에 다 쓰는 재료 (stock 이름 그대로)' },
+            keeps: { type: 'array', items: { type: 'string' }, description: '조금만 쓰는 재료 (stock 이름 그대로)' },
+            buy: { type: 'array', items: { type: 'string' }, description: 'stock에 없어서 사야 할 재료 (2개 이하)' },
+            howto: { type: 'string', description: '40자 이내 한 문장, 해요체' },
+          },
+          required: ['slotIndex', 'name', 'uses', 'keeps', 'buy', 'howto'],
+        },
+      },
+    },
+    required: ['menus'],
+  },
+};
+
+const INGREDIENTS_TOOL: Tool = {
+  name: 'list_ingredients',
+  description: '메뉴에 흔히 들어가는 재료 이름 목록',
+  input_schema: {
+    type: 'object',
+    properties: { ingredients: { type: 'array', items: { type: 'string' } } },
+    required: ['ingredients'],
+  },
+};
+
+/** 메뉴 제안 결과 모양: menus 배열, 각 메뉴에 이름과 재료 배열 */
+const menuShapeOk = (v: unknown): v is MenuAiResult => {
+  const m = (v as { menus?: unknown })?.menus;
+  return Array.isArray(m) && m.every((x) => x && typeof x === 'object' && typeof (x as MenuAiItem).name === 'string');
+};
+const ingredientsShapeOk = (v: unknown): v is IngredientsAiResult => {
+  const l = (v as { ingredients?: unknown })?.ingredients;
+  return Array.isArray(l) && l.every((x) => typeof x === 'string');
+};
+
+/** 형식이 다르면 한 번만 다시 부른다 (두 번 틀리면 실패 → 앱이 폴백) */
+async function callShaped<T>(call: () => Promise<unknown>, ok: (v: unknown) => v is T): Promise<T> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const v = await call();
+    if (ok(v)) return v;
+  }
+  throw new ReadError('ai-failed', '형식이 다른 답이 두 번 왔어요');
 }
 
 /** 한 사람이 너무 자주 부르지 않게 (서버 인스턴스 메모리. 정확한 하루 제한은 아님) */
@@ -384,6 +513,30 @@ export async function handleRead(body: unknown, deps: Deps): Promise<{ status: n
   if (rateLimited(deps.ip, deps.now)) return fail(429, 'too-many');
 
   try {
+    if (req.kind === 'menu') {
+      const { kind: _, ...payload } = req;
+      const data = await callShaped(
+        () => callClaude(deps, MENU_SYSTEM, [text(JSON.stringify(payload))], MENU_TOOL, MENU_TEMPERATURE),
+        menuShapeOk,
+      );
+      return { status: 200, body: { ok: true, kind: 'menu', data } };
+    }
+
+    if (req.kind === 'ingredients') {
+      const data = await callShaped(
+        () =>
+          callClaude(
+            deps,
+            INGREDIENTS_SYSTEM,
+            [text(JSON.stringify({ menu: req.menu, basicSeasonings: req.basicSeasonings }))],
+            INGREDIENTS_TOOL,
+            MENU_TEMPERATURE,
+          ),
+        ingredientsShapeOk,
+      );
+      return { status: 200, body: { ok: true, kind: 'ingredients', data } };
+    }
+
     if (req.kind === 'order') {
       const input = await callClaude(
         deps,

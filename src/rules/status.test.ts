@@ -7,6 +7,7 @@ import {
   dueBannerText,
   groupForHome,
   mostUrgentSoon,
+  okSectionOpen,
   sameAsAbove,
   daysLeft,
   daysSinceEntered,
@@ -184,5 +185,17 @@ describe('홈 배너: 가장 급한 재료 하나 (V3-4)', () => {
     const c = { id: 'c', name: 'C', ...at(10, 1) };
     expect(mostUrgentSoon([c, a, b], today)?.id).toBe('a');
     expect(mostUrgentSoon([c], today)).toBeUndefined();
+  });
+});
+
+describe('싱싱해요 묶음 펼치기 (V4-4)', () => {
+  it('급한 재료(오늘 내일 해요·잊혀지는 중)가 하나도 없으면 펼친다', () => {
+    expect(okSectionOpen(null, { soon: 0, buried: 0, ok: 7 })).toBe(true);
+    expect(okSectionOpen(null, { soon: 1, buried: 0, ok: 7 })).toBe(false);
+    expect(okSectionOpen(null, { soon: 0, buried: 2, ok: 7 })).toBe(false);
+  });
+  it('사용자가 직접 접거나 펼쳤으면 그 선택을 따른다', () => {
+    expect(okSectionOpen(false, { soon: 0, buried: 0, ok: 7 })).toBe(false);
+    expect(okSectionOpen(true, { soon: 3, buried: 1, ok: 7 })).toBe(true);
   });
 });

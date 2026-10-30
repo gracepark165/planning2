@@ -3,8 +3,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { youtubeIdOf } from '../../api/read';
-import { AI_FAILURE_TEXT, readVideo } from '../ai/client';
-import { videoMenusOf, type VideoMenu } from '../ai/convert';
+import { AI_FAILURE_TEXT, fetchIngredients, readVideo } from '../ai/client';
+import { ingredientsOf, videoMenusOf, type VideoMenu } from '../ai/convert';
+import { BASIC_SEASONINGS } from '../rules/constants';
+import { deviceQuota } from '../state/aiMenu';
 import { PLAN_RECIPES, SUBSTITUTES, VIDEO_EXAMPLES } from '../data';
 import { eul, ro } from '../rules/josa';
 import { pantryNames } from '../rules/plan';
@@ -34,7 +36,8 @@ interface Recipe extends VideoMenu {
 }
 
 // loading = 예시 읽는 척, reading = AI가 읽는 중, pick = 메뉴가 여러 개
-type Step = 'input' | 'loading' | 'reading' | 'pick' | 'confirm' | 'result' | 'unknown' | 'manual';
+// chipsLoading·chips = 메뉴 이름만 적었을 때 AI가 재료를 채우고 확인받는 단계 (V4-5)
+type Step = 'input' | 'loading' | 'reading' | 'pick' | 'confirm' | 'result' | 'unknown' | 'manual' | 'chipsLoading' | 'chips';
 
 interface Props {
   items: Item[];
@@ -52,6 +55,9 @@ export function VideoView({ items, today, onPin }: Props) {
   /** 결과 화면에서 고른 것: 대체할지/살지, 장보기 목록에 담지 않을 재료 */
   const [choices, setChoices] = useState<VideoChoices>(NO_CHOICES);
   /** 넣으면 급한 재료를 못 먹게 될 때 묻는 확인 시트 (V3-1) */
+  /** 메뉴 이름만 적었을 때 AI가 채운 재료 칩 (V4-5) */
+  const [aiChips, setAiChips] = useState<string[]>([]);
+  const [chipInput, setChipInput] = useState('');
   const [confirmPin, setConfirmPin] = useState<{ meal: PinnedMeal; mode: 'week' | 'today'; lost: string[] } | null>(null);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [manualTitle, setManualTitle] = useState('');
@@ -241,11 +247,85 @@ export function VideoView({ items, today, onPin }: Props) {
     );
   }
 
+  if (step === 'chipsLoading') {
+    return (
+      <div className="pulse">
+        <div className="spin" />
+        <span>‘{manualTitle.trim()}’에 흔히 들어가는 재료를 찾고 있어요</span>
+      </div>
+    );
+  }
+
+  if (step === 'chips') {
+    const add = () => {
+      const n = chipInput.trim();
+      if (n && !aiChips.includes(n)) setAiChips([...aiChips, n]);
+      setChipInput('');
+    };
+    return (
+      <>
+        <BackButton onClick={() => setStep('manual')} />
+        <h1>‘{manualTitle.trim()}’ 재료</h1>
+        <p className="lead">AI가 채운 재료예요. 틀린 건 지우고, 빠진 건 더해 주세요.</p>
+        <div className="tags" style={{ gap: 8 }}>
+          {aiChips.map((n) => (
+            <button key={n} className="tag chip-x" onClick={() => setAiChips(aiChips.filter((x) => x !== n))} aria-label={`${n} 지우기`}>
+              {n} ✕
+            </button>
+          ))}
+        </div>
+        <div className="name-input" style={{ marginTop: 12 }}>
+          <input
+            type="text"
+            placeholder="빠진 재료 더하기"
+            value={chipInput}
+            onChange={(e) => setChipInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            aria-label="빠진 재료 더하기"
+          />
+          <button className="small-btn" disabled={!chipInput.trim()} onClick={add}>
+            더하기
+          </button>
+        </div>
+        <button
+          className="cta"
+          disabled={!aiChips.length}
+          onClick={() => {
+            setChoices(NO_CHOICES);
+            setRecipe({ title: manualTitle.trim(), names: aiChips, skipped: [] });
+            setStep('result');
+            window.scrollTo(0, 0);
+          }}
+        >
+          이대로 확인할게요
+        </button>
+      </>
+    );
+  }
+
   if (step === 'manual') {
-    const submit = () => {
+    const submit = async () => {
       const { names, skipped } = splitManualIngredients(manualIngredients, SUBSTITUTES);
       if (!names.length) {
-        setManualError('재료를 한 개 이상 적어 주세요');
+        // 메뉴 이름만 적었으면 AI가 흔한 재료를 채우고, 칩으로 확인받는다 (V4-5). 못 하면 지금처럼 안내
+        const title = manualTitle.trim();
+        if (!title || !deviceQuota(today).take()) {
+          setManualError('재료를 한 개 이상 적어 주세요');
+          return;
+        }
+        setManualError('');
+        const my = ++round.current;
+        setStep('chipsLoading');
+        const res = await fetchIngredients(title, BASIC_SEASONINGS);
+        if (my !== round.current) return;
+        const list = res.ok ? ingredientsOf(res.data, SUBSTITUTES) : [];
+        if (!list.length) {
+          setManualError('재료를 한 개 이상 적어 주세요');
+          setStep('manual');
+          return;
+        }
+        setAiChips(list);
+        setStep('chips');
         return;
       }
       setManualError('');

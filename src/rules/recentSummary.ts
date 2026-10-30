@@ -32,8 +32,12 @@ export type RecentSummary =
       /** 지금 냉장고에 남은 얼른 먹어야 할 재료 */
       soonNow: number;
       sentence: string;
-      /** "지금 얼른 먹어야 할 재료 d개" 줄을 보여줄지 (문장에 이미 d가 있으면 빼요, V3-6-1) */
+      /** "지금 얼른 먹어야 할 재료 d개" 줄을 보여줄지 (문장에 이미 d가 있거나 0개면 빼요, V3-6-1·V4-6-1) */
       showSoonNowLine: boolean;
+      /** 먹은 재료 줄 (0개면 숨김, V4-6-1) */
+      showEatenLine: boolean;
+      /** 버린 재료 줄 (0개면 숨김, V4-6-1) */
+      showDiscardLine: boolean;
     };
 
 export function recentSummary(logs: readonly MealLog[], items: readonly Item[], today: DateKey): RecentSummary {
@@ -58,12 +62,13 @@ export function recentSummary(logs: readonly MealLog[], items: readonly Item[], 
     discarded: discards.length,
     topReason,
     soonNow,
-    showSoonNowLine: !eatenSoon,
+    showSoonNowLine: !eatenSoon && soonNow > 0,
+    showEatenLine: eats.length > 0,
+    showDiscardLine: discards.length > 0,
     sentence: eatenSoon
-      ? `최근 7일 동안 얼른 먹어야 할 재료 ${eatenSoon}개를 먹었어요. ${soonNow}개는 아직 남아 있어요.`
+      ? `최근 7일 동안 얼른 먹어야 할 재료 ${eatenSoon}개를 먹었어요.${soonNow ? ` ${soonNow}개는 아직 남아 있어요.` : ''}`
       : eats.length
-        ? // 명세에 없는 경우: 먹긴 했지만 얼른 먹어야 할 재료는 아니었음 ("아직 먹은 재료가 없어요"와 숫자가 어긋나지 않게)
-          `최근 7일 동안 먹은 재료 ${eats.length}개 중 얼른 먹어야 할 재료는 아직 없어요.`
+        ? `최근 7일 동안 재료 ${eats.length}개를 먹었어요.`
         : '최근 7일 동안은 아직 먹은 재료가 없어요.',
   };
 }

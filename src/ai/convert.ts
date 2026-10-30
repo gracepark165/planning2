@@ -1,8 +1,8 @@
 // AI가 읽은 결과를 앱의 모양(확인 화면 줄, 영상 메뉴)으로 바꾼다. 화면과 무관한 순수 함수.
 // AI 결과는 믿지 않고 한 번 걸러서 쓴다 (이름은 재료 사전 이름으로, 숫자는 범위 안으로, 날짜는 형식 확인).
 
-import type { OrderAiResult, TextAiResult, VideoAiResult } from '../../api/read';
-import { KINDS, findKind } from '../data';
+import type { IngredientsAiResult, OrderAiResult, TextAiResult, VideoAiResult } from '../../api/read';
+import { KINDS, canonicalName, findKind } from '../data';
 import { COUNT_MAX, COUNT_MIN, LOCATIONS, UNIT_ALIASES } from '../rules/constants';
 import { daysBetween } from '../rules/date';
 import type { CatalogEntry, DateKey, Location, Retailer, SubstituteTable } from '../rules/types';
@@ -157,4 +157,16 @@ export function videoMenusOf(ai: VideoAiResult, table: SubstituteTable): VideoMe
     const { names, skipped } = splitManualIngredients(list.join(','), table);
     return names.length ? [{ title, names, skipped }] : [];
   });
+}
+
+// ───────────────────────── 메뉴 이름 → 재료 (V4-5) ─────────────────────────
+
+/** 받는 재료 수 상한 */
+export const INGREDIENTS_MAX = 8;
+
+/** AI가 낸 재료 목록 검사: 기본 양념 빼기, 다른 이름은 대표 이름으로, 중복 빼기, 8개까지. 깨진 답이면 빈 목록 */
+export function ingredientsOf(ai: IngredientsAiResult, table: SubstituteTable): string[] {
+  const list = Array.isArray(ai?.ingredients) ? ai.ingredients : [];
+  const names = list.map(cleanName).filter(Boolean).map(canonicalName);
+  return [...new Set(names)].filter((n) => !table.basicSeasonings.includes(n)).slice(0, INGREDIENTS_MAX);
 }

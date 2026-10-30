@@ -5,9 +5,10 @@ import { SUBSTITUTES, findKind } from '../data';
 import { boughtAs } from '../rules/shopping';
 import { makeSampleInventory } from '../data/sampleInventory';
 import { addDays } from '../rules/date';
-import { autoExpiresAt, defaultLocation, shiftExpiry } from '../rules/expiry';
+import { autoExpiresAt, defaultLocation, setEntered, shiftExpiry } from '../rules/expiry';
 import { findItem, portionQty } from '../rules/plan';
 import { mostUrgentSoon, stateOf } from '../rules/status';
+import { portionOf, stepDown, stepUp } from '../rules/portion';
 import { COUNT_MAX, COUNT_MIN, MAX_MEALS_PER_WEEK } from '../rules/constants';
 import { rememberItems, type MyFoods } from './myFoods';
 import type {
@@ -40,7 +41,8 @@ export interface AppState {
 }
 
 export type Action =
-  | { type: 'addItems'; items: Item[] }
+  /** today가 있으면 넣은 날(addedOn)을 남긴다 (되돌리기로 다시 넣을 때는 없음) */
+  | { type: 'addItems'; items: Item[]; today?: DateKey }
   | { type: 'shiftExpiry'; id: string; delta: number }
   | { type: 'setRemaining'; id: string; remaining: Remaining }
   | { type: 'finishItem'; id: string; action: MealLog['action']; today: DateKey; at: string }
@@ -52,6 +54,10 @@ export type Action =
   // 저장한 뒤에 고치기
   | { type: 'removeItem'; id: string }
   | { type: 'setLocation'; id: string; location: Location }
+  /** 재료 시트의 "한 번에 다 써요 / 여러 번 나눠 써요" (V4-3) */
+  | { type: 'setPortion'; id: string; portion: 'level' | 'whole' }
+  /** 들어온 날 바꾸기 (V4-2): 기간으로 정한 소비기한은 같이 옮긴다 */
+  | { type: 'setEnteredAt'; id: string; enteredAt: DateKey }
   | { type: 'shiftCount'; id: string; delta: number }
   // 이번 주 플랜
   | { type: 'setMeals'; mealsPerWeek: number }
@@ -242,9 +248,10 @@ export function reducer(state: AppState, action: Action): AppState {
       // 재고가 바뀌면 이번 주 추천을 첫 후보부터 다시 (프로토타입과 같음).
       // 산 재료는 장보기 목록에서 뺀다 (이름이 같거나 대체 묶음이 같으면, V3-7-1)
       const bought = (name: string) => action.items.some((i) => boughtAs(name, i.name, SUBSTITUTES));
+      const added = action.today ? action.items.map((i) => ({ ...i, addedOn: i.addedOn ?? action.today })) : action.items;
       return {
         ...state,
-        items: [...state.items, ...action.items],
+        items: [...state.items, ...added],
         plan: { ...state.plan, swapIndex: {} },
         myFoods: rememberItems(state.myFoods, action.items),
         shoppingList: state.shoppingList.filter((s) => !bought(s.name)),
@@ -276,6 +283,10 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'removeItem':
       // "잘못 넣었어요": 기록 없이 지운다 (버린 것으로 세지 않음)
       return { ...state, items: state.items.filter((i) => i.id !== action.id) };
+    case 'setPortion':
+      return updateItem(state, action.id, (i) => ({ ...i, portion: action.portion }));
+    case 'setEnteredAt':
+      return updateItem(state, action.id, (i) => setEntered(i, action.enteredAt));
     case 'setLocation':
       return updateAndRemember(state, action.id, (i) => ({ ...i, location: action.location }));
     case 'shiftCount':
@@ -390,10 +401,15 @@ function confirmMeal(state: AppState, recipe: Recipe, today: DateKey, at: string
     if (!it) continue;
     usedItems.push(it);
     if (stateOf(it, today) === 'soon') soonUsed.push(name);
+    // 소분은 1개, 나눠 쓰는 재료는 한 단계 줄이고, 마지막이면(또는 한 번에 쓰는 재료면) 냉장고에서 뺀다 (V4-3)
+    const p = portionOf(it);
+    const nextLevel = p === 'level' ? stepDown(it.remaining) : null;
     items =
-      it.portioned && (it.count ?? 1) > 1
+      p === 'pieces' && (it.count ?? 1) > 1
         ? items.map((i) => (i.id === it.id ? withCount(i, (i.count ?? 1) - 1) : i))
-        : items.filter((i) => i.id !== it.id);
+        : nextLevel
+          ? items.map((i) => (i.id === it.id ? { ...i, remaining: nextLevel } : i))
+          : items.filter((i) => i.id !== it.id);
     logs.push(logOf(it, 'eat', today, at));
   }
   // 영상에서 넣은 고정 끼니를 확정하면 고정 끼니에서 빼고, 되돌릴 수 있게 같이 기록한다
@@ -415,9 +431,10 @@ function undoMeal(state: AppState, at: string): AppState {
   let items = state.items;
   for (const used of done.usedItems) {
     const cur = items.find((i) => i.id === used.id);
-    items = cur
-      ? items.map((i) => (i.id === used.id ? withCount(i, (i.count ?? 0) + 1) : i))
-      : [...items, used];
+    // 아직 냉장고에 있으면 쓴 만큼 되돌리고(소분 1개·나눠 쓰는 재료 한 단계), 빠졌으면 확정 전 그대로 다시 넣는다
+    const restore = (i: Item) =>
+      portionOf(i) === 'pieces' ? withCount(i, (i.count ?? 0) + 1) : { ...i, remaining: stepUp(i.remaining) };
+    items = cur ? items.map((i) => (i.id === used.id ? restore(i) : i)) : [...items, used];
   }
   const usedIds = new Set(done.usedItems.map((i) => i.id));
   const logs = state.logs.filter((l) => !(l.at === done.at && l.action === 'eat' && usedIds.has(l.itemId)));

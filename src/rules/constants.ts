@@ -102,3 +102,11 @@ export const ITEM_SEPARATORS: readonly string[] = ['\n', ',', '그리고'];
 
 /** 글 입력 읽기: 소분 표시 말 */
 export const PORTION_WORD = '소분';
+
+/** 들어온 날 빠른 선택 (V4-2): 오늘부터 며칠 전 */
+export const ENTERED_CHOICES: readonly { label: string; ago: number }[] = [
+  { label: '오늘', ago: 0 },
+  { label: '어제', ago: 1 },
+  { label: '3일 전', ago: 3 },
+  { label: '일주일 전', ago: 7 },
+];

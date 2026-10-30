@@ -17,6 +17,8 @@ import { recentRange, recentSummary } from '../rules/recentSummary';
 import { shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
 import type { DateKey, Item, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
+import type { AiSlot } from '../rules/menuCheck';
+import type { AiSlotState } from '../state/aiMenu';
 import { UseTag } from './parts';
 
 const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
@@ -26,8 +28,14 @@ interface Props {
   /** 다 먹었어요·버렸어요 기록 (최근 7일 요약) */
   logs: MealLog[];
   plan: Plan;
-  /** 이번 주 플랜 (App에서 한 번만 짜서 홈의 오늘의 한 끼와 같이 쓴다) */
-  result: PlanResult;
+  /** 이번 주 플랜 (App에서 한 번만 짜서 홈의 오늘의 한 끼와 같이 쓴다). AI가 채운 칸 포함 */
+  result: PlanResult & { slots: AiSlot[] };
+  /** AI에게 맡겼는데 아직 메뉴가 없는 칸의 상태 (불러오는 중·폴백) */
+  aiStates: Map<number, AiSlotState>;
+  /** 폴백 칸에 보여줄 먼저 쓸 재료 */
+  mustUseFirst: string[];
+  /** 폴백: 영상 확인 탭으로 */
+  onFindByVideo: () => void;
   today: DateKey;
   onMeals: (n: number) => void;
   onConfirm: (recipe: Recipe) => void;
@@ -50,6 +58,9 @@ export function PlanView({
   logs,
   plan,
   result,
+  aiStates,
+  mustUseFirst,
+  onFindByVideo,
   today,
   onMeals,
   onConfirm,
@@ -87,15 +98,19 @@ export function PlanView({
           최근 7일 요약 · {formatDate(range.start)} ~ {formatDate(range.end)}
         </div>
         <p className="week-lead">{week.sentence}</p>
-        {week.kind === 'summary' && (
+        {week.kind === 'summary' && (week.showEatenLine || week.showDiscardLine || week.showSoonNowLine) && (
           <ul className="week-stats">
-            <li>
-              먹은 재료 <b>{week.eaten}개</b> · 그중 얼른 먹어야 할 것 <b>{week.eatenSoon}개</b>
-            </li>
-            <li>
-              버린 재료 <b>{week.discarded}개</b>
-              {week.topReason && ` · 가장 많은 이유: ${week.topReason}`}
-            </li>
+            {week.showEatenLine && (
+              <li>
+                먹은 재료 <b>{week.eaten}개</b> · 그중 얼른 먹어야 할 것 <b>{week.eatenSoon}개</b>
+              </li>
+            )}
+            {week.showDiscardLine && (
+              <li>
+                버린 재료 <b>{week.discarded}개</b>
+                {week.topReason && ` · 가장 많은 이유: ${week.topReason}`}
+              </li>
+            )}
             {week.showSoonNowLine && (
               <li>
                 지금 얼른 먹어야 할 재료 <b>{week.soonNow}개</b>가 남아 있어요
@@ -159,7 +174,10 @@ export function PlanView({
                 <div className="nm" style={{ fontWeight: 700, fontSize: 16 }}>
                   {slot.recipe.name}
                   {slot.pinned && <span className="tag video">영상</span>}
+                  {slot.ai && <span className="tag ai">AI 제안</span>}
                 </div>
+                {slot.ai?.howto && <div className="ai-howto">{slot.ai.howto}</div>}
+                {/* 배치 이유는 AI가 아니라 실제 재고로 규칙이 만든다 */}
                 <div style={{ color: 'var(--sub)', fontSize: 13, marginTop: 2 }}>
                   {reasonOf(slot.recipe, items, today)}
                 </div>
@@ -191,9 +209,41 @@ export function PlanView({
                   )}
                   <button
                     className="small-btn alt"
-                    onClick={() => (slot.pinned ? onRemovePinned(slot.pinned.id) : onSkip(slot.recipe!))}
+                    // AI 칸의 건너뛰기는 그 칸만 다른 메뉴로 다시 요청 (바꾸기와 같음)
+                    onClick={() =>
+                      slot.pinned ? onRemovePinned(slot.pinned.id) : slot.ai ? onSwap(slot.index) : onSkip(slot.recipe!)
+                    }
                   >
                     건너뛰기
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : aiStates.get(slot.index) === 'loading' ? (
+            <div key={slot.index} className="day" aria-busy="true">
+              <div className="body">
+                {dayHead(slot)}
+                <div className="ai-skeleton">메뉴를 고르고 있어요</div>
+              </div>
+            </div>
+          ) : aiStates.has(slot.index) ? (
+            <div key={slot.index} className="day">
+              <div className="body">
+                {dayHead(slot)}
+                {aiStates.get(slot.index) === 'limit' && <div className="note" style={{ margin: 0 }}>오늘은 AI 제안을 다 썼어요</div>}
+                <div className="nm" style={{ fontWeight: 700 }}>
+                  이 재료로 직접 골라 볼까요?
+                </div>
+                {mustUseFirst.length > 0 && (
+                  <div className="tags">
+                    {mustUseFirst.map((n) => (
+                      <UseTag key={n} name={n} items={items} today={today} />
+                    ))}
+                  </div>
+                )}
+                <div className="meal-acts">
+                  <button className="small-btn" onClick={onFindByVideo}>
+                    영상으로 메뉴 찾기
                   </button>
                 </div>
               </div>
@@ -260,8 +310,9 @@ export function PlanView({
       )}
 
       <p className="note">
-        ‘이걸로 할게요’를 누르면 쓴 재료가 냉장고에서 빠지고, 되돌리기로 다시 살릴 수 있어요. 재료는 통째로 쓴 걸로
-        계산해요(소분한 재료는 한 끼에 1개씩). 메뉴와 배치 이유는 정해진 규칙으로 만든 예시예요.
+        ‘이걸로 할게요’를 누르면 쓴 재료가 냉장고에서 빠지고, 되돌리기로 다시 살릴 수 있어요. 소분한 재료는 한 끼에 1개,
+        여러 번 나눠 쓰는 재료는 한 끼에 한 단계씩 줄어요. 메뉴와 배치 이유는 정해진 규칙으로 만든 예시예요.
+        {result.slots.some((s) => s.ai) && ' AI 제안 메뉴는 재고에 있는 재료만 쓰도록 확인했어요. 맛과 조리법은 직접 판단해 주세요.'}
       </p>
     </>
   );

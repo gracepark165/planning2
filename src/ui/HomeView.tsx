@@ -8,6 +8,7 @@ import {
   daysSinceEntered,
   groupForHome,
   homeHeadline,
+  okSectionOpen,
   sameAsAbove,
   stateOf,
 } from '../rules/status';
@@ -25,11 +26,13 @@ const filterLabel = (f: StateFilter) => (f === '전체' ? f : STATE_META[f].labe
 
 /** "싱싱해요" 구역 펼침 상태는 기기에 기억해 둔다 (저장소를 못 써도 동작) */
 const OK_OPEN_KEY = 'fridge-planner-ui-ok-open';
-const readOkOpen = () => {
+/** 사용자가 직접 접거나 펼친 선택. 정한 적 없으면 null (급한 재료가 없을 때 펼침, V4-4) */
+const readOkOpen = (): boolean | null => {
   try {
-    return globalThis.localStorage?.getItem(OK_OPEN_KEY) === '1';
+    const v = globalThis.localStorage?.getItem(OK_OPEN_KEY);
+    return v === '1' ? true : v === '0' ? false : null;
   } catch {
-    return false;
+    return null;
   }
 };
 const writeOkOpen = (open: boolean) => {
@@ -65,6 +68,10 @@ interface Props {
   onCloseBanner: () => void;
   /** 알림 시간 설정 화면으로 */
   onNotifySettings: () => void;
+  /** "넣은 재료 보기"를 누를 때마다 바뀌는 값: 방금 넣은 재료가 보이게 펼치고 그 줄로 스크롤 (V4-4) */
+  revealNew: number;
+  /** 한 번 보여줬으면 알린다 (홈에 다시 올 때마다 스크롤하지 않게) */
+  onRevealed: () => void;
 }
 
 export function HomeView({
@@ -86,11 +93,27 @@ export function HomeView({
   bannerItem,
   onCloseBanner,
   onNotifySettings,
+  revealNew,
+  onRevealed,
 }: Props) {
   const [loc, setLoc] = useState<LocFilter>('전체');
   const [filter, setFilter] = useState<StateFilter>('전체');
-  const [okOpen, setOkOpen] = useState(readOkOpen);
+  const [okPref, setOkPref] = useState(readOkOpen);
+  const okOpen = okSectionOpen(okPref, countByState(items, today));
   const [howOpen, setHowOpen] = useState(false);
+  // "넣은 재료 보기": 전체 보기로 바꾸고, 싱싱해요가 접혀 있으면 펼친 뒤 방금 넣은 첫 줄로 스크롤
+  useEffect(() => {
+    if (!revealNew) return;
+    setLoc('전체');
+    setFilter('전체');
+    setOkPref((p) => (p === false ? true : p ?? true));
+    const t = window.setTimeout(() => {
+      document.querySelector('.row.new')?.scrollIntoView({ block: 'center' });
+      onRevealed();
+    }, 50);
+    return () => window.clearTimeout(t);
+  }, [revealNew, onRevealed]);
+
   // + 재료 추가 버튼: 아래로 스크롤하는 동안은 숨긴다 (V3-6-3)
   const [fabHidden, setFabHidden] = useState(false);
   useEffect(() => {
@@ -108,7 +131,7 @@ export function HomeView({
   }, []);
   const toggleOk = () => {
     writeOkOpen(!okOpen);
-    setOkOpen(!okOpen);
+    setOkPref(!okOpen);
   };
 
   const { title, lead } = homeHeadline(countByState(items, today));
@@ -127,12 +150,17 @@ export function HomeView({
     // 오른쪽 큰 글씨는 "왜 이 구역에 있는지": 잊혀지는 중이면 들어온 지 며칠째, 아니면 남은 기한
     const buried = st === 'buried';
     return (
-      <button key={i.id} className={`row ${sameAsAbove(list, n) ? 'same' : ''}`} onClick={() => onOpen(i.id)}>
+      <button
+        key={i.id}
+        className={`row ${sameAsAbove(list, n) ? 'same' : ''} ${i.addedOn === today ? 'new' : ''}`}
+        onClick={() => onOpen(i.id)}
+      >
         <Tile name={i.name} core={i.core} />
         <div className="main">
           <div className="nm">
             {i.name}
             {i.sample && <span className="tag sample">예시</span>}
+            {i.addedOn === today && <span className="tag fresh">새로</span>}
           </div>
           <div className="meta">
             {i.qty} · {i.location}

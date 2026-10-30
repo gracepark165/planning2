@@ -9,13 +9,14 @@
 // - 후보: 필요한 재료(쓰는 것+상비)가 모두 (시뮬레이션) 재고에 있고, 쓰는 재료의 남은 일수 ≥ 그날, 건너뛴 레시피 제외
 // - 정렬: 쓰는 재료 중 가장 급한 것(남은 일수 최소) → 얼른 먹어야 할 재료를 많이 쓰는 순(가점)
 //   → 급함 점수 합 높은 순. 쓰는 재료가 없는 레시피는 맨 뒤
-// - 이번 주에 이미 고른(확정 포함) 레시피는 다른 후보 뒤로 보낸다 (소분 품목이 같은 메뉴만 반복되지 않게)
+// - 같은 메뉴(이름)는 앞으로 7일에 한 번만 (확정한 끼니 포함, 영상 고정 끼니 예외). 빈 칸은 AI 메뉴 제안이 채운다 (V4-1a)
 // - 고른 레시피의 쓰는 재료는 시뮬레이션 재고에서 뺀다 (소분 품목은 한 끼에 1개씩)
 // - "바꾸기"는 같은 끼니의 다음 후보로 넘긴다
 
 import { MAX_MEALS_PER_WEEK } from './constants';
 import { addDays } from './date';
 import { iga } from './josa';
+import { mealsLeft } from './portion';
 import { daysLeft, daysSinceEntered, stateOf, urgencyOf } from './status';
 import type { DateKey, DoneMeal, Item, PinnedMeal, Plan, Recipe } from './types';
 
@@ -30,6 +31,8 @@ export interface PlanSlot {
   candidateCount: number;
   /** 영상에서 넣은 고정 끼니 (바꾸기 없음, 건너뛰기 = 지우기) */
   pinned?: PinnedMeal;
+  /** AI가 제안한 메뉴 칸 (V4-1b): 화면에 "AI 제안" 태그와 한 줄 만드는 법 */
+  ai?: { howto: string };
 }
 
 export interface PlanResult {
@@ -50,8 +53,8 @@ export function findItem(items: readonly Item[], name: string, today: DateKey): 
   return best;
 }
 
-/** 한 재료로 몇 끼를 쓸 수 있는지: 소분 품목은 개수, 아니면 1 */
-export const mealsIn = (item: Item) => (item.portioned ? Math.max(item.count ?? 1, 0) : 1);
+/** 한 재료로 몇 끼를 쓸 수 있는지: 소분은 개수, 나눠 쓰는 재료는 남은 양 단계 수, 아니면 1 (V4-3) */
+export const mealsIn = (item: Item) => mealsLeft(item);
 
 /**
  * 오늘 확정한 끼니. 플랜은 "앞으로 7일"(오늘 ~ 6일 뒤)이라, 집밥 횟수에서 빼는 것은 그 안에 든 오늘 끼니뿐이다
@@ -115,12 +118,9 @@ function build(
       cands.push({ r, minLeft, soon, score });
     }
     cands.sort((a, b) => a.minLeft - b.minLeft || b.soon - a.soon || b.score - a.score);
-    const withUses = cands.filter((c) => c.r.uses.length);
-    return [
-      ...withUses.filter((c) => !picked.has(c.r.name)),
-      ...withUses.filter((c) => picked.has(c.r.name)),
-      ...cands.filter((c) => !c.r.uses.length),
-    ];
+    // 같은 메뉴(이름)는 앞으로 7일에 한 번만 (V4-1a). 반복을 막아 빈 칸이 생기면 AI 메뉴 제안이 채운다
+    const fresh = cands.filter((c) => !picked.has(c.r.name));
+    return [...fresh.filter((c) => c.r.uses.length), ...fresh.filter((c) => !c.r.uses.length)];
   };
 
   const slots: PlanSlot[] = [];

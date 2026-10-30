@@ -136,3 +136,10 @@ export function dueBannerText(item: Dated & { name: string }, today: DateKey): s
   const when = left < 0 ? '기한이 지났어요' : left === 0 ? '오늘까지예요' : left === 1 ? '내일까지예요' : `${left}일 뒤까지예요`;
   return `${item.name}${iga(item.name)} ${when}`;
 }
+
+/**
+ * 홈의 싱싱해요 묶음을 펼칠지 (V4-4): 사용자가 직접 정했으면 그대로,
+ * 아니면 오늘 내일 해요·잊혀지는 중이 하나도 없을 때 펼친다 (재료가 하나도 안 보이지 않게).
+ */
+export const okSectionOpen = (pref: boolean | null, counts: Record<ItemState, number>) =>
+  pref ?? counts.soon + counts.buried === 0;

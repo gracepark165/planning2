@@ -1,7 +1,10 @@
-import { type ReactNode, useCallback, useEffect, useReducer, useRef, useState } from 'react';
-import { PLAN_RECIPES, findCatalog } from '../data';
+import { type ReactNode, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { PLAN_RECIPES, SUBSTITUTES, findCatalog } from '../data';
+import { suggestMenus } from '../ai/client';
+import { useAiMenus } from '../state/aiMenu';
 import { todayKey } from '../rules/date';
 import { fitPin, makePlan, mealsForNewPin, todayMeal } from '../rules/plan';
+import { missingToBuy } from '../rules/shopping';
 import { eul, eun, ro, withJosa } from '../rules/josa';
 import type { PinnedMeal, Recipe } from '../rules/types';
 import { loadState, saveState } from '../state/persist';
@@ -18,6 +21,7 @@ import {
   type AddPick,
 } from '../state/store';
 import { AddView } from './AddView';
+import { BuyCheckSheet } from './BuyCheckSheet';
 import { DiscardSheet } from './DiscardSheet';
 import { HomeView } from './HomeView';
 import { InstallGuideView, NotifyTimeView } from './NotifyView';
@@ -48,10 +52,16 @@ export function App() {
   const [sheetId, setSheetId] = useState<string | null>(null);
   /** 버렸어요 다음에 이유를 물을 기록 (B-4) */
   const [discardAsk, setDiscardAsk] = useState<{ itemId: string; at: string; name: string } | null>(null);
+  /** 사야 할 재료가 있는 메뉴를 확정할 때 "준비됐어요?" (V4-6-5) */
+  const [buyAsk, setBuyAsk] = useState<{ recipe: Recipe; missing: string[] } | null>(null);
+  const cancelBuyAsk = useCallback(() => setBuyAsk(null), []);
   const [toast, setToast] = useState<Toast | null>(null);
   const [orderRound, setOrderRound] = useState(0);
   /** 장보기 올리기 글 입력칸에 미리 채울 글 (장보기 목록에서 산 재료) */
   const [orderText, setOrderText] = useState('');
+  /** "넣은 재료 보기" (V4-4): 누를 때마다 1씩 올려서 홈이 방금 넣은 재료를 보여주게 */
+  const [revealNew, setRevealNew] = useState(0);
+  const doneRevealing = useCallback(() => setRevealNew(0), []);
   const toastTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => saveState(state), [state]);
@@ -83,7 +93,7 @@ export function App() {
   const addFromPicks = (picks: AddPick[]) => {
     const lookup = withMyFoods(findCatalog, state.myFoods);
     const items = picks.map((p) => newItemFromPick(p, today, newId(), lookup)).filter((i) => i !== undefined);
-    dispatch({ type: 'addItems', items });
+    dispatch({ type: 'addItems', items, today });
     go('home');
     showToast(`${items.length}개를 냉장고에 넣었어요`);
   };
@@ -94,10 +104,20 @@ export function App() {
   };
 
   // 이번 주 플랜은 여기서 한 번만 짠다. 홈의 오늘의 한 끼와 이번 주 화면이 같은 결과를 본다.
-  const planResult = makePlan(state.items, PLAN_RECIPES, state.plan, today);
+  const basePlan = useMemo(() => makePlan(state.items, PLAN_RECIPES, state.plan, today), [state.items, state.plan, today]);
+  // 규칙 플랜이 못 채운 칸은 AI가 채운다 (V4-1b). 결과는 재고·칸·제외 메뉴로 만든 이름표로 저장해 두고 다시 부르지 않는다
+  const ai = useAiMenus(basePlan, state.items, state.plan, today, SUBSTITUTES, suggestMenus);
+  const planResult = ai.result;
 
-  /** "이걸로 할게요" (홈·이번 주 화면 공통): 쓴 재료를 빼고, 되돌리기를 보여준다 */
+  /** "이걸로 할게요" (홈·이번 주 화면 공통): 사야 할 재료가 아직 없으면 먼저 묻고, 아니면 바로 확정 */
   const confirmMeal = (recipe: Recipe) => {
+    const missing = missingToBuy(recipe, state.items);
+    if (missing.length) setBuyAsk({ recipe, missing });
+    else doConfirm(recipe);
+  };
+
+  /** 확정: 쓴 재료를 빼고, 되돌리기를 보여준다 */
+  const doConfirm = (recipe: Recipe) => {
     const at = new Date().toISOString();
     dispatch({ type: 'confirmMeal', recipe, today, at });
     showToast(`${recipe.name}에 쓴 재료를 냉장고에서 뺐어요`, {
@@ -109,7 +129,16 @@ export function App() {
     const name = state.plan.doneMeals.find((d) => d.at === at)?.recipe;
     if (name) undoMeal(name, at);
   };
-  const swap = (slotIndex: number) => dispatch({ type: 'swap', slotIndex });
+  /** 바꾸기: 규칙 칸은 다음 후보, AI 칸은 그 칸만 다시 요청 */
+  const swap = (slotIndex: number) => {
+    if (!planResult.slots.find((s) => s.index === slotIndex)?.ai) {
+      dispatch({ type: 'swap', slotIndex });
+      return;
+    }
+    void ai.swap(slotIndex).then((ok) => {
+      if (!ok) showToast('다른 메뉴를 찾지 못했어요. 지금 메뉴를 그대로 둘게요');
+    });
+  };
 
   /**
    * 영상 확인 결과 → 이번 주 플랜(고정 끼니) / 오늘 한 끼 (V3-1).
@@ -196,6 +225,8 @@ export function App() {
           else showToast('알겠어요. 홈 화면에 추가하는 방법은 ‘알림 시간 설정’에서 언제든 볼 수 있어요');
         }}
         bannerItem={soonBanner(state, today)}
+        revealNew={revealNew}
+        onRevealed={doneRevealing}
         onCloseBanner={() => dispatch({ type: 'closeBanner', today })}
         onNotifySettings={() => go('notify')}
         samplePrompt={showSamplePrompt(state)}
@@ -212,6 +243,9 @@ export function App() {
         logs={state.logs}
         plan={state.plan}
         result={planResult}
+        aiStates={ai.states}
+        mustUseFirst={ai.mustUseFirst}
+        onFindByVideo={() => go('video')}
         today={today}
         onMeals={(mealsPerWeek) => dispatch({ type: 'setMeals', mealsPerWeek })}
         onSwap={swap}
@@ -272,11 +306,17 @@ export function App() {
             myFoods={state.myFoods}
             onPickCatalog={() => go('add')}
             onAdd={(items) => {
-              dispatch({ type: 'addItems', items });
+              dispatch({ type: 'addItems', items, today });
               setOrderRound((n) => n + 1); // 넣고 나면 다음에는 처음 화면부터
               setOrderText('');
               go('plan');
-              showToast('냉장고에 넣었어요. 앞으로 7일 먹을 순서예요');
+              showToast('냉장고에 넣었어요. 앞으로 7일 먹을 순서예요', {
+                label: '넣은 재료 보기',
+                run: () => {
+                  go('home');
+                  setRevealNew((n) => n + 1);
+                },
+              });
             }}
           />
         </div>
@@ -298,6 +338,8 @@ export function App() {
             else showToast(`${withJosa(sheetItem.name, eul)} 다 먹은 걸로 기록했어요`);
           }}
           onLocation={(location) => dispatch({ type: 'setLocation', id: sheetItem.id, location })}
+          onEntered={(enteredAt) => dispatch({ type: 'setEnteredAt', id: sheetItem.id, enteredAt })}
+          onPortion={(portion) => dispatch({ type: 'setPortion', id: sheetItem.id, portion })}
           onCount={(delta) => dispatch({ type: 'shiftCount', id: sheetItem.id, delta })}
           onRemove={() => {
             const removed = sheetItem;
@@ -308,6 +350,21 @@ export function App() {
               run: () => dispatch({ type: 'addItems', items: [removed] }),
             });
           }}
+        />
+      )}
+      {buyAsk && (
+        <BuyCheckSheet
+          missing={buyAsk.missing}
+          onBought={() => {
+            for (const name of buyAsk.missing) dispatch({ type: 'removeShopping', name });
+            doConfirm(buyAsk.recipe);
+            setBuyAsk(null);
+          }}
+          onWithout={() => {
+            doConfirm(buyAsk.recipe);
+            setBuyAsk(null);
+          }}
+          onCancel={cancelBuyAsk}
         />
       )}
       {discardAsk && (
