@@ -9,6 +9,7 @@ import {
   draftToItem,
   issuesOf,
   renameRow,
+  setDraftLocation,
   shiftDraftCount,
   shiftDraftExpiry,
   togglePortion,
@@ -19,9 +20,9 @@ const today = '2026-10-27';
 const draft = (text: string) => draftFromParsed(parseItem(text, CATALOG), 'k', today, findCatalog);
 
 describe('확인 화면의 한 줄', () => {
-  it('소분 고기: 냉동, 소분 기간표(90일)', () => {
+  it('소분 고기: 냉동, 냉동 기간(닭 조각 180일)', () => {
     const r = draft('닭가슴살 세봉지 소분');
-    expect(r).toMatchObject({ name: '닭가슴살', portioned: true, count: 3, unit: '봉', location: '냉동', expiresAt: '2027-01-25' });
+    expect(r).toMatchObject({ name: '닭가슴살', portioned: true, count: 3, unit: '봉', location: '냉동', expiresAt: '2027-04-25' });
     expect(issuesOf(r)).toEqual([]);
   });
 
@@ -45,7 +46,7 @@ describe('확인 화면의 한 줄', () => {
 describe('고치기', () => {
   it('이름을 후보 칩으로 바꾸면 소비기한·위치를 다시 계산하고 확인된 것으로 본다', () => {
     const r = renameRow(draft('냉동새우살 1kg 소분 4봉'), '냉동새우', today, findCatalog);
-    expect(r).toMatchObject({ name: '냉동새우', catalogName: '냉동새우', location: '냉동', expiresAt: '2026-12-26' });
+    expect(r).toMatchObject({ name: '냉동새우', catalogName: '냉동새우', location: '냉동', expiresAt: '2027-01-25' }); // 새우 90일
     expect(issuesOf(r)).toEqual([]);
   });
 
@@ -63,9 +64,16 @@ describe('고치기', () => {
     expect(issuesOf(r)).toEqual([]);
   });
 
+  it('소분 안 한 고기도 냉동을 고르면 냉동 기간, 냉장으로 되돌리면 기본 기간', () => {
+    const frozen = setDraftLocation(draft('소고기 다짐육 1팩'), '냉동', today, findCatalog);
+    expect(frozen).toMatchObject({ portioned: false, location: '냉동', expiresAt: '2027-01-25' }); // 소 다짐육 90일
+    const back = setDraftLocation(frozen, '냉장', today, findCatalog);
+    expect(back).toMatchObject({ location: '냉장', expiresAt: '2026-10-29' }); // 2일
+  });
+
   it('소분을 켜고 끄면 위치·소비기한이 바뀐다', () => {
     const on = togglePortion(draft('닭안심 2팩'), today, findCatalog);
-    expect(on).toMatchObject({ portioned: true, location: '냉동', expiresAt: '2027-01-25' });
+    expect(on).toMatchObject({ portioned: true, location: '냉동', expiresAt: '2027-04-25' }); // 닭 조각 냉동 180일
     const off = togglePortion(on, today, findCatalog);
     expect(off).toMatchObject({ portioned: false, location: '냉장', expiresAt: '2026-10-30' });
   });
@@ -110,7 +118,7 @@ describe('개수를 모를 때 빠져나갈 길 (A-8)', () => {
     expect(r).toMatchObject({ count: 1, portioned: false, location: '냉장', expiresAt: '2026-11-03' }); // 대파 7일
     expect(issuesOf(r)).toEqual([]);
     expect(draftQty(r)).toBe('1개');
-    // 고기도 소분 기준(냉동 90일)에서 품목 기본(냉장 3일)으로
+    // 고기도 소분 기준(냉동 180일)에서 품목 기본(냉장 3일)으로
     const meat = unportionAsOne(draft('닭가슴살 소분'), today, findCatalog);
     expect(meat).toMatchObject({ portioned: false, count: 1, location: '냉장', expiresAt: '2026-10-30' });
   });
@@ -139,7 +147,7 @@ describe('재고로 바꾸기', () => {
     const item = draftToItem(draft('새우살 400g 소분 5개'), today, 'id1', findCatalog);
     expect(item).toMatchObject({
       id: 'id1', name: '새우살', qty: '소분 5개', location: '냉동', enteredAt: today,
-      expiresAt: '2026-12-26', expiryBasis: 'table', source: 'text', portioned: true, count: 5, unit: '개', note: '400g',
+      expiresAt: '2027-01-25', expiryBasis: 'table', source: 'text', portioned: true, count: 5, unit: '개', note: '400g',
     });
   });
 

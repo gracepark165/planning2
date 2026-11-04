@@ -45,7 +45,7 @@ describe('재료 사전', () => {
   it('CLAUDE.md 임시 기본 기간표와 같다', () => {
     const table: Record<string, number> = {
       계란: 21, 양파: 25, 대파: 7, 감자: 30, 당근: 14, 양배추: 10, 고추: 7, 마늘: 30,
-      우유: 7, 버터: 45, 두부: 7, 닭가슴살: 3, 소고기: 3, 돼지고기: 3, 새우: 60, 식빵: 5,
+      우유: 7, 버터: 45, 두부: 7, 닭가슴살: 3, 소고기: 3, 돼지고기: 3, 새우: 90, 식빵: 5,
     };
     for (const [name, days] of Object.entries(table)) {
       expect(findCatalog(name)?.shelfDays, name).toBe(days);

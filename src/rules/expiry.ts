@@ -5,10 +5,15 @@ import { PORTION_FREEZE_GROUPS, PORTION_SHELF_DAYS, SHELF_TABLE_IS_PROVISIONAL }
 import { addDays, daysBetween } from './date';
 import type { CatalogEntry, DateKey, FoodKind, Item, Location, Retailer } from './types';
 
-/** 기본 기간(일). 소분이면 소분 기간표, 표에 없는 품목군이면 품목 기본 기간. 사전에 없으면 undefined. */
-export function shelfDaysFor(entry: CatalogEntry | undefined, portioned: boolean): number | undefined {
+/**
+ * 기본 기간(일). 사전에 없으면 undefined.
+ * 원래 냉동 재료는 기본 기간. 소분했거나 냉동으로 넣으면 냉동 기간(사전의 freezerDays → 소분 기간표 → 기본 기간).
+ * 그 밖에는 품목 기본 기간.
+ */
+export function shelfDaysFor(entry: CatalogEntry | undefined, portioned: boolean, location?: Location): number | undefined {
   if (!entry) return undefined;
-  if (portioned) return PORTION_SHELF_DAYS[entry.group] ?? entry.shelfDays;
+  if (entry.location === '냉동') return entry.shelfDays; // 원래 냉동 재료는 기본 기간이 곧 냉동 기간
+  if (portioned || location === '냉동') return entry.freezerDays ?? PORTION_SHELF_DAYS[entry.group] ?? entry.shelfDays;
   return entry.shelfDays;
 }
 
@@ -17,8 +22,9 @@ export function autoExpiresAt(
   enteredAt: DateKey,
   entry: CatalogEntry | undefined,
   portioned: boolean,
+  location?: Location,
 ): DateKey | undefined {
-  const days = shelfDaysFor(entry, portioned);
+  const days = shelfDaysFor(entry, portioned, location);
   return days === undefined ? undefined : addDays(enteredAt, days);
 }
 
@@ -28,7 +34,7 @@ export function autoExpiresAt(
  */
 export function refreshAutoExpiry(item: Item, entry: CatalogEntry | undefined): Item {
   if (item.expiryBasis !== 'table') return item;
-  const expiresAt = autoExpiresAt(item.enteredAt, entry, item.portioned);
+  const expiresAt = autoExpiresAt(item.enteredAt, entry, item.portioned, item.location);
   return expiresAt && expiresAt !== item.expiresAt ? { ...item, expiresAt } : item;
 }
 
@@ -67,8 +73,8 @@ export function kindLocation(kind: FoodKind, portioned: boolean, picked?: Locati
 
 /** 종류별 기본 기간(일). 소분이면 소분 기간표, 냉동 보관이면 냉동 기간을 쓴다. */
 export function kindShelfDays(kind: FoodKind, location: Location, portioned: boolean): number {
-  if (portioned) return PORTION_SHELF_DAYS[kind.group] ?? kind.days;
-  if (location === '냉동' && kind.location !== '냉동') return kind.freezerDays ?? kind.days;
+  if (kind.location === '냉동') return kind.days; // 원래 냉동 종류는 기본 기간이 곧 냉동 기간
+  if (portioned || location === '냉동') return kind.freezerDays ?? PORTION_SHELF_DAYS[kind.group] ?? kind.days;
   return kind.days;
 }
 
