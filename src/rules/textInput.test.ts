@@ -21,7 +21,7 @@ function docTables(): string[][][] {
   );
 }
 
-const [ITEM_ROWS, SPLIT_ROWS, WHEN_ROWS] = docTables();
+const [ITEM_ROWS, SPLIT_ROWS, WHEN_ROWS, WHERE_ROWS] = docTables();
 const NONE = '—';
 const NEED: Record<string, ParseNeed> = { 개수: 'count', 소비기한: 'expiry', 이름: 'name' };
 
@@ -110,7 +110,17 @@ describe('언제 샀는지·얼마나 남았는지 (문서 6장, V4-2·V4-3)', (
   });
 });
 
-describe('보관 위치 말 (2026-11-04)', () => {
+describe('보관 위치 말 (문서 7장, 2026-11-04)', () => {
+  it('표를 찾았다', () => {
+    expect(WHERE_ROWS.length).toBeGreaterThanOrEqual(6);
+    for (const r of WHERE_ROWS) expect(r).toHaveLength(3);
+  });
+
+  it.each(WHERE_ROWS)('%s', (input, name, where) => {
+    const got = parseItem(input, CATALOG);
+    expect({ name: got.name, location: got.location }).toEqual({ name, location: where === '(기본)' ? undefined : where });
+  });
+
   it('따로 떨어진 "냉동·냉장·실온" 말을 읽고 이름에서 뺀다', () => {
     expect(parseItem('닭가슴살 냉동 2팩', CATALOG)).toMatchObject({ name: '닭가슴살', location: '냉동', count: 2, unit: '팩' });
     expect(parseItem('삼겹살 냉동실에 넣어둠', CATALOG)).toMatchObject({ name: '삼겹살', location: '냉동' });
