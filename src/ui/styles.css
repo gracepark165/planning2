@@ -225,6 +225,7 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
 .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
 .gi{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 2px 10px;border-radius:16px;border:2px solid transparent;background:var(--card);font-size:13px;font-weight:500}
 .gi .e{font-size:30px;line-height:1.2}
+.gi .e .food-img{display:block;width:44px;height:44px}
 .gi.on{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:700}
 .gi[disabled]{opacity:.45;cursor:default}
 .gi small{font-size:10px;color:var(--sub)}
@@ -255,6 +256,7 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
 .stepper b{color:var(--fg);font-size:18px;min-width:48px;text-align:center}
 .btn-soft{flex:1;padding:14px;border-radius:14px;font-weight:700;font-size:15px}
 .tile{flex:none;width:44px;height:44px;border-radius:14px;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:24px;line-height:1}
+.tile .food-img{display:block;width:36px;height:36px}
 .back{display:flex;align-items:center;justify-content:center;width:40px;height:40px;margin:8px 0 0 -8px;font-size:32px;line-height:1;color:var(--fg);border-radius:12px}
 .hdr{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
 .ver{font-size:12px;color:var(--sub)}

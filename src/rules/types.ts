@@ -147,6 +147,8 @@ export interface CatalogEntry {
   /** 같은 재료의 다른 이름 (달걀 → 계란). 읽을 때 name으로 바꾼다. */
   aliases?: string[];
   emoji?: string;
+  /** 그림 타일 파일 이름 (public/ingredients/{image}.png). 없으면 emoji를 쓴다 */
+  image?: string;
   core: Core;
   /** 기본 기간(일) — 입고일 + 이 값 = 소비기한 */
   shelfDays: number;

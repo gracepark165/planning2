@@ -6,12 +6,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { CATALOG, CATEGORIES, findCatalog, findKind, nameKey } from '../data';
 import { LOCATIONS } from '../rules/constants';
-import { emojiOf } from '../rules/emoji';
 import { defaultLocation, kindShelfDays, shelfDaysFor } from '../rules/expiry';
 import { QTY_UNITS, joinQty, qtyStep, splitQty, switchUnit, toBasicUnit } from '../rules/qty';
 import type { FoodCategory, Item, Location } from '../rules/types';
 import type { AddPick } from '../state/store';
-import { BackButton } from './parts';
+import { BackButton, FoodIcon } from './parts';
 
 interface Props {
   items: Item[];
@@ -64,7 +63,9 @@ function QtyEditor({ p, onChange, onLocation, onRemove, onDone }: {
   return (
     <div className="qty-editor" ref={ref} role="group" aria-label={`${p.name} 양 고치기`}>
       <div className="qty-head">
-        <span className="tile">{emojiOf(entry?.core ?? '', entry)}</span>
+        <span className="tile" aria-hidden="true">
+          <FoodIcon entry={entry} core={entry?.core ?? ''} />
+        </span>
         <b>{p.name}</b>
         <button className="small-btn" onClick={onRemove}>
           빼기
@@ -197,7 +198,9 @@ export function AddView({ items, onBack, onAdd }: Props) {
         aria-pressed={on}
         onClick={() => tap(c.name, c.category)}
       >
-        <span className="e">{emojiOf(c.core, c)}</span>
+        <span className="e" aria-hidden="true">
+          <FoodIcon entry={c} core={c.core} />
+        </span>
         {c.name}
         {own && <small>있어요</small>}
         {on && (

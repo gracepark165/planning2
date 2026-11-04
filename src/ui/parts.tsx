@@ -4,15 +4,22 @@ import { useState } from 'react';
 import { findCatalog } from '../data';
 import { ENTERED_CHOICES, STATE_META } from '../rules/constants';
 import { addDays, daysBetween } from '../rules/date';
-import { emojiOf } from '../rules/emoji';
+import { emojiOf, imageOf } from '../rules/emoji';
 import { findItem } from '../rules/plan';
 import { dDayLabel, daysLeft, stateOf } from '../rules/status';
-import type { Core, DateKey, Item, ItemState } from '../rules/types';
+import type { CatalogEntry, Core, DateKey, Item, ItemState } from '../rules/types';
+
+/** 재료 그림: 사전에 그림이 있으면 그림, 없으면 이모지 */
+export function FoodIcon({ entry, core }: { entry: CatalogEntry | undefined; core: Core }) {
+  const src = imageOf(entry);
+  if (src) return <img className="food-img" src={src} alt="" width={256} height={256} loading="lazy" decoding="async" draggable={false} />;
+  return <>{emojiOf(core, entry)}</>;
+}
 
 export function Tile({ name, core }: { name: string; core: Core }) {
   return (
     <span className="tile" aria-hidden="true">
-      {emojiOf(core, findCatalog(name))}
+      <FoodIcon entry={findCatalog(name)} core={core} />
     </span>
   );
 }
