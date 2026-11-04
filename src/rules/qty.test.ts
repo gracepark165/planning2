@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { joinQty, qtyStep, splitQty, unitChoices } from './qty';
+import { joinQty, qtyStep, splitQty, toBasicUnit } from './qty';
 
 describe('수량 나누기', () => {
   it('숫자와 단위로 나눈다', () => {
@@ -19,13 +19,16 @@ describe('수량 나누기', () => {
     expect(joinQty({ n: 5, unit: '개' })).toBe('5개');
   });
 
-  it('g·ml은 100씩, 나머지는 1씩', () => {
+  it('g은 100씩, 개는 1씩', () => {
     expect(qtyStep('g')).toBe(100);
     expect(qtyStep('개')).toBe(1);
   });
 
-  it('기본 단위를 맨 앞에, 겹치지 않게', () => {
-    expect(unitChoices('송이')).toEqual(['송이', '개', '팩', '봉', 'g']);
-    expect(unitChoices('개')).toEqual(['개', '팩', '봉', 'g']);
+  it('기본 수량을 개·g으로', () => {
+    expect(toBasicUnit(splitQty('300g'))).toEqual({ n: 300, unit: 'g' });
+    expect(toBasicUnit(splitQty('1kg'))).toEqual({ n: 1000, unit: 'g' });
+    expect(toBasicUnit(splitQty('900ml'))).toEqual({ n: 1, unit: '개' });
+    expect(toBasicUnit(splitQty('1송이'))).toEqual({ n: 1, unit: '개' });
+    expect(toBasicUnit(splitQty('10구'))).toEqual({ n: 10, unit: '개' });
   });
 });

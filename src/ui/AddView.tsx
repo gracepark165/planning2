@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CATALOG, CATEGORIES, findCatalog, nameKey } from '../data';
 import { emojiOf } from '../rules/emoji';
-import { joinQty, qtyStep, splitQty, unitChoices } from '../rules/qty';
+import { QTY_UNITS, joinQty, qtyStep, splitQty, toBasicUnit } from '../rules/qty';
 import type { FoodCategory, Item } from '../rules/types';
 import type { AddPick } from '../state/store';
 import { BackButton } from './parts';
@@ -20,8 +20,8 @@ interface Picked extends AddPick {
   category?: string;
 }
 
-/** 고른 재료의 기본 수량: 사전 기본 수량, 직접 적은 재료는 1개 */
-const defaultQtyOf = (name: string) => findCatalog(name)?.defaultQty ?? '1개';
+/** 고른 재료의 기본 수량: 사전 기본 수량을 개·g으로 (1송이 → 1개), 직접 적은 재료는 1개 */
+const defaultQtyOf = (name: string) => joinQty(toBasicUnit(splitQty(findCatalog(name)?.defaultQty ?? '1개')));
 
 /** 고른 재료 아래에 열리는 양 고치기 칸 */
 function QtyEditor({ p, onChange, onRemove, onDone }: {
@@ -31,7 +31,6 @@ function QtyEditor({ p, onChange, onRemove, onDone }: {
   onDone: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const base = splitQty(defaultQtyOf(p.name));
   const cur = splitQty(p.qty ?? defaultQtyOf(p.name));
   const [text, setText] = useState(String(cur.n));
   useEffect(() => {
@@ -84,14 +83,14 @@ function QtyEditor({ p, onChange, onRemove, onDone }: {
         </div>
       </div>
       <div className="chips" style={{ padding: 0, flexWrap: 'wrap' }} role="radiogroup" aria-label="단위">
-        {unitChoices(base.unit).map((u) => (
+        {QTY_UNITS.map((u) => (
           <button
             key={u}
             className={`chip ${u === cur.unit ? 'on' : ''}`}
             role="radio"
             aria-checked={u === cur.unit}
-            // 단위를 바꾸면 그 단위의 알맞은 숫자로 (g ↔ 개)
-            onClick={() => set(u === base.unit ? base.n : qtyStep(u) === step ? cur.n : qtyStep(u) === 1 ? 1 : 100, u)}
+            // 단위를 바꾸면 그 단위의 알맞은 숫자로 (개 → 100g, g → 1개)
+            onClick={() => u !== cur.unit && set(u === 'g' ? 100 : 1, u)}
           >
             {u}
           </button>
@@ -165,7 +164,7 @@ export function AddView({ items, onBack, onAdd }: Props) {
         <span className="e">{emojiOf(c.core, c)}</span>
         {c.name}
         {own && <small>있어요</small>}
-        {on && <small className="cnt">{p.qty ?? c.defaultQty ?? '1개'}</small>}
+        {on && <small className="cnt">{p.qty ?? defaultQtyOf(c.name)}</small>}
       </button>
     );
   };
@@ -300,7 +299,7 @@ export function AddView({ items, onBack, onAdd }: Props) {
         <button className="cta ghost" onClick={onBack}>
           나중에 할게요
         </button>
-        <button className="cta" disabled={!picked.length} onClick={() => onAdd(picked.map(({ name, customKind, qty }) => ({ name, customKind, ...(qty ? { qty } : {}) })))}>
+        <button className="cta" disabled={!picked.length} onClick={() => onAdd(picked.map(({ name, customKind, qty }) => ({ name, customKind, qty: qty ?? defaultQtyOf(name) })))}>
           {picked.length ? `${picked.length}개 담기` : '재료를 골라 주세요'}
         </button>
       </div>

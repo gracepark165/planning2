@@ -14,10 +14,17 @@ export function splitQty(qty: string | undefined): QtyParts {
 
 export const joinQty = ({ n, unit }: QtyParts) => `${n}${unit}`;
 
-/** 무게·부피 단위는 100씩, 나머지는 1씩 */
-export const qtyStep = (unit: string) => (['g', 'ml'].includes(unit) ? 100 : 1);
+/** g은 100씩, 개는 1씩 */
+export const qtyStep = (unit: string) => (unit === 'g' ? 100 : 1);
 
-/** 고를 수 있는 단위: 재료 기본 단위를 맨 앞에, 그 뒤로 자주 쓰는 단위 */
-export function unitChoices(defaultUnit: string): string[] {
-  return [...new Set([defaultUnit, '개', '팩', '봉', 'g'])];
+/** 재료 직접 추가에서 고를 수 있는 단위 (2026-11-04, 사용자 요청: 개와 g만) */
+export const QTY_UNITS = ['개', 'g'] as const;
+
+/** 기본 수량을 개·g으로: 300g은 그대로, 1kg은 1000g, 900ml는 1개(한 통), 1송이·10구·1팩은 1개·10개·1개 */
+export function toBasicUnit(q: QtyParts): QtyParts {
+  const unit = q.unit.toLowerCase();
+  if (unit === 'g') return { n: q.n, unit: 'g' };
+  if (unit === 'kg') return { n: q.n * 1000, unit: 'g' };
+  if (unit === 'ml' || unit === 'l') return { n: 1, unit: '개' };
+  return { n: q.n, unit: '개' };
 }
