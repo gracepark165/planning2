@@ -4,7 +4,7 @@
 
 import { useState, type CSSProperties } from 'react';
 
-const TITLE = '안녕하세요, 저는 냉장고예요!';
+const TITLE = '안녕하세요, 저는 냉집사예요!';
 const LINES = [
   '깜빡 잊은 재료가 없도록, 급한 재료부터 이번 주 끼니에 넣어 드릴게요.',
   '장 본 걸 올려 주면 나머지는 제가 정리할게요.',
