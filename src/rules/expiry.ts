@@ -57,6 +57,36 @@ export function setEntered(item: Item, enteredAt: DateKey): Item {
   return { ...item, enteredAt, expiresAt };
 }
 
+/**
+ * 냉장고에 있는 재료의 보관 위치 바꾸기 (재료 시트, 2026-11-04).
+ * 냉동으로 옮기면 입고일 + 냉동 기간으로 늘리고(지금 소비기한이 더 길면 그대로) 원래 값을 기억한다.
+ * 냉동에서 꺼내면 기억한 값으로 돌아간다. 직접 고친 소비기한은 그대로 둔다.
+ */
+export function relocate(item: Item, location: Location, entry: CatalogEntry | undefined): Item {
+  if (location === item.location) return item;
+  const { beforeFreeze, ...rest } = item;
+  const moved: Item = { ...rest, location };
+  if (item.expiryBasis === 'user') return moved;
+  if (location === '냉동') {
+    const days = entry
+      ? shelfDaysFor(entry, item.portioned, '냉동')
+      : item.group
+        ? PORTION_SHELF_DAYS[item.group]
+        : undefined;
+    if (days === undefined) return moved;
+    const frozen = addDays(item.enteredAt, days);
+    if (daysBetween(item.expiresAt, frozen) <= 0) return moved;
+    return {
+      ...moved,
+      expiresAt: frozen,
+      expiryBasis: entry ? 'table' : 'kind',
+      beforeFreeze: { expiresAt: item.expiresAt, expiryBasis: item.expiryBasis },
+    };
+  }
+  if (item.location === '냉동' && beforeFreeze) return { ...moved, ...beforeFreeze };
+  return moved;
+}
+
 /** 기본 보관 위치. 소분한 육류·해산물·냉동식품은 냉동 (임시 가정). 사전에 없으면 냉장. */
 export function defaultLocation(entry: CatalogEntry | undefined, portioned: boolean): Location {
   if (!entry) return '냉장';
@@ -90,7 +120,7 @@ export function checkinDate(orderDate: DateKey, retailer: Retailer, orderHour?: 
 /** 입고일 → 소비기한 일수. "보통 N일" 같은 문구의 N은 항상 이 값이다 (사전 숫자를 따로 쓰지 않는다). */
 export const keepDays = (item: Pick<Item, 'enteredAt' | 'expiresAt'>) => daysBetween(item.enteredAt, item.expiresAt);
 
-type Basis = Pick<Item, 'enteredAt' | 'expiresAt' | 'expiryBasis'>;
+type Basis = Pick<Item, 'enteredAt' | 'expiresAt' | 'expiryBasis'> & { location?: Location };
 
 /** 재료 시트의 "근거" 문구. 표기에서 읽었거나 고친 값·예시 재료는 기간 문구를 붙이지 않는다. */
 export function expiryBasisText(item: Basis): string {
@@ -102,9 +132,9 @@ export function expiryBasisText(item: Basis): string {
     case 'sample':
       return '예시 재료예요';
     case 'table':
-      return `기본 기간표 기준 · 보통 ${keepDays(item)}일`;
+      return `${item.location === '냉동' ? '냉동 보관' : '기본 기간표'} 기준 · 보통 ${keepDays(item)}일`;
     case 'kind':
-      return `비슷한 종류 기준 · 보통 ${keepDays(item)}일`;
+      return `${item.location === '냉동' ? '냉동 보관' : '비슷한 종류'} 기준 · 보통 ${keepDays(item)}일`;
     case 'mine':
       return `지난번에 정한 기간 · 보통 ${keepDays(item)}일`;
   }

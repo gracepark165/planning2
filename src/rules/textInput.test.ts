@@ -109,3 +109,25 @@ describe('언제 샀는지·얼마나 남았는지 (문서 6장, V4-2·V4-3)', (
     }
   });
 });
+
+describe('보관 위치 말 (2026-11-04)', () => {
+  it('따로 떨어진 "냉동·냉장·실온" 말을 읽고 이름에서 뺀다', () => {
+    expect(parseItem('닭가슴살 냉동 2팩', CATALOG)).toMatchObject({ name: '닭가슴살', location: '냉동', count: 2, unit: '팩' });
+    expect(parseItem('삼겹살 냉동실에 넣어둠', CATALOG)).toMatchObject({ name: '삼겹살', location: '냉동' });
+    expect(parseItem('소고기 얼려둠', CATALOG)).toMatchObject({ name: '소고기', location: '냉동' });
+    expect(parseItem('대파 냉동 보관', CATALOG)).toMatchObject({ name: '대파', location: '냉동' });
+    expect(parseItem('감자 냉장고에 넣음', CATALOG)).toMatchObject({ name: '감자', location: '냉장' });
+    expect(parseItem('우유 실온 보관', CATALOG)).toMatchObject({ name: '우유', location: '실온' });
+  });
+
+  it('재료 이름에 붙은 "냉동"은 이름 그대로 (위치 말로 보지 않음)', () => {
+    const r = parseItem('냉동새우 2봉', CATALOG);
+    expect(r).toMatchObject({ name: '냉동새우', count: 2 });
+    expect(r.location).toBeUndefined();
+    expect(parseItem('냉동만두 1봉', CATALOG).location).toBeUndefined();
+  });
+
+  it('위치 말이 없으면 비워 둔다 (기본 위치)', () => {
+    expect(parseItem('닭가슴살 2팩', CATALOG).location).toBeUndefined();
+  });
+});

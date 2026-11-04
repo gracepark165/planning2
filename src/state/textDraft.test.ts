@@ -64,6 +64,11 @@ describe('고치기', () => {
     expect(issuesOf(r)).toEqual([]);
   });
 
+  it('글에 "냉동"이라고 쓰면 냉동으로 넣고 냉동 기간', () => {
+    expect(draft('닭가슴살 냉동 2팩')).toMatchObject({ location: '냉동', expiresAt: '2027-04-25', portioned: false }); // 180일
+    expect(draft('닭가슴살 2팩')).toMatchObject({ location: '냉장', expiresAt: '2026-10-30' });
+  });
+
   it('소분 안 한 고기도 냉동을 고르면 냉동 기간, 냉장으로 되돌리면 기본 기간', () => {
     const frozen = setDraftLocation(draft('소고기 다짐육 1팩'), '냉동', today, findCatalog);
     expect(frozen).toMatchObject({ portioned: false, location: '냉동', expiresAt: '2027-01-25' }); // 소 다짐육 90일

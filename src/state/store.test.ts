@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { findCatalog } from '../data';
-import { addDays } from '../rules/date';
+import { addDays, daysBetween } from '../rules/date';
 import { countByState } from '../rules/status';
 import { loadState, saveState, STORAGE_KEY } from './persist';
 import { discardLabel } from '../rules/logs';
@@ -524,6 +524,25 @@ describe('재료 직접 추가에서 고친 수량', () => {
     expect(newItemFromPick({ name: '계란' }, today, 'a2', findCatalog)?.qty).toBe('10구');
     expect(newItemFromPick({ name: '치아바타', customKind: 'bread', qty: '2개' }, today, 'a3', findCatalog)?.qty).toBe('2개');
     expect(newItemFromPick({ name: '치아바타', customKind: 'bread' }, today, 'a4', findCatalog)?.qty).toBe('1개');
+  });
+
+  it('고른 보관 위치로 넣고, 냉동이면 냉동 기간', () => {
+    const chicken = newItemFromPick({ name: '닭가슴살', location: '냉동' }, today, 'f1', findCatalog)!;
+    expect(chicken.location).toBe('냉동');
+    expect(daysBetween(chicken.enteredAt, chicken.expiresAt)).toBe(180);
+    expect(newItemFromPick({ name: '닭가슴살' }, today, 'f2', findCatalog)?.location).toBe('냉장');
+    const lamb = newItemFromPick({ name: '양갈비', customKind: 'rawMeat', location: '냉동' }, today, 'f3', findCatalog)!;
+    expect(daysBetween(lamb.enteredAt, lamb.expiresAt)).toBe(90);
+  });
+
+  it('냉장고에서 냉동으로 옮기면 소비기한이 늘고, 꺼내면 돌아온다', () => {
+    const item = newItemFromCatalog(findCatalog('닭가슴살')!, today, 'm1');
+    let s = reducer(initialState(today), { type: 'addItems', items: [item], today });
+    s = reducer(s, { type: 'setLocation', id: 'm1', location: '냉동' });
+    const frozen = s.items.find((i) => i.id === 'm1')!;
+    expect(daysBetween(frozen.enteredAt, frozen.expiresAt)).toBe(180);
+    s = reducer(s, { type: 'setLocation', id: 'm1', location: '냉장' });
+    expect(s.items.find((i) => i.id === 'm1')?.expiresAt).toBe(item.expiresAt);
   });
 });
 

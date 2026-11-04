@@ -11,6 +11,7 @@ import {
   setEntered,
   basisNote,
   enteredText,
+  relocate,
 } from './expiry';
 import { emojiOf } from './emoji';
 import { makeSampleInventory } from '../data/sampleInventory';
@@ -207,5 +208,43 @@ describe('입고일 바꾸기 (V4-2)', () => {
     for (const b of ['label', 'user', 'sample'] as const) {
       expect(setEntered({ ...base, expiryBasis: b }, '2026-10-20')).toMatchObject({ enteredAt: '2026-10-20', expiresAt: '2026-11-03' });
     }
+  });
+});
+
+describe('냉장고에 있는 재료의 보관 위치 바꾸기 (2026-11-04)', () => {
+  const chicken: Item = { ...base, id: 'c1', name: '닭가슴살', qty: '300g', core: '닭고기', expiresAt: '2026-10-30' };
+
+  it('냉동으로 옮기면 입고일 + 냉동 기간, 꺼내면 원래 값으로', () => {
+    const frozen = relocate(chicken, '냉동', cat('닭가슴살'));
+    expect(frozen).toMatchObject({ location: '냉동', expiresAt: '2027-04-25', expiryBasis: 'table' }); // 180일
+    expect(expiryBasisText(frozen)).toBe('냉동 보관 기준 · 보통 180일');
+    const back = relocate(frozen, '냉장', cat('닭가슴살'));
+    expect(back).toMatchObject({ location: '냉장', expiresAt: '2026-10-30', expiryBasis: 'table' });
+    expect(back.beforeFreeze).toBeUndefined();
+  });
+
+  it('예시·표기 재료도 늘리고, 꺼내면 원래 근거로 돌아간다', () => {
+    const sample = { ...chicken, expiryBasis: 'sample' as const };
+    const frozen = relocate(sample, '냉동', cat('닭가슴살'));
+    expect(frozen.expiresAt).toBe('2027-04-25');
+    expect(relocate(frozen, '냉장', cat('닭가슴살'))).toMatchObject({ expiresAt: '2026-10-30', expiryBasis: 'sample' });
+  });
+
+  it('직접 고친 소비기한은 그대로, 위치만 바꾼다', () => {
+    const edited = { ...chicken, expiryBasis: 'user' as const };
+    expect(relocate(edited, '냉동', cat('닭가슴살'))).toMatchObject({ location: '냉동', expiresAt: '2026-10-30' });
+  });
+
+  it('사전에 없는 재료는 품목군의 소분 기간표, 품목군도 없으면 위치만', () => {
+    const lamb: Item = { ...base, id: 'l1', name: '양갈비', group: 'meat', expiryBasis: 'kind', expiresAt: '2026-10-30' };
+    expect(relocate(lamb, '냉동', undefined)).toMatchObject({ expiresAt: '2027-01-25', expiryBasis: 'kind' }); // 90일
+    const unknown: Item = { ...base, id: 'u1', name: '무언가', expiryBasis: 'kind' };
+    expect(relocate(unknown, '냉동', undefined)).toMatchObject({ location: '냉동', expiresAt: base.expiresAt });
+  });
+
+  it('지금 소비기한이 냉동 기간보다 길면 그대로 (실온으로 옮기는 것도 기간은 그대로)', () => {
+    const long = { ...chicken, expiresAt: '2027-12-01' };
+    expect(relocate(long, '냉동', cat('닭가슴살')).expiresAt).toBe('2027-12-01');
+    expect(relocate(base, '실온', cat('대파'))).toMatchObject({ location: '실온', expiresAt: base.expiresAt });
   });
 });

@@ -1,11 +1,11 @@
 // 앱 상태와 상태를 바꾸는 규칙(리듀서). 화면과 무관한 순수 함수다.
 // "오늘"·시각·새 id는 액션에 담아서 넘긴다 (리듀서 안에서 만들지 않음).
 
-import { SUBSTITUTES, findKind } from '../data';
+import { SUBSTITUTES, findCatalog, findKind } from '../data';
 import { boughtAs } from '../rules/shopping';
 import { makeSampleInventory } from '../data/sampleInventory';
 import { addDays } from '../rules/date';
-import { autoExpiresAt, defaultLocation, setEntered, shiftExpiry } from '../rules/expiry';
+import { autoExpiresAt, defaultLocation, kindShelfDays, relocate, setEntered, shiftExpiry } from '../rules/expiry';
 import { findItem, portionQty } from '../rules/plan';
 import { mostUrgentSoon, stateOf } from '../rules/status';
 import { portionOf, stepDown, stepUp } from '../rules/portion';
@@ -158,6 +158,8 @@ export interface AddPick {
   customKind?: string;
   /** 고른 화면에서 고친 수량 ("5개"). 없으면 사전 기본 수량, 직접 적은 재료는 1개 */
   qty?: string;
+  /** 고른 화면에서 고른 보관 위치. 없으면 기본 위치. 냉동이면 냉동 기간으로 소비기한 */
+  location?: Location;
 }
 
 /** 고른 것 → 재고. 사전·지난번 값에 있으면 그 값, 없으면 분류의 종류 기본 기간. 둘 다 없으면 undefined. */
@@ -170,7 +172,13 @@ export function newItemFromPick(
   const entry = lookup(pick.name);
   if (entry) {
     const item = newItemFromCatalog(entry, today, id);
-    return pick.qty ? { ...item, qty: pick.qty } : item;
+    const location = pick.location ?? item.location;
+    return {
+      ...item,
+      ...(pick.qty ? { qty: pick.qty } : {}),
+      location,
+      expiresAt: autoExpiresAt(today, entry, false, location) as DateKey,
+    };
   }
   const name = pick.name.trim();
   // "면·곡물·빵" 분류에서 직접 적은 떡(가래떡 등)은 빵이 아니라 떡 종류(냉장)로
@@ -181,9 +189,9 @@ export function newItemFromPick(
     name,
     qty: pick.qty ?? '1개',
     core: '',
-    location: kind.location,
+    location: pick.location ?? kind.location,
     enteredAt: today,
-    expiresAt: addDays(today, kind.days),
+    expiresAt: addDays(today, kindShelfDays(kind, pick.location ?? kind.location, false)),
     expiryBasis: 'kind',
     group: kind.group,
     remaining: '넉넉해요',
@@ -293,7 +301,7 @@ export function reducer(state: AppState, action: Action): AppState {
     case 'setEnteredAt':
       return updateItem(state, action.id, (i) => setEntered(i, action.enteredAt));
     case 'setLocation':
-      return updateAndRemember(state, action.id, (i) => ({ ...i, location: action.location }));
+      return updateAndRemember(state, action.id, (i) => relocate(i, action.location, findCatalog(i.name)));
     case 'shiftCount':
       return updateItem(state, action.id, (i) => {
         if (!i.portioned) return i;

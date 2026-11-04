@@ -51,6 +51,8 @@ export interface Item {
   portion?: 'level' | 'whole';
   /** 앱에 넣은 날 (입고일과 다를 수 있음). 그날 동안 홈에 "새로" 태그 (V4-4) */
   addedOn?: DateKey;
+  /** 냉동으로 옮기기 전 소비기한·근거. 냉동에서 꺼내면 이 값으로 돌아간다 (2026-11-04) */
+  beforeFreeze?: { expiresAt: DateKey; expiryBasis: ExpiryBasis };
 }
 
 export interface MealLog {

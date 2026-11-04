@@ -1,12 +1,15 @@
 // 재료 직접 추가(FR-07): 큰 분류(육류·채소 …)를 누르면 그 분류의 재료가 펼쳐지고, 여러 개 골라서 한 번에 담는다.
 // 소비기한은 자동 (재료 사전 → 지난번 값 → 직접 적은 재료는 그 분류의 종류별 기본 기간).
-// 재료를 누르면 바로 아래에 양(숫자 + 단위)을 고치는 칸이 열린다 (2026-11-04, 사용자 요청).
+// 재료를 누르면 바로 아래에 양(숫자 + 단위)·보관 위치를 고치는 칸이 열린다 (2026-11-04, 사용자 요청).
+// 냉동을 고르면 소비기한도 냉동 기간으로 정한다.
 
 import { useEffect, useRef, useState } from 'react';
-import { CATALOG, CATEGORIES, findCatalog, nameKey } from '../data';
+import { CATALOG, CATEGORIES, findCatalog, findKind, nameKey } from '../data';
+import { LOCATIONS } from '../rules/constants';
 import { emojiOf } from '../rules/emoji';
+import { defaultLocation, kindShelfDays, shelfDaysFor } from '../rules/expiry';
 import { QTY_UNITS, joinQty, qtyStep, splitQty, switchUnit, toBasicUnit } from '../rules/qty';
-import type { FoodCategory, Item } from '../rules/types';
+import type { FoodCategory, Item, Location } from '../rules/types';
 import type { AddPick } from '../state/store';
 import { BackButton } from './parts';
 
@@ -23,10 +26,21 @@ interface Picked extends AddPick {
 /** 고른 재료의 기본 수량: 사전 기본 수량을 ml·g·개로 (1송이 → 1개), 직접 적은 재료는 1개 */
 const defaultQtyOf = (name: string) => joinQty(toBasicUnit(splitQty(findCatalog(name)?.defaultQty ?? '1개')));
 
-/** 고른 재료 아래에 열리는 양 고치기 칸 */
-function QtyEditor({ p, onChange, onRemove, onDone }: {
+/** 고른 재료의 기본 보관 위치와, 고른 위치에서의 기간(일) */
+function placeOf(p: Picked): { loc: Location; days?: number; isDefault: boolean } {
+  const entry = findCatalog(p.name);
+  const kind = entry ? undefined : findKind(p.customKind);
+  const base = entry ? defaultLocation(entry, false) : (kind?.location ?? '냉장');
+  const loc = p.location ?? base;
+  const days = entry ? shelfDaysFor(entry, false, loc) : kind ? kindShelfDays(kind, loc, false) : undefined;
+  return { loc, days, isDefault: loc === base };
+}
+
+/** 고른 재료 아래에 열리는 양·보관 위치 고치기 칸 */
+function QtyEditor({ p, onChange, onLocation, onRemove, onDone }: {
   p: Picked;
   onChange: (qty: string) => void;
+  onLocation: (loc: Location) => void;
   onRemove: () => void;
   onDone: () => void;
 }) {
@@ -45,6 +59,7 @@ function QtyEditor({ p, onChange, onRemove, onDone }: {
     onChange(joinQty({ n: v, unit }));
   };
   const entry = findCatalog(p.name);
+  const place = placeOf(p);
 
   return (
     <div className="qty-editor" ref={ref} role="group" aria-label={`${p.name} 양 고치기`}>
@@ -100,8 +115,23 @@ function QtyEditor({ p, onChange, onRemove, onDone }: {
           </button>
         ))}
       </div>
+      <div className="qty-loc">
+        <span>보관 위치</span>
+        <div className="chips" style={{ padding: 0 }} role="radiogroup" aria-label="보관 위치">
+          {LOCATIONS.map((l) => (
+            <button key={l} className={`chip ${l === place.loc ? 'on' : ''}`} role="radio" aria-checked={l === place.loc} onClick={() => onLocation(l)}>
+              {l}
+            </button>
+          ))}
+        </div>
+      </div>
+      {place.days !== undefined && (
+        <p className="qty-note">
+          {place.loc === '냉동' ? '냉동 보관 기준' : '기본 기간표 기준'}으로 소비기한은 보통 {place.days}일로 정해둘게요.
+        </p>
+      )}
       <button className="cta qty-done" onClick={onDone}>
-        {joinQty(cur)}로 할게요
+        {joinQty(cur)} · {place.loc}에 넣을게요
       </button>
     </div>
   );
@@ -139,6 +169,8 @@ export function AddView({ items, onBack, onAdd }: Props) {
 
   const setQty = (name: string, qty: string) =>
     setPicked((p) => p.map((x) => (nameKey(x.name) === nameKey(name) ? { ...x, qty } : x)));
+  const setLocation = (name: string, location: Location) =>
+    setPicked((p) => p.map((x) => (nameKey(x.name) === nameKey(name) ? { ...x, location } : x)));
 
   /** 목록에 없는 재료: 이름 + 분류 (사전에 있는 이름이면 사전 재료로) */
   const addCustom = (raw: string, cat: FoodCategory) => {
@@ -168,7 +200,12 @@ export function AddView({ items, onBack, onAdd }: Props) {
         <span className="e">{emojiOf(c.core, c)}</span>
         {c.name}
         {own && <small>있어요</small>}
-        {on && <small className="cnt">{p.qty ?? defaultQtyOf(c.name)}</small>}
+        {on && (
+          <small className="cnt">
+            {p.qty ?? defaultQtyOf(c.name)}
+            {placeOf(p).isDefault ? '' : ` · ${placeOf(p).loc}`}
+          </small>
+        )}
       </button>
     );
   };
@@ -179,6 +216,7 @@ export function AddView({ items, onBack, onAdd }: Props) {
       key={editingPick.name}
       p={editingPick}
       onChange={(qty) => setQty(editingPick.name, qty)}
+      onLocation={(loc) => setLocation(editingPick.name, loc)}
       onRemove={() => remove(editingPick.name)}
       onDone={() => setEditing(null)}
     />
@@ -289,6 +327,7 @@ export function AddView({ items, onBack, onAdd }: Props) {
                 <button onClick={() => setEditing(p.name)} aria-label={`${p.name} 양 고치기`}>
                   {p.name}
                   {p.customKind ? ' (직접)' : ''} · {p.qty ?? defaultQtyOf(p.name)}
+                  {placeOf(p).isDefault ? '' : ` · ${placeOf(p).loc}`}
                 </button>
                 <button onClick={() => remove(p.name)} aria-label={`${p.name} 빼기`}>
                   ✕
@@ -303,7 +342,9 @@ export function AddView({ items, onBack, onAdd }: Props) {
         <button className="cta ghost" onClick={onBack}>
           나중에 할게요
         </button>
-        <button className="cta" disabled={!picked.length} onClick={() => onAdd(picked.map(({ name, customKind, qty }) => ({ name, customKind, qty: qty ?? defaultQtyOf(name) })))}>
+        <button className="cta" disabled={!picked.length} onClick={() =>
+            onAdd(picked.map(({ name, customKind, qty, location }) => ({ name, customKind, qty: qty ?? defaultQtyOf(name), ...(location ? { location } : {}) })))
+          }>
           {picked.length ? `${picked.length}개 담기` : '재료를 골라 주세요'}
         </button>
       </div>

@@ -104,6 +104,7 @@ export function draftFromParsed(line: ParsedLine, key: string, today: DateKey, l
     // "지난주에 산거" → 입고일, "반쯤 남음" → 남은 양 (V4-2·V4-3)
     ...(line.enteredAgo !== undefined ? { enteredAt: addDays(today, -line.enteredAgo), enteredRead: true } : {}),
     ...(line.remaining ? { remaining: line.remaining } : {}),
+    ...(line.location ? { locationPick: line.location } : {}),
   };
   return refresh(row, today, lookup);
 }

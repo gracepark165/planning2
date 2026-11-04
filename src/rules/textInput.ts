@@ -2,7 +2,7 @@
 // 나중에 AI를 붙일 때는 이 "읽기" 단계만 바꾸고, 결과 형태(ParsedLine)와 확인 화면은 그대로 쓴다.
 
 import { COUNT_MAX, COUNT_MIN, ITEM_SEPARATORS, KOREAN_NUMBERS, PORTION_WORD, UNIT_ALIASES } from './constants';
-import type { CatalogEntry, Remaining } from './types';
+import type { CatalogEntry, Location, Remaining } from './types';
 
 /** 사용자에게 다시 물어야 하는 것 */
 export type ParseNeed =
@@ -31,6 +31,8 @@ export interface ParsedLine {
   enteredAgo?: number;
   /** 얼마나 남았는지 읽었으면 (V4-3) */
   remaining?: Remaining;
+  /** 보관 위치를 읽었으면 ("냉동", "냉동실에", "얼려둠", "냉장", "실온", 2026-11-04) */
+  location?: Location;
 }
 
 const escapeRe = (w: string) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -127,6 +129,17 @@ export function splitItems(text: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * 보관 위치 말. 앞뒤가 한글이 아닌 따로 떨어진 말만 읽는다 ("냉동새우"·"냉동만두"는 재료 이름이라 그대로 둔다).
+ * 뒤에 붙는 "보관·넣음·둠" 같은 말도 같이 지운다.
+ */
+const PUT_TAIL = `(?:\\s*(?:보관(?:함|해요|했어요)?|넣음|넣었어요|넣어\\s*둠|넣어둠|둠|해\\s*둠|해둠))?`;
+const LOCATION_RULES: [RegExp, Location][] = [
+  [new RegExp(`(?<!${HANGUL})(?:냉동(?:실에|실|해서|했어요|했어|해요|함|해)?|얼(?:려서|려\\s*둠|려둠|려|림|렸어요|렸어))${PUT_TAIL}(?!${HANGUL})`), '냉동'],
+  [new RegExp(`(?<!${HANGUL})냉장(?:고에|실에|고|실)?${PUT_TAIL}(?!${HANGUL})`), '냉장'],
+  [new RegExp(`(?<!${HANGUL})실온(?:에)?${PUT_TAIL}(?!${HANGUL})`), '실온'],
+];
+
 /** 한 항목을 읽는다 */
 export function parseItem(raw: string, catalog: readonly CatalogEntry[]): ParsedLine {
   let text = squash(raw);
@@ -149,6 +162,15 @@ export function parseItem(raw: string, catalog: readonly CatalogEntry[]): Parsed
     const m = re.exec(text);
     if (!m) continue;
     remaining = level;
+    text = cut(text, m.index, m.index + m[0].length);
+    break;
+  }
+
+  let location: Location | undefined;
+  for (const [re, loc] of LOCATION_RULES) {
+    const m = re.exec(text);
+    if (!m) continue;
+    location = loc;
     text = cut(text, m.index, m.index + m[0].length);
     break;
   }
@@ -215,6 +237,7 @@ export function parseItem(raw: string, catalog: readonly CatalogEntry[]): Parsed
     needs,
     ...(enteredAgo !== undefined ? { enteredAgo } : {}),
     ...(remaining ? { remaining } : {}),
+    ...(location ? { location } : {}),
   };
 }
 
