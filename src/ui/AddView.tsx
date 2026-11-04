@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CATALOG, CATEGORIES, findCatalog, nameKey } from '../data';
 import { emojiOf } from '../rules/emoji';
-import { QTY_UNITS, joinQty, qtyStep, splitQty, toBasicUnit } from '../rules/qty';
+import { QTY_UNITS, joinQty, qtyStep, splitQty, switchUnit, toBasicUnit } from '../rules/qty';
 import type { FoodCategory, Item } from '../rules/types';
 import type { AddPick } from '../state/store';
 import { BackButton } from './parts';
@@ -20,7 +20,7 @@ interface Picked extends AddPick {
   category?: string;
 }
 
-/** 고른 재료의 기본 수량: 사전 기본 수량을 개·g으로 (1송이 → 1개), 직접 적은 재료는 1개 */
+/** 고른 재료의 기본 수량: 사전 기본 수량을 ml·g·개로 (1송이 → 1개), 직접 적은 재료는 1개 */
 const defaultQtyOf = (name: string) => joinQty(toBasicUnit(splitQty(findCatalog(name)?.defaultQty ?? '1개')));
 
 /** 고른 재료 아래에 열리는 양 고치기 칸 */
@@ -89,8 +89,12 @@ function QtyEditor({ p, onChange, onRemove, onDone }: {
             className={`chip ${u === cur.unit ? 'on' : ''}`}
             role="radio"
             aria-checked={u === cur.unit}
-            // 단위를 바꾸면 그 단위의 알맞은 숫자로 (개 → 100g, g → 1개)
-            onClick={() => u !== cur.unit && set(u === 'g' ? 100 : 1, u)}
+            // 단위를 바꾸면 그 단위의 알맞은 숫자로 (개 → 100g, g → 1개, g ↔ ml은 그대로)
+            onClick={() => {
+              if (u === cur.unit) return;
+              const next = switchUnit(cur, u);
+              set(next.n, next.unit);
+            }}
           >
             {u}
           </button>
