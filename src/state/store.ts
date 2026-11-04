@@ -156,6 +156,8 @@ export interface AddPick {
   name: string;
   /** 직접 적은 재료면 분류의 종류 id (종류별 기본 기간표로 소비기한) */
   customKind?: string;
+  /** 고른 화면에서 고친 수량 ("5개"). 없으면 사전 기본 수량, 직접 적은 재료는 1개 */
+  qty?: string;
 }
 
 /** 고른 것 → 재고. 사전·지난번 값에 있으면 그 값, 없으면 분류의 종류 기본 기간. 둘 다 없으면 undefined. */
@@ -166,7 +168,10 @@ export function newItemFromPick(
   lookup: (name: string) => CatalogEntry | undefined,
 ): Item | undefined {
   const entry = lookup(pick.name);
-  if (entry) return newItemFromCatalog(entry, today, id);
+  if (entry) {
+    const item = newItemFromCatalog(entry, today, id);
+    return pick.qty ? { ...item, qty: pick.qty } : item;
+  }
   const name = pick.name.trim();
   // "면·곡물·빵" 분류에서 직접 적은 떡(가래떡 등)은 빵이 아니라 떡 종류(냉장)로
   const kind = findKind(pick.customKind === 'bread' && name.includes('떡') ? 'riceCake' : pick.customKind);
@@ -174,7 +179,7 @@ export function newItemFromPick(
   return {
     id,
     name,
-    qty: '1개',
+    qty: pick.qty ?? '1개',
     core: '',
     location: kind.location,
     enteredAt: today,

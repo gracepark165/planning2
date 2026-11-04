@@ -518,6 +518,15 @@ describe('직접 적은 떡은 떡 종류(냉장)로', () => {
   });
 });
 
+describe('재료 직접 추가에서 고친 수량', () => {
+  it('고친 수량이 있으면 그 값, 없으면 사전 기본 수량 · 직접 적은 재료는 1개', () => {
+    expect(newItemFromPick({ name: '바나나', qty: '5개' }, today, 'a1', findCatalog)?.qty).toBe('5개');
+    expect(newItemFromPick({ name: '계란' }, today, 'a2', findCatalog)?.qty).toBe('10구');
+    expect(newItemFromPick({ name: '치아바타', customKind: 'bread', qty: '2개' }, today, 'a3', findCatalog)?.qty).toBe('2개');
+    expect(newItemFromPick({ name: '치아바타', customKind: 'bread' }, today, 'a4', findCatalog)?.qty).toBe('1개');
+  });
+});
+
 describe('방금 넣은 재료 (V4-4)', () => {
   it('냉장고에 넣으면 넣은 날을 남긴다 (입고일과 따로, "새로" 태그용)', () => {
     const item = { ...newItemFromCatalog(findCatalog('두부')!, today, 'n1'), enteredAt: '2026-10-20' };

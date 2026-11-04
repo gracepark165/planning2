@@ -230,6 +230,22 @@ input[type=text]:focus,input[type=search]:focus,select:focus{border-color:var(--
 .gi small{font-size:10px;color:var(--sub)}
 .grid.cats{grid-template-columns:repeat(3,minmax(0,1fr))}
 .gi small.cnt{color:var(--accent);font-weight:700}
+/* 재료 직접 추가: 누른 재료 아래 양 고치기 칸 */
+.gi.editing{box-shadow:0 0 0 3px var(--accent-bg)}
+.qty-editor{scroll-margin:16px 0 120px;margin-top:12px;padding:14px;border-radius:18px;background:var(--bg);border:2px solid var(--accent);box-shadow:var(--shadow);animation:qtyIn .2s ease-out}
+@keyframes qtyIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.qty-head{display:flex;align-items:center;gap:10px}
+.qty-head b{flex:1;font-size:17px}
+.qty-editor .stepper div{gap:8px}
+.qty-num{width:72px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--fg);font-size:18px;font-weight:700;text-align:center;padding:0;-moz-appearance:textfield;appearance:textfield}
+.qty-num::-webkit-inner-spin-button,.qty-num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.qty-unit{color:var(--fg);font-weight:700;min-width:24px}
+.qty-editor .chip{min-height:36px}
+.qty-done{width:100%;margin-top:10px}
+.picked-chip{display:inline-flex;align-items:center;gap:2px;padding:0}
+.picked-chip button{padding:8px 6px 8px 14px;color:inherit;font:inherit}
+.picked-chip button+button{padding:8px 12px 8px 6px}
+@media (prefers-reduced-motion: reduce){.qty-editor{animation:none}}
 .card .chip{background:var(--bg);color:var(--fg)}
 .stepper{display:flex;align-items:center;justify-content:space-between;background:var(--card);border-radius:16px;padding:10px 12px 10px 16px;margin:16px 0 12px;font-size:14px;color:var(--sub)}
 .stepper div{display:flex;align-items:center;gap:14px}
