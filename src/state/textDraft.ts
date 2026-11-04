@@ -65,7 +65,7 @@ export function refresh(row: DraftRow, today: DateKey, lookup: Lookup): DraftRow
   if (row.expiryBasis === 'user' || row.expiryBasis === 'label') return { ...row, location };
   const base = baseDate(row, today);
   if (entry) {
-    return { ...row, location, expiresAt: autoExpiresAt(base, entry, row.portioned), expiryBasis: entry.mine ? 'mine' : 'table' };
+    return { ...row, location, expiresAt: autoExpiresAt(base, entry, row.portioned, location), expiryBasis: entry.mine ? 'mine' : 'table' };
   }
   if (kind) {
     return { ...row, location, expiresAt: addDays(base, kindShelfDays(kind, location, row.portioned)), expiryBasis: 'kind' };
@@ -73,7 +73,7 @@ export function refresh(row: DraftRow, today: DateKey, lookup: Lookup): DraftRow
   return { ...row, location, expiresAt: undefined, expiryBasis: 'table' };
 }
 
-/** 보관 위치 고르기. 종류로 정한 소비기한은 위치에 따라 다시 계산한다 (냉동이면 더 길게). */
+/** 보관 위치 고르기. 사전·종류로 정한 소비기한은 위치에 따라 다시 계산한다 (냉동이면 냉동 기간). */
 export function setDraftLocation(row: DraftRow, location: Location, today: DateKey, lookup: Lookup): DraftRow {
   return refresh({ ...row, locationPick: location }, today, lookup);
 }

@@ -148,6 +148,8 @@ export interface CatalogEntry {
   core: Core;
   /** 기본 기간(일) — 입고일 + 이 값 = 소비기한 */
   shelfDays: number;
+  /** 냉동 보관 기간(일). 소분했거나 냉동으로 옮겨 넣을 때 쓴다. 없으면 소분 기간표(품목군) */
+  freezerDays?: number;
   location: Location;
   group: FoodGroup;
   /** 직접 추가 화면에서 고를 때 넣는 기본 수량 */

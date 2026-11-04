@@ -45,12 +45,30 @@ describe('소비기한 자동 계산', () => {
     expect(autoExpiresAt('2026-12-20', cat('계란'), false)).toBe('2027-01-10'); // 21일, 해 넘김
   });
 
-  it('소분이면 소분 기간표: 고기 90 · 새우 60 · 만두 60 · 채소 30', () => {
-    expect(shelfDaysFor(cat('닭가슴살'), true)).toBe(90);
-    expect(shelfDaysFor(cat('삼겹살'), true)).toBe(90);
-    expect(shelfDaysFor(cat('새우살'), true)).toBe(60);
+  it('소분이면 재료별 냉동 기간, 없으면 소분 기간표', () => {
+    expect(shelfDaysFor(cat('닭가슴살'), true)).toBe(180); // 닭 조각 6개월
+    expect(shelfDaysFor(cat('소고기'), true)).toBe(180); // 소 덩어리 6개월
+    expect(shelfDaysFor(cat('소고기 다짐육'), true)).toBe(90); // 소 다짐육 3개월
+    expect(shelfDaysFor(cat('삼겹살'), true)).toBe(120); // 돼지 덩어리 4개월
+    expect(shelfDaysFor(cat('돼지고기 다짐육'), true)).toBe(60); // 돼지 다짐육 2개월
+    expect(shelfDaysFor(cat('베이컨'), true)).toBe(30); // 육가공품 1개월
+    expect(shelfDaysFor(cat('고등어'), true)).toBe(60); // 기름진 생선 2개월
+    expect(shelfDaysFor(cat('오징어'), true)).toBe(90); // 오징어·조개 3개월
+    expect(shelfDaysFor(cat('새우살'), true)).toBe(90); // 원래 냉동, 생새우 3개월
+    expect(shelfDaysFor(cat('오리고기'), true)).toBe(90); // 냉동 기간 없음 → 소분 기간표(고기)
     expect(shelfDaysFor(cat('만두'), true)).toBe(60);
     expect(shelfDaysFor(cat('대파'), true)).toBe(30);
+  });
+
+  it('소분 안 해도 냉동으로 넣으면 냉동 기간, 원래 냉동인 재료는 그대로', () => {
+    expect(shelfDaysFor(cat('닭가슴살'), false, '냉장')).toBe(3);
+    expect(shelfDaysFor(cat('닭가슴살'), false, '냉동')).toBe(180);
+    expect(shelfDaysFor(cat('햄'), false, '냉동')).toBe(30);
+    expect(shelfDaysFor(cat('당근'), false, '냉동')).toBe(30); // 채소 → 소분 기간표
+    expect(shelfDaysFor(cat('우유'), false, '냉동')).toBe(7); // 냉동 기간 없음 → 기본 기간
+    expect(shelfDaysFor(cat('냉동새우'), false, '냉동')).toBe(90);
+    expect(shelfDaysFor(cat('냉동밥'), false, '냉동')).toBe(60); // 조리된 밥 2개월
+    expect(findCatalog('얼린밥')?.name).toBe('냉동밥');
   });
 
   it('소분 기간표에 없는 품목군은 품목 기본 기간', () => {
