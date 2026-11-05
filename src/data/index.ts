@@ -25,6 +25,9 @@ export const PLAN_RECIPES = recipesJson.recipes as Recipe[];
 export const RETAILERS = retailersJson.retailers as Retailer[];
 export const VIDEO_EXAMPLES = examplesJson.videos as VideoExample[];
 export const ORDER_EXAMPLE_ITEMS = examplesJson.orderItems as OrderExampleItem[];
+/** 예시 주문의 마트와 며칠 전에 도착했는지 */
+export const ORDER_EXAMPLE_RETAILER: string = examplesJson.orderRetailer;
+export const ORDER_EXAMPLE_ARRIVED_DAYS_AGO: number = examplesJson.orderArrivedDaysAgo;
 export const SUBSTITUTES = substitutesJson as SubstituteTable;
 /** 종류별 기본 기간표 (사전에 없는 재료용, 임시) */
 export const KINDS = kindsJson.kinds as FoodKind[];

@@ -120,7 +120,7 @@ export function VideoView({ items, today, onPin }: Props) {
     const res = await readVideo(url.trim());
     if (my !== round.current) return;
     if (!res.ok) {
-      fail(res.reason === 'no-key' ? null : AI_FAILURE_TEXT[res.reason]);
+      fail(res.reason === 'no-key' || res.reason === 'ai-credit' ? null : AI_FAILURE_TEXT[res.reason]);
       return;
     }
     const found: Recipe[] = videoMenusOf(res.data, SUBSTITUTES).map((m) => ({

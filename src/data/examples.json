@@ -28,9 +28,13 @@
       "skipped": ["간장", "설탕", "참기름"]
     }
   ],
+  "orderNote": "예시 주문: 쿠팡 로켓프레시, 어제 도착 (2026-11-05 사용자 주문 화면). 화면에 소비기한이 없어서 모두 기본 기간표로 정한다.",
+  "orderRetailer": "쿠팡",
+  "orderArrivedDaysAgo": 1,
   "orderItems": [
-    { "name": "닭다리살", "qty": "400g", "core": "닭고기", "shelfDays": 3, "confident": true, "basisText": "소비기한 표기 읽음" },
-    { "name": "두부", "qty": "300g", "core": "", "shelfDays": 10, "confident": true, "basisText": "소비기한 표기 읽음" },
-    { "name": "피코크 김치찌개", "qty": "1팩", "core": "", "shelfDays": 7, "confident": false, "basisText": "" }
+    { "name": "부침두부", "qty": "2모", "core": "", "shelfDays": 7, "confident": false, "basisText": "" },
+    { "name": "팽이버섯", "qty": "4봉", "core": "", "shelfDays": 5, "confident": false, "basisText": "" },
+    { "name": "낫또", "qty": "18개", "core": "", "shelfDays": 90, "confident": false, "basisText": "" },
+    { "name": "계란", "qty": "15구", "core": "", "shelfDays": 21, "confident": false, "basisText": "" }
   ]
 }

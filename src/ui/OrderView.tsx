@@ -5,7 +5,7 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { AI_FAILURE_TEXT, readOrderImage, readTextLines, type AiFailure } from '../ai/client';
 import { mergeTextAi, needsAiHelp, orderDateOf, orderToDrafts, retailerOf, splitNotStocked } from '../ai/convert';
-import { CATALOG, ORDER_EXAMPLE_ITEMS, RETAILERS, findCatalog } from '../data';
+import { CATALOG, ORDER_EXAMPLE_ARRIVED_DAYS_AGO, ORDER_EXAMPLE_ITEMS, ORDER_EXAMPLE_RETAILER, RETAILERS, findCatalog } from '../data';
 import { addDays, formatDate } from '../rules/date';
 import { autoExpiresAt, checkinDate, defaultLocation } from '../rules/expiry';
 import { parseTextInput } from '../rules/textInput';
@@ -86,6 +86,7 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
 
   const showExample = (why: string | null) => {
     setExampleWhy(why);
+    setRetailer(ORDER_EXAMPLE_RETAILER);
     setStep('loading');
   };
 
@@ -217,15 +218,20 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
 
   if (step === 'capture') {
     const r = RETAILERS.find((x) => x.name === retailer)!;
-    // 예시: 이틀 전 주문. 어느 마트를 골라도 입고일이 오늘보다 늦지 않게 (이미 받은 주문을 올리는 것이므로)
-    const exampleOrderDate = addDays(today, -Math.max(...RETAILERS.map((x) => x.checkinDays)));
+    // 예시 주문은 예시 마트 기준으로 며칠 전에 도착한 주문. 다른 마트를 골라도 입고일이 오늘보다 늦지 않게 (이미 받은 주문을 올리는 것이므로)
+    const exR = RETAILERS.find((x) => x.name === ORDER_EXAMPLE_RETAILER)!;
+    const exampleOrderDate = addDays(
+      today,
+      -Math.max(ORDER_EXAMPLE_ARRIVED_DAYS_AGO + exR.checkinDays, ...RETAILERS.map((x) => x.checkinDays)),
+    );
     const inDate = checkinDate(exampleOrderDate, r);
     return (
       <>
         <BackButton onClick={back} />
         <h1>{ORDER_EXAMPLE_ITEMS.length}개를 찾았어요</h1>
         <p className="lead">소비기한은 자동으로 정해뒀어요. 나중에 언제든 고칠 수 있어요.</p>
-        <p className="example-why">{exampleWhy ?? '예시 주문 화면의 결과예요.'}</p>
+        {/* 사진을 올렸는데 AI를 못 쓸 때(연결 전·크레딧)는 따로 알리지 않는다 (2026-11-05, 사용자 요청) */}
+        {(exampleWhy || !thumb) && <p className="example-why">{exampleWhy ?? '예시 주문 화면의 결과예요.'}</p>}
         {thumb && <img className="thumb" src={thumb} alt="올린 주문 화면" />}
         {retailerPicker(inDate, exampleOrderDate, setRetailer)}
         <div style={{ marginTop: 8 }}>
@@ -328,8 +334,9 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
 }
 
 /** 사진을 못 읽었을 때 예시 결과 위에 보여줄 문구 */
-function captureFailText(reason: AiFailure): string {
+function captureFailText(reason: AiFailure): string | null {
   const tail = ' 아래는 예시 결과예요. 글로 입력해도 돼요.';
-  if (reason === 'no-key') return `AI 연결 전이라 사진을 읽을 수 없어요.${tail}`;
+  // AI 연결 전이거나 크레딧이 없을 때는 예시 결과만 조용히 보여준다 (2026-11-05, 사용자 요청)
+  if (reason === 'no-key' || reason === 'ai-credit') return null;
   return `${AI_FAILURE_TEXT[reason]}.${tail}`;
 }

@@ -132,6 +132,7 @@
     { "name": "순두부", "image": "tofu-soft", "emoji": "🫘", "core": "", "shelfDays": 7, "location": "냉장", "group": "etc", "defaultQty": "1봉", "category": "tofuProcessed", "kind": "tofu" },
     { "name": "도토리묵", "image": "acorn-jelly", "emoji": "🫘", "core": "", "shelfDays": 7, "location": "냉장", "group": "etc", "defaultQty": "1팩", "category": "tofuProcessed", "kind": "tofu" },
     { "name": "유부", "image": "fried-tofu", "emoji": "🫘", "core": "", "shelfDays": 7, "location": "냉장", "group": "etc", "defaultQty": "1봉", "category": "tofuProcessed", "kind": "tofu" },
+    { "name": "낫또", "image": "natto", "emoji": "🫘", "core": "", "shelfDays": 90, "location": "냉동", "group": "etc", "category": "tofuProcessed", "portion": "level" },
     { "name": "어묵", "image": "fish-cake", "emoji": "🍢", "core": "", "shelfDays": 7, "location": "냉장", "group": "etc", "defaultQty": "1봉", "category": "tofuProcessed", "kind": "fishCake" },
     { "name": "게맛살", "image": "crab-stick", "emoji": "🦀", "core": "", "shelfDays": 7, "location": "냉장", "group": "etc", "defaultQty": "1봉", "category": "tofuProcessed", "kind": "fishCake" },
     { "name": "김치", "image": "kimchi", "emoji": "🥬", "core": "", "shelfDays": 30, "location": "냉장", "group": "etc", "defaultQty": "1통", "category": "tofuProcessed", "kind": "kimchi", "portion": "level" },
