@@ -104,7 +104,9 @@ export function VideoView({ items, today, onPin }: Props) {
   };
 
   const check = async () => {
-    const v = VIDEO_EXAMPLES.find((x) => x.url === url.trim());
+    // 예시 영상은 링크 모양(shorts·watch·youtu.be, ?si= 등)이 달라도 영상 id가 같으면 같은 영상으로 본다
+    const id = youtubeIdOf(url);
+    const v = VIDEO_EXAMPLES.find((x) => x.url === url.trim() || (id !== null && youtubeIdOf(x.url) === id));
     if (v) {
       readExample(v.id);
       return;
