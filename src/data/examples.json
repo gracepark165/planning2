@@ -26,6 +26,22 @@
         { "name": "고추장" }
       ],
       "skipped": ["간장", "설탕", "참기름"]
+    },
+    {
+      "id": "dubu-jorim",
+      "url": "https://www.youtube.com/shorts/Mz2qecCs6BM",
+      "title": "원팬 두부조림",
+      "ingredients": [
+        { "name": "두부" },
+        { "name": "대파" },
+        { "name": "청양고추" },
+        { "name": "고춧가루" },
+        { "name": "마늘" },
+        { "name": "참치액" },
+        { "name": "올리고당" },
+        { "name": "들기름" }
+      ],
+      "skipped": ["후추", "간장", "물"]
     }
   ],
   "orderNote": "예시 주문: 쿠팡 로켓프레시, 어제 도착 (2026-11-05 사용자 주문 화면). 화면에 소비기한이 없어서 모두 기본 기간표로 정한다.",
