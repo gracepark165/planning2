@@ -144,6 +144,30 @@ export function PlanView({
         ))}
       </div>
 
+      {shopping.length > 0 && (
+        <div className="card blue">
+          <h3>이번 주 추천 장보기</h3>
+          <ul className="shop">
+            {shopping.map((it) => (
+              <li key={it.name}>
+                <label>
+                  <input type="checkbox" checked={it.checked} onChange={() => onToggleShop(it.name)} />
+                  <span className={it.checked ? 'done' : ''}>{it.name}</span>
+                  {it.from === 'video' && <span className="tag video">영상</span>}
+                </label>
+                <button className="shop-x" aria-label={`${it.name} 지우기`} onClick={() => onRemoveShop(it.name)}>
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+          {bought.length > 0 && (
+            <button className="small-btn" onClick={() => onBought(bought)}>
+              샀어요 → 냉장고에 넣기
+            </button>
+          )}
+        </div>
+      )}
       {aiNotice && (
         <div className="card ai-notice" role="status">
           <b>{aiNotice === 'limit' ? `오늘 AI 메뉴 제안을 다 썼어요 (하루 ${AI_DAILY_LIMIT}번)` : 'AI 요청이 잠깐 몰렸어요'}</b>
@@ -297,30 +321,6 @@ export function PlanView({
         </button>
       )}
 
-      {shopping.length > 0 && (
-        <div className="card blue">
-          <h3>사야 할 재료</h3>
-          <ul className="shop">
-            {shopping.map((it) => (
-              <li key={it.name}>
-                <label>
-                  <input type="checkbox" checked={it.checked} onChange={() => onToggleShop(it.name)} />
-                  <span className={it.checked ? 'done' : ''}>{it.name}</span>
-                  {it.from === 'video' && <span className="tag video">영상</span>}
-                </label>
-                <button className="shop-x" aria-label={`${it.name} 지우기`} onClick={() => onRemoveShop(it.name)}>
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ul>
-          {bought.length > 0 && (
-            <button className="small-btn" onClick={() => onBought(bought)}>
-              샀어요 → 냉장고에 넣기
-            </button>
-          )}
-        </div>
-      )}
       {lost.length > 0 && (
         <div className="card">
           <h3>이번에 못 쓰는 재료</h3>
