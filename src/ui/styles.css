@@ -323,3 +323,14 @@ textarea.text-input:focus{border-color:var(--accent)}
 
 /* 예시 결과를 보여주는 이유 (AI 연결 전·실패) */
 .example-why{margin:8px 0 0;padding:10px 12px;border-radius:12px;background:var(--card);color:var(--sub);font-size:13px}
+
+/* 냉장고 홈 묶기 (2026-11-09): 같은 이름 재료 한 줄로 접기, 싱싱해요 큰 분류 */
+.tile.stack{border:1.5px solid var(--sub);box-shadow:0 0 0 2.5px var(--bg),0 0 0 4px var(--sub)}
+.row.stack .tile{margin:4px}
+.row .nm .tag.count{margin-left:6px;vertical-align:2px;font-weight:700;background:var(--card);color:var(--fg)}
+.same-group .row.same .tile{transform:scale(.8)}
+.row.cat .tile{font-size:22px}
+.row.cat .nm{font-size:16px}
+.row.cat .chev{flex:none;margin-left:6px;color:var(--sub);font-size:13px}
+.cat-body{padding-left:14px;border-left:2px solid var(--line);margin:2px 0 6px 21px}
+.cat-body .row:last-child{border-bottom:0}

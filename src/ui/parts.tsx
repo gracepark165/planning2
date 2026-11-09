@@ -16,9 +16,10 @@ export function FoodIcon({ entry, core }: { entry: CatalogEntry | undefined; cor
   return <>{emojiOf(core, entry)}</>;
 }
 
-export function Tile({ name, core }: { name: string; core: Core }) {
+/** 재료 그림 타일. stack이면 같은 재료가 여러 개라는 뜻으로 테두리를 두 겹으로 */
+export function Tile({ name, core, stack = false }: { name: string; core: Core; stack?: boolean }) {
   return (
-    <span className="tile" aria-hidden="true">
+    <span className={`tile${stack ? ' stack' : ''}`} aria-hidden="true">
       <FoodIcon entry={findCatalog(name)} core={core} />
     </span>
   );

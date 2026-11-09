@@ -4,6 +4,7 @@ import type {
   CatalogEntry,
   FoodCategory,
   FoodKind,
+  Item,
   OrderExampleItem,
   Recipe,
   Retailer,
@@ -44,6 +45,21 @@ for (const c of CATALOG) for (const n of [c.name, ...(c.aliases ?? [])]) byName.
 /** 이름(또는 다른 이름)이 같은 사전 항목. 띄어쓰기는 무시한다. */
 export function findCatalog(name: string): CatalogEntry | undefined {
   return byName.get(nameKey(name));
+}
+
+/** 홈에서 묶는 큰 분류 중 '기타' (사전 분류에 맞지 않는 재료) */
+export const ETC_CATEGORY: FoodCategory = { id: 'etc', label: '기타', emoji: '🍽️', customKind: 'deli' };
+/** 재료 사전에 없는 재료는 저장된 품목군으로 큰 분류를 고른다 */
+const GROUP_TO_CATEGORY: Record<string, string> = {
+  meat: 'meat', seafood: 'seafood', veg: 'veg', dairy: 'dairyEgg', grain: 'grainBread', sauce: 'sauce', frozenFood: 'frozen',
+};
+/** 냉장고 홈에서 재료를 묶을 큰 분류 id: 사전 분류 → 품목군 → 기타 */
+export function categoryOfItem(item: Pick<Item, 'name' | 'group'>): string {
+  return findCatalog(item.name)?.category ?? (item.group && GROUP_TO_CATEGORY[item.group]) ?? ETC_CATEGORY.id;
+}
+/** 분류 id → 분류 정보 (기타 포함) */
+export function categoryMeta(id: string): FoodCategory {
+  return CATEGORIES.find((c) => c.id === id) ?? ETC_CATEGORY;
 }
 
 /** 대표 이름: 사전에 있으면 사전 이름(달걀 → 계란), 없으면 그대로 */

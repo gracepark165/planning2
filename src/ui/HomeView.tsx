@@ -8,10 +8,10 @@ import {
   daysSinceEntered,
   groupForHome,
   homeHeadline,
-  okSectionOpen,
-  sameAsAbove,
   stateOf,
 } from '../rules/status';
+import { clusterSameName, groupByCategory } from '../rules/homeGroups';
+import { CATEGORIES, categoryMeta, categoryOfItem } from '../data';
 import type { DateKey, Item, ItemState, Location, MealLog } from '../rules/types';
 import { formatDate } from '../rules/date';
 import { discardLabel } from '../rules/logs';
@@ -23,25 +23,6 @@ type StateFilter = '전체' | ItemState;
 
 const STATE_FILTERS: StateFilter[] = ['전체', 'soon', 'buried', 'ok'];
 const filterLabel = (f: StateFilter) => (f === '전체' ? f : STATE_META[f].label);
-
-/** "싱싱해요" 구역 펼침 상태는 기기에 기억해 둔다 (저장소를 못 써도 동작) */
-const OK_OPEN_KEY = 'fridge-planner-ui-ok-open';
-/** 사용자가 직접 접거나 펼친 선택. 정한 적 없으면 null (급한 재료가 없을 때 펼침, V4-4) */
-const readOkOpen = (): boolean | null => {
-  try {
-    const v = globalThis.localStorage?.getItem(OK_OPEN_KEY);
-    return v === '1' ? true : v === '0' ? false : null;
-  } catch {
-    return null;
-  }
-};
-const writeOkOpen = (open: boolean) => {
-  try {
-    globalThis.localStorage?.setItem(OK_OPEN_KEY, open ? '1' : '0');
-  } catch {
-    // 무시
-  }
-};
 
 interface Props {
   items: Item[];
@@ -98,21 +79,30 @@ export function HomeView({
 }: Props) {
   const [loc, setLoc] = useState<LocFilter>('전체');
   const [filter, setFilter] = useState<StateFilter>('전체');
-  const [okPref, setOkPref] = useState(readOkOpen);
-  const okOpen = okSectionOpen(okPref, countByState(items, today));
+  // 싱싱해요의 큰 분류·같은 이름 묶음 중 펼친 것 (처음엔 모두 접힘)
+  const [openCats, setOpenCats] = useState<ReadonlySet<string>>(new Set());
+  const [openClusters, setOpenClusters] = useState<ReadonlySet<string>>(new Set());
+  const toggleIn = (set: ReadonlySet<string>, key: string) => {
+    const next = new Set(set);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  };
   const [howOpen, setHowOpen] = useState(false);
-  // "넣은 재료 보기": 전체 보기로 바꾸고, 싱싱해요가 접혀 있으면 펼친 뒤 방금 넣은 첫 줄로 스크롤
+  // "넣은 재료 보기": 전체 보기로 바꾸고, 방금 넣은 재료가 든 분류·같은 이름 묶음을 펼친 뒤 첫 줄로 스크롤
   useEffect(() => {
     if (!revealNew) return;
     setLoc('전체');
     setFilter('전체');
-    setOkPref((p) => (p === false ? true : p ?? true));
+    const fresh = items.filter((i) => i.addedOn === today);
+    setOpenCats((s) => new Set([...s, ...fresh.map((i) => categoryOfItem(i))]));
+    setOpenClusters((s) => new Set([...s, ...fresh.map((i) => i.name)]));
     const t = window.setTimeout(() => {
       document.querySelector('.row.new')?.scrollIntoView({ block: 'center' });
       onRevealed();
     }, 50);
     return () => window.clearTimeout(t);
-  }, [revealNew, onRevealed]);
+  }, [revealNew, onRevealed, items, today]);
 
   // + 재료 추가 버튼: 아래로 스크롤하는 동안은 숨긴다 (V3-6-3)
   const [fabHidden, setFabHidden] = useState(false);
@@ -129,10 +119,6 @@ export function HomeView({
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-  const toggleOk = () => {
-    writeOkOpen(!okOpen);
-    setOkPref(!okOpen);
-  };
 
   const { title, lead } = homeHeadline(countByState(items, today));
   const locCount = (l: LocFilter) => (l === '전체' ? items.length : items.filter((i) => i.location === l).length);
@@ -144,7 +130,7 @@ export function HomeView({
   // 상태 필터칩으로 한 상태만 볼 때는 구역 제목 없이 다 펼친다
   const sectioned = filter === '전체';
 
-  const row = (i: Item, n: number, list: Item[]) => {
+  const row = (i: Item, same = false) => {
     const st = stateOf(i, today);
     const dday = dDayLabel(daysLeft(i, today));
     // 오른쪽 큰 글씨는 "왜 이 구역에 있는지": 잊혀지는 중이면 들어온 지 며칠째, 아니면 남은 기한
@@ -152,7 +138,7 @@ export function HomeView({
     return (
       <button
         key={i.id}
-        className={`row ${sameAsAbove(list, n) ? 'same' : ''} ${i.addedOn === today ? 'new' : ''}`}
+        className={`row ${same ? 'same' : ''} ${i.addedOn === today ? 'new' : ''}`}
         onClick={() => onOpen(i.id)}
       >
         <Tile name={i.name} core={i.core} />
@@ -175,6 +161,70 @@ export function HomeView({
       </button>
     );
   };
+
+  // 이름이 같은 재료 여러 개: 한 줄로 접고(아이콘 두 겹 테두리), 누르면 하나씩 펼친다
+  const cluster = (c: Item[]) => {
+    if (c.length === 1) return row(c[0]);
+    const first = c[0];
+    const key = first.name;
+    const open = openClusters.has(key);
+    const st = stateOf(first, today);
+    const buried = st === 'buried';
+    const dday = dDayLabel(daysLeft(first, today));
+    return (
+      <div key={`c-${first.id}`} className="same-group">
+        <button
+          className={`row stack ${c.some((i) => i.addedOn === today) ? 'new' : ''}`}
+          aria-expanded={open}
+          onClick={() => setOpenClusters((s) => toggleIn(s, key))}
+        >
+          <Tile name={first.name} core={first.core} stack />
+          <div className="main">
+            <div className="nm">
+              {first.name}
+              <span className="tag count">
+                {c.length}개 {open ? '▴' : '▾'}
+              </span>
+              {c.some((i) => i.sample) && <span className="tag sample">예시</span>}
+              {c.some((i) => i.addedOn === today) && <span className="tag fresh">새로</span>}
+            </div>
+            <div className="meta">
+              {first.qty} · {first.location} 외 {c.length - 1}개
+            </div>
+          </div>
+          <span className={`dday ${st === 'soon' ? 'hot' : buried ? 'bur' : ''}`}>
+            {buried ? `${daysSinceEntered(first, today)}일째` : dday}
+          </span>
+        </button>
+        {open && c.map((i) => row(i, true))}
+      </div>
+    );
+  };
+  const listOf = (list: Item[]) => clusterSameName(list).map(cluster);
+  // 싱싱해요: 큰 분류로 묶고, 분류 옆에는 그 안에서 가장 임박한 날짜
+  const byCategory = (list: Item[]) =>
+    groupByCategory(list, today, categoryOfItem, CATEGORIES.map((c) => c.id)).map((g) => {
+      const m = categoryMeta(g.id);
+      const open = openCats.has(g.id);
+      return (
+        <div key={`cat-${g.id}`} className="cat-group">
+          <button className={`row cat ${open ? 'open' : ''}`} aria-expanded={open} onClick={() => setOpenCats((s) => toggleIn(s, g.id))}>
+            <span className="tile" aria-hidden="true">
+              {m.emoji}
+            </span>
+            <div className="main">
+              <div className="nm">{m.label}</div>
+              <div className="meta">{g.items.length}개</div>
+            </div>
+            <span className="dday">{dDayLabel(g.nearestLeft)}</span>
+            <span className="chev" aria-hidden="true">
+              {open ? '▴' : '▾'}
+            </span>
+          </button>
+          {open && <div className="cat-body">{listOf(g.items)}</div>}
+        </div>
+      );
+    });
 
   const eaten = logs.filter((l) => l.action === 'eat').length;
   const discarded = logs.length - eaten;
@@ -265,26 +315,18 @@ export function HomeView({
             </div>
           </div>
         ) : groups.length ? (
-          groups.map((g) => {
-            const folded = sectioned && g.state === 'ok' && !okOpen;
-            return (
-              <section key={g.state} aria-label={STATE_META[g.state].label}>
-                {sectioned && (
-                  <div className={`sec-head s-${g.state}`}>
-                    <span>
-                      {STATE_META[g.state].icon} {STATE_META[g.state].label} <b>{g.count}</b>
-                    </span>
-                    {g.state === 'ok' && (
-                      <button onClick={toggleOk} aria-expanded={okOpen}>
-                        {okOpen ? '접기 ▴' : '펼치기 ▾'}
-                      </button>
-                    )}
-                  </div>
-                )}
-                {!folded && g.items.map(row)}
-              </section>
-            );
-          })
+          groups.map((g) => (
+            <section key={g.state} aria-label={STATE_META[g.state].label}>
+              {sectioned && (
+                <div className={`sec-head s-${g.state}`}>
+                  <span>
+                    {STATE_META[g.state].icon} {STATE_META[g.state].label} <b>{g.count}</b>
+                  </span>
+                </div>
+              )}
+              {g.state === 'ok' ? byCategory(g.items) : listOf(g.items)}
+            </section>
+          ))
         ) : (
           <p className="lead" style={{ padding: '32px 0', textAlign: 'center' }}>
             이 상태의 재료가 없어요
