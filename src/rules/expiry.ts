@@ -120,13 +120,14 @@ export function checkinDate(orderDate: DateKey, retailer: Retailer, orderHour?: 
 /** 입고일 → 소비기한 일수. "보통 N일" 같은 문구의 N은 항상 이 값이다 (사전 숫자를 따로 쓰지 않는다). */
 export const keepDays = (item: Pick<Item, 'enteredAt' | 'expiresAt'>) => daysBetween(item.enteredAt, item.expiresAt);
 
-type Basis = Pick<Item, 'enteredAt' | 'expiresAt' | 'expiryBasis'> & { location?: Location };
+type Basis = Pick<Item, 'enteredAt' | 'expiresAt' | 'expiryBasis'> & { location?: Location; source?: Item['source'] };
 
 /** 재료 시트의 "근거" 문구. 표기에서 읽었거나 고친 값·예시 재료는 기간 문구를 붙이지 않는다. */
 export function expiryBasisText(item: Basis): string {
   switch (item.expiryBasis) {
     case 'label':
-      return '주문 화면에 적힌 소비기한';
+      // 주문 화면에서 읽었으면 주문 화면, 재료 추가의 제품 사진에서 읽었으면 포장 (2026-11-09)
+      return item.source === 'manual' ? '포장에 적힌 소비기한' : '주문 화면에 적힌 소비기한';
     case 'user':
       return '직접 고친 값';
     case 'sample':

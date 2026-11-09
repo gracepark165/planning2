@@ -132,6 +132,17 @@ export async function readOrderImage(file: File, today: string, extraNames: stri
   return post<OrderAiResult>({ images, mediaType: 'image/jpeg', today }, 'order', extraNames);
 }
 
+/** 제품(포장) 사진 (2026-11-09, 재료 추가 화면): 주문 화면 읽기와 같은 결과 모양, 안내만 다르다 */
+export async function readProductImage(file: File, today: string, extraNames: string[] = []): Promise<AiResult<OrderAiResult>> {
+  let images: string[];
+  try {
+    images = await prepareImage(file);
+  } catch {
+    return { ok: false, reason: 'bad-request' };
+  }
+  return post<OrderAiResult>({ images, mediaType: 'image/jpeg', today, source: 'product' }, 'order', extraNames);
+}
+
 export const readVideo = (url: string) => post<VideoAiResult>({ url }, 'video');
 
 export const readTextLines = (lines: string[], extraNames: string[] = []) => post<TextAiResult>({ lines }, 'text', extraNames);

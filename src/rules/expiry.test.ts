@@ -146,7 +146,8 @@ describe('입고일 (FR-17)', () => {
 describe('기준 문구 (A-3: N일은 입고일과 소비기한의 차이)', () => {
   it('근거 문구: 출처별', () => {
     expect(expiryBasisText(base)).toBe('기본 기간표 기준 · 보통 7일');
-    expect(expiryBasisText({ ...base, expiryBasis: 'label' })).toBe('주문 화면에 적힌 소비기한');
+    expect(expiryBasisText({ ...base, expiryBasis: 'label', source: 'order' })).toBe('주문 화면에 적힌 소비기한');
+    expect(expiryBasisText({ ...base, expiryBasis: 'label', source: 'manual' })).toBe('포장에 적힌 소비기한');
     expect(expiryBasisText({ ...base, expiryBasis: 'user' })).toBe('직접 고친 값');
     expect(expiryBasisText({ ...base, expiryBasis: 'sample' })).toBe('예시 재료예요');
     expect(expiryBasisText({ ...base, expiryBasis: 'kind' })).toBe('비슷한 종류 기준 · 보통 7일');

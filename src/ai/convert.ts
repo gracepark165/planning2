@@ -2,9 +2,10 @@
 // AI 결과는 믿지 않고 한 번 걸러서 쓴다 (이름은 재료 사전 이름으로, 숫자는 범위 안으로, 날짜는 형식 확인).
 
 import type { IngredientsAiResult, OrderAiResult, TextAiResult, VideoAiResult } from '../../api/read';
-import { KINDS, canonicalName, findKind } from '../data';
+import { CATEGORIES, KINDS, canonicalName, categoryOfItem, findKind } from '../data';
 import { COUNT_MAX, COUNT_MIN, LOCATIONS, UNIT_ALIASES } from '../rules/constants';
 import { daysBetween } from '../rules/date';
+import { joinQty, splitQty, toBasicUnit } from '../rules/qty';
 import type { CatalogEntry, DateKey, Location, Retailer, SubstituteTable } from '../rules/types';
 import { splitManualIngredients } from '../rules/videoCheck';
 import { refresh, type DraftRow } from '../state/textDraft';
@@ -88,6 +89,66 @@ export function orderToDrafts(
     };
     return [refresh(row, today, lookup)];
   });
+}
+
+/** 제품 사진에서 읽은 재료 한 개 → 재료 추가 화면의 "고른 재료" (2026-11-09) */
+export interface ProductPick {
+  name: string;
+  /** 사전에 없는 재료면 종류 id (AI가 고른 종류, 모르면 반찬·델리로 짧게) */
+  customKind?: string;
+  /** ml·g·개 단위 수량 */
+  qty: string;
+  /** 사전에 없는 재료일 때 포장에 적힌 보관 방법 */
+  location?: Location;
+  /** 포장에 찍힌 소비기한 (오늘 이후일 때만) */
+  expiresAt?: DateKey;
+  /** 포장에 적힌 상품명 */
+  product: string;
+  /** 재료 추가 화면의 큰 분류 id */
+  category?: string;
+}
+
+/** 사전에 없고 AI도 종류를 못 고른 재료: 반찬·델리 종류(기간이 짧은 쪽)로 둔다 */
+const FALLBACK_KIND = 'deli';
+
+/**
+ * 제품(포장) 사진 AI 결과 → 고른 재료 목록. 이름은 사전(또는 지난번 값)에 맞추고,
+ * 용량은 ml·g·개로(같은 제품 여러 개면 곱함), 포장 소비기한은 오늘 이후일 때만 쓴다.
+ * 냉장고에 넣지 않는 종류(생수·음료, 실온 레토르트)는 빼고 skipped로 돌려준다.
+ */
+export function productToPicks(ai: OrderAiResult, today: DateKey, lookup: Lookup): { picks: ProductPick[]; skipped: string[] } {
+  const items = Array.isArray(ai.items) ? ai.items.slice(0, 10) : [];
+  const picks: ProductPick[] = [];
+  const skipped: string[] = [];
+  for (const it of items) {
+    const read = cleanName(it?.name);
+    if (!read) continue;
+    const entry = lookup(read);
+    const product = cleanName(it.product) || read;
+    const kind = entry ? undefined : (cleanKind(it.kind) ?? FALLBACK_KIND);
+    if (kind && findKind(kind)?.notStocked) {
+      skipped.push(product);
+      continue;
+    }
+    const count = cleanCount(it.count) ?? 1;
+    const weight = toBasicUnit(splitQty(cleanName(it.weight) || undefined));
+    const qty = weight.unit === '개' || !cleanName(it.weight) ? joinQty({ n: count, unit: '개' }) : joinQty({ n: weight.n * count, unit: weight.unit });
+    const label = isDateKey(it.expiresOn) && daysBetween(today, it.expiresOn) >= 0 ? it.expiresOn : undefined;
+    const location = entry ? undefined : cleanLocation(it.storage);
+    // 분류: 사전 분류 → 그 종류를 쓰는 분류 → 종류의 품목군으로 (기타는 표시하지 않음)
+    const byGroup = kind ? categoryOfItem({ name: read, group: findKind(kind)?.group }) : undefined;
+    const category = entry?.category ?? CATEGORIES.find((c) => c.customKind === kind)?.id ?? (byGroup !== 'etc' ? byGroup : undefined);
+    picks.push({
+      name: entry?.name ?? read,
+      ...(kind ? { customKind: kind } : {}),
+      qty,
+      ...(location ? { location } : {}),
+      ...(label ? { expiresAt: label } : {}),
+      product,
+      ...(category ? { category } : {}),
+    });
+  }
+  return { picks, skipped };
 }
 
 /**

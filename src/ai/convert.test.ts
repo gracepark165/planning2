@@ -11,6 +11,7 @@ import {
   needsAiHelp,
   orderDateOf,
   orderToDrafts,
+  productToPicks,
   retailerOf,
   ingredientsOf,
   splitNotStocked,
@@ -246,5 +247,41 @@ describe('메뉴 이름 → 재료 칩 (V4-5, 가짜 AI 응답)', () => {
     expect(ingredientsOf({ ingredients: many }, SUBSTITUTES)).toHaveLength(8);
     expect(ingredientsOf({ ingredients: '두부' } as never, SUBSTITUTES)).toEqual([]);
     expect(ingredientsOf(null as never, SUBSTITUTES)).toEqual([]);
+  });
+});
+
+describe('제품 사진 → 고른 재료 (2026-11-09)', () => {
+  const today = '2026-11-09';
+  const lookup = (n: string) => findCatalog(n);
+  it('사전 이름으로 맞추고, 용량은 g·ml로, 포장 소비기한은 오늘 이후만', () => {
+    const { picks } = productToPicks(
+      { items: [{ name: '부침두부', product: '풀무원 국산콩 부침두부', count: 1, weight: '300g', expiresOn: '2026-11-20' }] },
+      today,
+      lookup,
+    );
+    expect(picks).toEqual([{ name: '부침두부', qty: '300g', expiresAt: '2026-11-20', product: '풀무원 국산콩 부침두부', category: 'tofuProcessed' }]);
+  });
+  it('같은 제품 여러 개면 용량을 곱하고, kg·L는 g·ml로', () => {
+    const { picks } = productToPicks({ items: [{ name: '우유', count: 2, weight: '1L' }] }, today, lookup);
+    expect(picks[0].qty).toBe('2000ml');
+  });
+  it('용량이 없으면 개수, 지난 날짜는 버린다', () => {
+    const { picks } = productToPicks({ items: [{ name: '계란', count: 1, expiresOn: '2026-11-01' }] }, today, lookup);
+    expect(picks[0]).toMatchObject({ name: '계란', qty: '1개' });
+    expect(picks[0].expiresAt).toBeUndefined();
+  });
+  it('사전에 없는 재료는 AI가 고른 종류·보관 방법, 종류를 모르면 반찬·델리로', () => {
+    const { picks } = productToPicks(
+      { items: [{ name: '콜라비', kind: 'rootVeg', storage: '냉장' }, { name: '이상한 반찬' }] },
+      today,
+      lookup,
+    );
+    expect(picks[0]).toMatchObject({ name: '콜라비', customKind: 'rootVeg', location: '냉장', category: 'veg' });
+    expect(picks[1]).toMatchObject({ name: '이상한 반찬', customKind: 'deli' });
+  });
+  it('생수·음료는 담지 않고 알려준다', () => {
+    const r = productToPicks({ items: [{ name: '탄산수', product: '트레비 500ml', kind: 'drink' }] }, today, lookup);
+    expect(r.picks).toEqual([]);
+    expect(r.skipped).toEqual(['트레비 500ml']);
   });
 });

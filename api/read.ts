@@ -77,7 +77,8 @@ export type ReadErrorCode =
   | 'ai-failed';
 
 export type ReadRequest =
-  | { kind: 'order'; images: string[]; mediaType: string; vocabulary: string[]; kinds: string[]; today: string }
+  /** product: 주문 화면이 아니라 식재료 제품(포장)을 찍은 사진 (2026-11-09, 재료 추가 화면) */
+  | { kind: 'order'; images: string[]; mediaType: string; vocabulary: string[]; kinds: string[]; today: string; product?: boolean }
   | { kind: 'video'; url: string; vocabulary: string[] }
   | { kind: 'text'; lines: string[]; vocabulary: string[]; kinds: string[] }
   | ({ kind: 'menu' } & MenuRequest)
@@ -328,6 +329,25 @@ const orderTool = (kindIds: string[]): Tool => ({
   },
 });
 
+/** 주문 화면·영수증 사진 안내 */
+const orderPrompt = (req: { images: string[]; today: string; vocabulary: string[]; kinds: string[] }) =>
+  `장보기 앱(컬리·B마트·쿠팡 등) 주문 내역 화면이나 마트 영수증이에요. 오늘은 ${req.today}예요.\n` +
+  (req.images.length > 1 ? '긴 화면을 위에서부터 차례로 자른 조각들이라, 경계에서 겹친 상품은 한 번만 세요.\n' : '') +
+  '식재료만 골라 주세요 (휴지·세제 같은 생활용품, 배송비·할인 줄은 빼요). 같은 상품이 여러 줄이면 한 줄로 합쳐 수량을 더해요.\n' +
+  `${UNIT_HINT}\n${vocabText(req.vocabulary)}${kindText(req.kinds)}`;
+
+/** 제품(포장) 사진 안내 (2026-11-09): 재료 추가 화면에서 제품을 찍어 올린 사진 */
+const productPrompt = (req: { today: string; vocabulary: string[]; kinds: string[] }) =>
+  `식재료 제품(포장)을 찍은 사진이에요. 주문 화면이 아니에요. 오늘은 ${req.today}예요.\n` +
+  '사진에 보이는 식재료 제품마다 한 줄씩 알려 주세요 (보통 1개예요). retailer는 "모름", orderDate는 빈 문자열로 둬요.\n' +
+  '- name: 상표·수식어를 뺀 재료 이름. 아래 사전에 있는 이름이면 그 이름으로 맞춰요 (예: "풀무원 국산콩 부침두부" → 부침두부).\n' +
+  '- product: 포장에 적힌 상품명 그대로.\n' +
+  '- count: 사진에 보이는 같은 제품 개수 (보통 1). weight: 포장에 적힌 용량·중량 (예: 300g, 900ml).\n' +
+  '- expiresOn: 포장에 소비기한·유통기한이 찍혀 있으면 YYYY-MM-DD. 연도가 없으면 오늘 이후 가장 가까운 날로. 제조일만 있거나 안 보이면 빈 문자열.\n' +
+  '- storage: 포장에 보관 방법(냉장·냉동·실온)이 적혀 있으면 그 값.\n' +
+  '식재료가 아니거나 무엇인지 알아볼 수 없으면 items를 빈 배열로 둬요.\n' +
+  `${UNIT_HINT}\n${vocabText(req.vocabulary)}${kindText(req.kinds)}`;
+
 const VIDEO_TOOL: Tool = {
   name: 'report_recipe',
   description: '영상 제목·설명란에서 읽은 메뉴와 재료를 보고한다.',
@@ -409,7 +429,15 @@ export function parseRequest(body: unknown): ReadRequest | ReadErrorCode {
       if ((b.images as string[]).reduce((a, x) => a + x.length, 0) > LIMITS.imageChars) return 'too-large';
       if (!isStr(b.mediaType, 40) || !/^image\/(jpeg|png|webp|gif)$/.test(b.mediaType)) return 'bad-request';
       if (!isStr(b.today, 10)) return 'bad-request';
-      return { kind: 'order', images: b.images as string[], mediaType: b.mediaType, vocabulary, kinds, today: b.today };
+      return {
+        kind: 'order',
+        images: b.images as string[],
+        mediaType: b.mediaType,
+        vocabulary,
+        kinds,
+        today: b.today,
+        ...(b.source === 'product' ? { product: true } : {}),
+      };
     case 'video':
       if (!isStr(b.url, LIMITS.urlChars)) return 'bad-request';
       return { kind: 'video', url: b.url, vocabulary };
@@ -569,12 +597,7 @@ export async function handleRead(body: unknown, deps: Deps): Promise<{ status: n
           ...req.images.map(
             (data): Content => ({ type: 'image', source: { type: 'base64', media_type: req.mediaType, data } }),
           ),
-          text(
-            `장보기 앱(컬리·B마트·쿠팡 등) 주문 내역 화면이나 마트 영수증이에요. 오늘은 ${req.today}예요.\n` +
-              (req.images.length > 1 ? '긴 화면을 위에서부터 차례로 자른 조각들이라, 경계에서 겹친 상품은 한 번만 세요.\n' : '') +
-              '식재료만 골라 주세요 (휴지·세제 같은 생활용품, 배송비·할인 줄은 빼요). 같은 상품이 여러 줄이면 한 줄로 합쳐 수량을 더해요.\n' +
-              `${UNIT_HINT}\n${vocabText(req.vocabulary)}${kindText(req.kinds)}`,
-          ),
+          text(req.product ? productPrompt(req) : orderPrompt(req)),
         ],
         orderTool(kindIdsOf(req.kinds)),
       );

@@ -111,6 +111,23 @@ describe('서버 함수', () => {
     expect(content.at(-2)?.text).toContain('닭다리살');
   });
 
+  it('제품 사진: source가 product면 포장 사진 안내로 묻는다 (주문 화면 안내는 안 씀)', async () => {
+    const data = { items: [{ name: '부침두부', product: '풀무원 부침두부', count: 1, weight: '300g', expiresOn: '2026-11-20' }] };
+    const { fn, calls } = fakeFetch({ [ANTHROPIC]: claudeSays('report_order', data) });
+    const body = { kind: 'order', source: 'product', images: ['A'], mediaType: 'image/jpeg', today: '2026-11-09' };
+    expect(parseRequest(body)).toMatchObject({ kind: 'order', product: true });
+    const r = await handleRead(body, deps(fn));
+    expect(r).toEqual({ status: 200, body: { ok: true, kind: 'order', data } });
+    const sent = JSON.stringify(calls[0].body?.messages);
+    expect(sent).toContain('제품(포장)을 찍은 사진');
+    expect(sent).not.toContain('주문 내역 화면이나 마트 영수증');
+  });
+
+  it('제품 사진: source가 없으면 예전처럼 주문 화면', () => {
+    const req = parseRequest({ kind: 'order', images: ['A'], mediaType: 'image/jpeg', today: '2026-11-09' });
+    expect(req).not.toHaveProperty('product');
+  });
+
   it('주문 화면: 종류 목록을 보내면 사전에 없는 재료의 종류·보관 방법도 묻는다', async () => {
     const { fn, calls } = fakeFetch({ [ANTHROPIC]: claudeSays('report_order', { items: [] }) });
     await handleRead(

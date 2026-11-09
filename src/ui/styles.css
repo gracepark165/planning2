@@ -334,3 +334,9 @@ textarea.text-input:focus{border-color:var(--accent)}
 .row.cat .chev{flex:none;margin-left:6px;color:var(--sub);font-size:13px}
 .cat-body{padding-left:14px;border-left:2px solid var(--line);margin:2px 0 6px 21px}
 .cat-body .row:last-child{border-bottom:0}
+
+/* 재료 추가: 제품 사진으로 넣기 (2026-11-09) */
+.photo-btn{cursor:pointer;margin:0 0 12px}
+.photo-btn.busy{opacity:.7;cursor:progress}
+.photo-note{margin:-4px 0 12px;padding:10px 12px;border-radius:12px;background:var(--card)}
+.photo-note.ok{background:var(--accent-bg);color:var(--fg)}

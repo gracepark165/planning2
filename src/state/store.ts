@@ -160,6 +160,8 @@ export interface AddPick {
   qty?: string;
   /** 고른 화면에서 고른 보관 위치. 없으면 기본 위치. 냉동이면 냉동 기간으로 소비기한 */
   location?: Location;
+  /** 제품 사진 포장에 찍힌 소비기한 (2026-11-09). 있으면 기간표 대신 이 날짜(근거: 표기) */
+  expiresAt?: DateKey;
 }
 
 /** 고른 것 → 재고. 사전·지난번 값에 있으면 그 값, 없으면 분류의 종류 기본 기간. 둘 다 없으면 undefined. */
@@ -177,7 +179,8 @@ export function newItemFromPick(
       ...item,
       ...(pick.qty ? { qty: pick.qty } : {}),
       location,
-      expiresAt: autoExpiresAt(today, entry, false, location) as DateKey,
+      expiresAt: pick.expiresAt ?? (autoExpiresAt(today, entry, false, location) as DateKey),
+      ...(pick.expiresAt ? { expiryBasis: 'label' as const } : {}),
     };
   }
   const name = pick.name.trim();
@@ -191,8 +194,8 @@ export function newItemFromPick(
     core: '',
     location: pick.location ?? kind.location,
     enteredAt: today,
-    expiresAt: addDays(today, kindShelfDays(kind, pick.location ?? kind.location, false)),
-    expiryBasis: 'kind',
+    expiresAt: pick.expiresAt ?? addDays(today, kindShelfDays(kind, pick.location ?? kind.location, false)),
+    expiryBasis: pick.expiresAt ? 'label' : 'kind',
     group: kind.group,
     remaining: '넉넉해요',
     source: 'manual',

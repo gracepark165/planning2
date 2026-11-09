@@ -291,7 +291,7 @@ export function App() {
   } else if (screen === 'install') {
     view = <InstallGuideView onBack={() => go(installBack)} />;
   } else if (screen === 'add') {
-    view = <AddView items={state.items} onBack={() => go(prevScreen)} onAdd={addFromPicks} />;
+    view = <AddView items={state.items} today={today} onBack={() => go(prevScreen)} onAdd={addFromPicks} />;
   }
 
   return (
