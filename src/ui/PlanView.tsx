@@ -381,7 +381,7 @@ export function PlanView({
                       if (!until) return null;
                       return (
                         <li key={i.id}>
-                          <Tile name={i.name} core={i.core} />
+                          <Tile name={i.name} core={i.core} kind={i.kind} />
                           <div className="freeze-txt">
                             <b>{i.name}</b>
                             <span>냉동 {formatDate(until)}까지</span>

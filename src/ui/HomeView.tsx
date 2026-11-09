@@ -170,7 +170,7 @@ export function HomeView({
         className={`row ${same ? 'same' : ''} ${i.addedOn === today ? 'new' : ''}`}
         onClick={() => onOpen(i.id)}
       >
-        <Tile name={i.name} core={i.core} />
+        <Tile name={i.name} core={i.core} kind={i.kind} />
         <div className="main">
           <div className="nm">
             {i.name}
@@ -207,7 +207,7 @@ export function HomeView({
           aria-expanded={open}
           onClick={() => setOpenClusters((s) => toggleIn(s, key))}
         >
-          <Tile name={first.name} core={first.core} stack />
+          <Tile name={first.name} core={first.core} kind={first.kind} stack />
           <div className="main">
             <div className="nm">
               {first.name}
@@ -257,7 +257,7 @@ export function HomeView({
 
   // 폴더 보기: 걸러진 재료를 급한 순서 그대로 분류별 네모 폴더에 담는다 (폴더끼리도 가장 급한 재료 순)
   const folders = groupByCategory(groups.flatMap((g) => g.items), today, categoryOfItem, CATEGORIES.map((c) => c.id));
-  const iconOf = (i: Item) => <FoodIcon entry={findCatalog(i.name)} core={i.core} />;
+  const iconOf = (i: Item) => <FoodIcon entry={findCatalog(i.name)} core={i.core} kind={i.kind} />;
   const folderGrid = (
     <div className="folders">
       {folders.map((f) => {

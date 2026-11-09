@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { clusterSameName, groupByCategory } from './homeGroups';
-import { KINDS, categoryOfItem } from '../data';
+import { existsSync } from 'node:fs';
+import { KINDS, categoryOfItem, findCatalog } from '../data';
+import { imageOf } from './emoji';
 import { addDays } from './date';
 
 const today = '2026-11-09';
@@ -69,5 +71,18 @@ describe('사전에 없는 재료의 종류로 분류 (2026-11-09)', () => {
   it('까나리액젓은 사전에 있어서 양념·소스·가루로', () => {
     expect(categoryOfItem({ name: '까나리액젓' })).toBe('sauce');
     expect(categoryOfItem({ name: '까나리 액젓' })).toBe('sauce');
+  });
+});
+
+describe('종류별 대표 그림 (2026-11-09)', () => {
+  it('사전에 없는 재료는 종류 그림, 사전 재료는 제 그림이나 이모지', () => {
+    expect(imageOf(undefined, 'sauce')).toBe('/ingredients/kind-sauce.png');
+    expect(imageOf(findCatalog('까나리액젓'), 'sauce')).toBe('/ingredients/sand-lance-sauce.png');
+    expect(imageOf(findCatalog('사과'))).toBeUndefined(); // 🍎 이모지가 더 정확
+    expect(imageOf(undefined)).toBeUndefined();
+  });
+
+  it('모든 종류의 그림 파일이 있다', () => {
+    for (const k of KINDS) expect(existsSync(`public/ingredients/kind-${k.id}.png`), k.id).toBe(true);
   });
 });

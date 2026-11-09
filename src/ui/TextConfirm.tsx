@@ -73,7 +73,7 @@ export function TextConfirm({ rows, today, onChange, onBack, onSubmit, title, he
         return (
           <div key={r.key} className={`draft ${issues.length ? 'warn' : ''}`}>
             <div className="draft-top">
-              <Tile name={r.name} core={findCatalog(r.catalogName ?? '')?.core ?? ''} />
+              <Tile name={r.name} core={findCatalog(r.catalogName ?? '')?.core ?? ''} kind={r.kind} />
               <div className="main">
                 <button className="nm draft-name" onClick={() => setEditing(editing === r.key ? null : r.key)}>
                   {r.name || '(이름 없음)'} <span aria-hidden="true">✎</span>

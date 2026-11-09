@@ -10,17 +10,17 @@ import { dDayLabel, daysLeft, stateOf } from '../rules/status';
 import type { CatalogEntry, Core, DateKey, Item, ItemState, Recipe } from '../rules/types';
 
 /** 재료 그림: 사전에 그림이 있으면 그림, 없으면 이모지 */
-export function FoodIcon({ entry, core }: { entry: CatalogEntry | undefined; core: Core }) {
-  const src = imageOf(entry);
+export function FoodIcon({ entry, core, kind }: { entry: CatalogEntry | undefined; core: Core; kind?: string }) {
+  const src = imageOf(entry, kind);
   if (src) return <img className="food-img" src={src} alt="" width={256} height={256} loading="lazy" decoding="async" draggable={false} />;
   return <>{emojiOf(core, entry)}</>;
 }
 
 /** 재료 그림 타일. stack이면 같은 재료가 여러 개라는 뜻으로 테두리를 두 겹으로 */
-export function Tile({ name, core, stack = false }: { name: string; core: Core; stack?: boolean }) {
+export function Tile({ name, core, kind, stack = false }: { name: string; core: Core; kind?: string; stack?: boolean }) {
   return (
     <span className={`tile${stack ? ' stack' : ''}`} aria-hidden="true">
-      <FoodIcon entry={findCatalog(name)} core={core} />
+      <FoodIcon entry={findCatalog(name)} core={core} kind={kind} />
     </span>
   );
 }
