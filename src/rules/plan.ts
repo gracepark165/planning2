@@ -15,7 +15,7 @@
 
 import { MAX_MEALS_PER_WEEK } from './constants';
 import { addDays } from './date';
-import { iga } from './josa';
+import { eul, iga } from './josa';
 import { mealsLeft, portionOf } from './portion';
 import { daysLeft, daysSinceEntered, stateOf, urgencyOf } from './status';
 import type { DateKey, DoneMeal, Item, PinnedMeal, Plan, Recipe } from './types';
@@ -389,3 +389,34 @@ export function summarizePlan(result: PlanResult, items: readonly Item[], plan: 
 
 /** 소분 품목 수량 표시: '소분 3봉' */
 export const portionQty = (count: number, unit = '개') => `소분 ${count}${unit}`;
+
+/**
+ * 이번에 못 쓰는 재료를 먹으려면 집밥을 몇 번으로 늘리면 되는지 (2026-11-09, 사용자 요청).
+ * 지금보다 1번씩 늘려 실제로 짜 보고, 지금 못 쓰는 재료를 가장 많이 쓰는 가장 적은 횟수를 고른다.
+ * 하나도 더 못 쓰면 null. names = 그 횟수로 먹게 되는 재료, all = 모두 먹는지.
+ */
+export function minMealsToUseLost(
+  items: readonly Item[],
+  recipes: readonly Recipe[],
+  plan: Plan,
+  today: DateKey,
+): { meals: number; names: string[]; all: boolean } | null {
+  const lostNow = [...new Set(summarizePlan(makePlan(items, recipes, plan, today), items, plan, today).lost.map((i) => i.name))];
+  if (!lostNow.length) return null;
+  let best: { meals: number; names: string[]; all: boolean } | null = null;
+  for (let m = plan.mealsPerWeek + 1; m <= MAX_MEALS_PER_WEEK; m++) {
+    const p = { ...plan, mealsPerWeek: m, swapIndex: {} };
+    const still = new Set(summarizePlan(makePlan(items, recipes, p, today), items, p, today).lost.map((i) => i.name));
+    const names = lostNow.filter((n) => !still.has(n));
+    if (names.length > (best?.names.length ?? 0)) best = { meals: m, names, all: names.length === lostNow.length };
+    if (best?.all) break;
+  }
+  return best;
+}
+
+/** 못 쓰는 재료 안내 문구의 앞부분 */
+export function lostMealsText(r: { meals: number; names: readonly string[]; all: boolean }): string {
+  return r.all
+    ? `집밥을 ${r.meals}번으로 늘리면 모두 먹을 수 있어요.`
+    : `집밥을 ${r.meals}번으로 늘리면 ${r.names.join(', ')}${eul(r.names.at(-1) ?? '')} 먹을 수 있어요.`;
+}

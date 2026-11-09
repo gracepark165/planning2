@@ -9,6 +9,8 @@ import { daysLeft } from './status';
 import {
   coverageText,
   fitPin,
+  lostMealsText,
+  minMealsToUseLost,
   makePlan,
   minMealsToCover,
   reasonOf,
@@ -460,5 +462,26 @@ describe('같은 메뉴는 한 번만 (V4-1a)', () => {
     const recipes = [rec('닭안심 구이', ['닭안심'])];
     const done = [{ recipe: '닭안심 구이', usedItems: [], soonUsed: [], at: 'T', date: today }];
     expect(makePlan(items, recipes, planOf({ mealsPerWeek: 3, doneMeals: done }), today).slots.map((s) => s.recipe)).toEqual([null, null]);
+  });
+});
+
+describe('못 쓰는 재료를 먹으려면 (2026-11-09)', () => {
+  it('샘플 재고·집밥 4번: 삼겹살·삼겹 베이컨을 다 먹는 가장 적은 횟수', () => {
+    const r = minMealsToUseLost(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 4 }), today);
+    expect(r).toMatchObject({ all: true, names: ['삼겹살', '삼겹 베이컨'] });
+    // 그 횟수로 짜면 정말 못 쓰는 재료가 없다
+    const p = planOf({ mealsPerWeek: r!.meals });
+    expect(summarizePlan(makePlan(inv, PLAN_RECIPES, p, today), inv, p, today).lost).toEqual([]);
+    expect(lostMealsText(r!)).toBe(`집밥을 ${r!.meals}번으로 늘리면 모두 먹을 수 있어요.`);
+  });
+
+  it('못 쓰는 재료가 없거나, 늘려도 쓰는 메뉴가 없으면 null', () => {
+    expect(minMealsToUseLost(inv, PLAN_RECIPES, planOf({ mealsPerWeek: 7 }), today)).toBeNull();
+    const only = [item('연근', 2, 1)];
+    expect(minMealsToUseLost(only, [rec('연근조림', ['우엉'])], planOf({ mealsPerWeek: 2 }), today)).toBeNull();
+  });
+
+  it('일부만 먹을 수 있으면 그 재료 이름으로', () => {
+    expect(lostMealsText({ meals: 5, names: ['삼겹살'], all: false })).toBe('집밥을 5번으로 늘리면 삼겹살을 먹을 수 있어요.');
   });
 });

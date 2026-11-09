@@ -1,9 +1,12 @@
 // 이번 주(FR-20~28): 집밥 횟수 → 끼니 카드 → 이걸로 할게요 / 바꾸기 / 건너뛰기
 
-import { PLAN_RECIPES } from '../data';
+import { useState } from 'react';
+import { PLAN_RECIPES, findCatalog } from '../data';
 import { MAX_MEALS_PER_WEEK, MIN_MEALS_PER_WEEK, STATE_META } from '../rules/constants';
 import {
   coverageText,
+  lostMealsText,
+  minMealsToUseLost,
   doneToday,
   minMealsToCover,
   reasonOf,
@@ -13,13 +16,15 @@ import {
   type PlanSlot,
 } from '../rules/plan';
 import { formatDate, formatDayLabel } from '../rules/date';
+import { frozenExpiry } from '../rules/expiry';
+import { eul, withJosa } from '../rules/josa';
 import { recentRange, recentSummary } from '../rules/recentSummary';
 import { shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
-import type { DateKey, Item, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
+import type { DateKey, Item, Location, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
 import type { AiSlot } from '../rules/menuCheck';
 import { AI_DAILY_LIMIT, type AiSlotState } from '../state/aiMenu';
-import { UseTag } from './parts';
+import { Tile, UseTag } from './parts';
 
 const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
 
@@ -55,6 +60,8 @@ interface Props {
   onRemoveShop: (name: string) => void;
   /** "샀어요 → 냉장고에 넣기": 체크한 재료 이름 */
   onBought: (names: string[]) => void;
+  /** 이번에 못 쓰는 재료의 '냉동실로 옮기기'와 되돌리기 */
+  onRelocate: (id: string, location: Location) => void;
 }
 
 export function PlanView({
@@ -79,6 +86,7 @@ export function PlanView({
   onToggleShop,
   onRemoveShop,
   onBought,
+  onRelocate,
 }: Props) {
   const { soonTotal, soonSaved, buyAll, lost } = summarizePlan(result, items, plan, today);
   const owned = new Set(items.map((i) => i.name));
@@ -88,6 +96,9 @@ export function PlanView({
   // 고른 집밥 횟수로 얼른 먹어야 할 재료를 다 못 쓰면 안내 (A-4)
   const uncovered = uncoveredSoon(result, items, today);
   const coverMeals = uncovered.length ? minMealsToCover(items, PLAN_RECIPES, plan, today) : null;
+  // 이번에 못 쓰는 재료: 집밥을 늘리면 먹을 수 있는지, 냉동하면 얼마나 늘어나는지 (2026-11-09)
+  const lostMeals = lost.length ? minMealsToUseLost(items, PLAN_RECIPES, plan, today) : null;
+  const [frozen, setFrozen] = useState<{ id: string; name: string; from: Location; until: DateKey } | null>(null);
 
   const dayHead = (slot: PlanSlot) => (
     <div className={`when ${slot.dayOffset === 0 ? 'today' : ''}`}>{formatDayLabel(slot.date, today)}</div>
@@ -321,18 +332,74 @@ export function PlanView({
         </button>
       )}
 
-      {lost.length > 0 && (
-        <div className="card">
+      {(lost.length > 0 || frozen) && (
+        <div className="card lost">
           <h3>이번에 못 쓰는 재료</h3>
-          <p>
-            {lost
-              .map((i) => {
-                const l = daysLeft(i, today);
-                return `${i.name}(${l <= 7 ? dDayLabel(l) : STATE_META.buried.label})`;
-              })
-              .join(', ')}{' '}
-            · 집밥 횟수를 늘리거나 따로 챙겨 드세요.
-          </p>
+          {lost.length > 0 && (
+            <>
+              <p>
+                {lost
+                  .map((i) => {
+                    const l = daysLeft(i, today);
+                    return `${i.name}(${l <= 7 ? dDayLabel(l) : STATE_META.buried.label})`;
+                  })
+                  .join(', ')}
+              </p>
+              <p className="lost-tip">
+                {lostMeals ? lostMealsText(lostMeals) : '앞으로 7일 메뉴로는 쓰기 어려워요. 따로 챙겨 드세요.'}
+              </p>
+              {lostMeals && (
+                <button className="small-btn main" onClick={() => onMeals(lostMeals.meals)}>
+                  {lostMeals.meals}번으로 바꾸기
+                </button>
+              )}
+              {lost.some((i) => frozenExpiry(i, findCatalog(i.name))) && (
+                <>
+                  <p className="lost-tip">이번에 못 먹을 것 같으면 냉동실에 넣어 두세요.</p>
+                  <ul className="freeze-list">
+                    {lost.map((i) => {
+                      const until = frozenExpiry(i, findCatalog(i.name));
+                      if (!until) return null;
+                      return (
+                        <li key={i.id}>
+                          <Tile name={i.name} core={i.core} />
+                          <div className="freeze-txt">
+                            <b>{i.name}</b>
+                            <span>냉동 {formatDate(until)}까지</span>
+                          </div>
+                          <button
+                            className="small-btn"
+                            onClick={() => {
+                              onRelocate(i.id, '냉동');
+                              setFrozen({ id: i.id, name: i.name, from: i.location, until });
+                            }}
+                          >
+                            냉동실로 옮기기
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              )}
+            </>
+          )}
+          {frozen && (
+            <div className="freeze-done" role="status">
+              <span>
+                {withJosa(frozen.name, eul)} 냉동실로 옮겼어요 · {formatDate(frozen.until)}까지
+              </span>
+              <button
+                className="small-btn alt"
+                onClick={() => {
+                  onRelocate(frozen.id, frozen.from);
+                  setFrozen(null);
+                }}
+              >
+                되돌리기
+              </button>
+            </div>
+          )}
         </div>
       )}
 

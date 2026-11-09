@@ -157,3 +157,10 @@ export function enteredText(ago: number): string {
   if (ago === 1) return '어제 들어왔어요';
   return `들어온 지 ${ago}일`;
 }
+
+/** 냉동실로 옮기면 늘어나는 소비기한 (못 쓰는 재료의 '냉동실로 옮기기', 2026-11-09). 이미 냉동이거나 안 늘어나면 null */
+export function frozenExpiry(item: Item, entry: CatalogEntry | undefined): DateKey | null {
+  if (item.location === '냉동') return null;
+  const moved = relocate(item, '냉동', entry);
+  return moved.expiresAt > item.expiresAt ? moved.expiresAt : null;
+}

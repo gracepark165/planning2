@@ -12,6 +12,7 @@ import {
   basisNote,
   enteredText,
   relocate,
+  frozenExpiry,
 } from './expiry';
 import { emojiOf } from './emoji';
 import { makeSampleInventory } from '../data/sampleInventory';
@@ -247,5 +248,20 @@ describe('냉장고에 있는 재료의 보관 위치 바꾸기 (2026-11-04)', (
     const long = { ...chicken, expiresAt: '2027-12-01' };
     expect(relocate(long, '냉동', cat('닭가슴살')).expiresAt).toBe('2027-12-01');
     expect(relocate(base, '실온', cat('대파'))).toMatchObject({ location: '실온', expiresAt: base.expiresAt });
+  });
+});
+
+describe('냉동실로 옮기면 늘어나는 소비기한 (2026-11-09)', () => {
+  const base: Item = {
+    id: 'a', name: '삼겹살', qty: '600g', core: '돼지고기', location: '냉장',
+    enteredAt: '2026-11-09', expiresAt: '2026-11-14', expiryBasis: 'table',
+    remaining: '넉넉해요', source: 'manual', portioned: false,
+  };
+  it('냉장 삼겹살은 입고일 + 냉동 120일', () => {
+    expect(frozenExpiry(base, findCatalog('삼겹살'))).toBe('2027-03-09');
+  });
+  it('이미 냉동이거나 직접 고친 값이면 null', () => {
+    expect(frozenExpiry({ ...base, location: '냉동' }, findCatalog('삼겹살'))).toBeNull();
+    expect(frozenExpiry({ ...base, expiryBasis: 'user' }, findCatalog('삼겹살'))).toBeNull();
   });
 });

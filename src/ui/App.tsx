@@ -274,6 +274,7 @@ export function App() {
           setOrderRound((n) => n + 1);
           go('order');
         }}
+        onRelocate={(id, location) => dispatch({ type: 'setLocation', id, location })}
       />
     );
   } else if (screen === 'notify') {
