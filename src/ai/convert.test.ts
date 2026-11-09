@@ -259,7 +259,7 @@ describe('제품 사진 → 고른 재료 (2026-11-09)', () => {
       today,
       lookup,
     );
-    expect(picks).toEqual([{ name: '부침두부', qty: '300g', expiresAt: '2026-11-20', product: '풀무원 국산콩 부침두부', category: 'tofuProcessed' }]);
+    expect(picks).toEqual([{ name: '부침두부', qty: '300g', expiresAt: '2026-11-20', product: '풀무원 국산콩 부침두부', category: 'tofuSide' }]);
   });
   it('같은 제품 여러 개면 용량을 곱하고, kg·L는 g·ml로', () => {
     const { picks } = productToPicks({ items: [{ name: '우유', count: 2, weight: '1L' }] }, today, lookup);

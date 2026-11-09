@@ -51,7 +51,7 @@ export function findCatalog(name: string): CatalogEntry | undefined {
 export const ETC_CATEGORY: FoodCategory = { id: 'etc', label: '기타', emoji: '🍽️', customKind: 'deli' };
 /** 재료 사전에 없는 재료는 저장된 품목군으로 큰 분류를 고른다 */
 const GROUP_TO_CATEGORY: Record<string, string> = {
-  meat: 'meat', seafood: 'seafood', veg: 'veg', dairy: 'dairyEgg', grain: 'grainBread', sauce: 'sauce', frozenFood: 'frozen',
+  meat: 'meatEgg', seafood: 'seafood', veg: 'veg', dairy: 'dairy', grain: 'cannedNoodle', sauce: 'sauce', frozenFood: 'readyMeal',
 };
 /** 냉장고 홈에서 재료를 묶을 큰 분류 id: 사전 분류 → 품목군 → 기타 */
 export function categoryOfItem(item: Pick<Item, 'name' | 'group'>): string {

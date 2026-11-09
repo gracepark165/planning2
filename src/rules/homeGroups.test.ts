@@ -18,22 +18,22 @@ describe('같은 이름 재료 한 줄로 접기', () => {
 });
 
 describe('싱싱해요 큰 분류로 묶기', () => {
-  const order = ['meat', 'seafood', 'veg', 'dairyEgg', 'sauce'];
-  const cat: Record<string, string> = { 삼겹살: 'meat', 대파: 'veg', 양파: 'veg', 계란: 'dairyEgg', 버터: 'dairyEgg', 냉동새우: 'seafood', 카레가루: 'sauce' };
+  const order = ['meatEgg', 'seafood', 'veg', 'dairy', 'sauce'];
+  const cat: Record<string, string> = { 삼겹살: 'meatEgg', 대파: 'veg', 양파: 'veg', 계란: 'dairy', 버터: 'dairy', 냉동새우: 'seafood', 카레가루: 'sauce' };
   const list = [at('삼겹살', 5), at('대파', 5), at('양파', 14), at('계란', 14), at('버터', 45), at('냉동새우', 90), at('카레가루', 200)];
   const groups = groupByCategory(list, today, (i) => cat[i.name], order);
 
   it('분류 옆 날짜는 그 안에서 가장 임박한 재료', () => {
     expect(groups.map((g) => [g.id, g.nearestLeft])).toEqual([
-      ['meat', 5],
+      ['meatEgg', 5],
       ['veg', 5],
-      ['dairyEgg', 14],
+      ['dairy', 14],
       ['seafood', 90],
       ['sauce', 200],
     ]);
   });
   it('분류끼리는 임박한 순, 같으면 재료 추가 화면의 분류 순서', () => {
-    expect(groups[0].id).toBe('meat');
+    expect(groups[0].id).toBe('meatEgg');
     expect(groups[1].id).toBe('veg');
   });
   it('분류 안은 넘겨받은 순서(유통기한 가까운 순) 그대로', () => {
@@ -43,13 +43,13 @@ describe('싱싱해요 큰 분류로 묶기', () => {
 
 describe('재료의 큰 분류', () => {
   it('재료 사전에 있으면 사전 분류', () => {
-    expect(categoryOfItem({ name: '삼겹살' })).toBe('meat');
-    expect(categoryOfItem({ name: '달걀' })).toBe('dairyEgg');
+    expect(categoryOfItem({ name: '삼겹살' })).toBe('meatEgg');
+    expect(categoryOfItem({ name: '달걀' })).toBe('meatEgg');
     expect(categoryOfItem({ name: '냉동새우' })).toBe('seafood');
   });
   it('사전에 없으면 품목군, 그것도 없으면 기타', () => {
     expect(categoryOfItem({ name: '콜라비', group: 'veg' })).toBe('veg');
-    expect(categoryOfItem({ name: '수제 소시지', group: 'meat' })).toBe('meat');
+    expect(categoryOfItem({ name: '수제 소시지', group: 'meat' })).toBe('meatEgg');
     expect(categoryOfItem({ name: '모르는 음식', group: 'etc' })).toBe('etc');
     expect(categoryOfItem({ name: '모르는 음식' })).toBe('etc');
   });
