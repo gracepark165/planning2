@@ -4,7 +4,7 @@
   "categories": [
     {"id": "meatEgg", "label": "고기·계란", "emoji": "🥩", "customKind": "rawMeat"},
     {"id": "veg", "label": "채소", "emoji": "🥬", "customKind": "veg"},
-    {"id": "tofuSide", "label": "두부·김치·반찬", "emoji": "🫘", "customKind": "deli"},
+    {"id": "tofuSide", "label": "두부·김치·반찬", "emoji": "🍱", "customKind": "deli"},
     {"id": "dairy", "label": "우유·유제품", "emoji": "🥛", "customKind": "dairy"},
     {"id": "seafood", "label": "해산물·수산", "emoji": "🐟", "customKind": "rawSeafood"},
     {"id": "readyMeal", "label": "냉동·간편식", "emoji": "🥟", "customKind": "frozenFood"},
