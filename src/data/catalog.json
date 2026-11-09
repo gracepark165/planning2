@@ -157,6 +157,8 @@
     { "name": "마요네즈", "image": "mayonnaise", "emoji": "🫙", "core": "", "shelfDays": 180, "location": "냉장", "group": "sauce", "defaultQty": "1개", "category": "sauce", "kind": "sauce" },
     { "name": "굴소스", "image": "oyster-sauce", "emoji": "🫙", "core": "", "shelfDays": 180, "location": "냉장", "group": "sauce", "defaultQty": "1병", "category": "sauce", "kind": "sauce" },
     { "name": "참치액", "image": "tuna-sauce", "emoji": "🫙", "core": "", "shelfDays": 180, "location": "냉장", "group": "sauce", "defaultQty": "1병", "category": "sauce", "kind": "sauce" },
+    { "name": "까나리액젓", "emoji": "🫙", "core": "", "shelfDays": 180, "location": "냉장", "group": "sauce", "defaultQty": "1병", "category": "sauce", "kind": "sauce" },
+    { "name": "멸치액젓", "emoji": "🫙", "core": "", "shelfDays": 180, "location": "냉장", "group": "sauce", "defaultQty": "1병", "category": "sauce", "kind": "sauce" },
     { "name": "올리고당", "image": "oligosaccharide", "emoji": "🍯", "core": "", "shelfDays": 180, "location": "실온", "group": "sauce", "defaultQty": "1병", "category": "sauce", "kind": "sauce" },
     { "name": "들기름", "image": "perilla-oil", "emoji": "🫒", "core": "", "shelfDays": 90, "location": "냉장", "group": "sauce", "defaultQty": "1병", "category": "sauce", "kind": "sauce" },
     { "name": "고춧가루", "image": "chili-powder", "emoji": "🌶️", "core": "", "shelfDays": 180, "location": "실온", "group": "sauce", "defaultQty": "1봉", "category": "sauce", "kind": "dryGoods" },

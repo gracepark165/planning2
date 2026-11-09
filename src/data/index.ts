@@ -53,9 +53,25 @@ export const ETC_CATEGORY: FoodCategory = { id: 'etc', label: '기타', emoji: '
 const GROUP_TO_CATEGORY: Record<string, string> = {
   meat: 'meatEgg', seafood: 'seafood', veg: 'veg', dairy: 'dairy', grain: 'cannedNoodle', sauce: 'sauce', frozenFood: 'readyMeal',
 };
-/** 냉장고 홈에서 재료를 묶을 큰 분류 id: 사전 분류 → 품목군 → 기타 */
-export function categoryOfItem(item: Pick<Item, 'name' | 'group'>): string {
-  return findCatalog(item.name)?.category ?? (item.group && GROUP_TO_CATEGORY[item.group]) ?? ETC_CATEGORY.id;
+/** 사전에 없는 재료의 종류(AI가 읽거나 직접 고른 것) → 큰 분류 (2026-11-09: 김치·빵·떡처럼 품목군이 '기타'인 종류도 제 분류로) */
+const KIND_TO_CATEGORY: Record<string, string> = {
+  leafVeg: 'veg', veg: 'veg', rootVeg: 'veg', mushroom: 'veg', fruit: 'fruit',
+  rawMeat: 'meatEgg', groundMeat: 'meatEgg', processedMeat: 'meatEgg', egg: 'meatEgg',
+  rawSeafood: 'seafood', frozenSeafood: 'seafood',
+  fishCake: 'tofuSide', tofu: 'tofuSide', kimchi: 'tofuSide', deli: 'tofuSide',
+  dairy: 'dairy', cheese: 'dairy',
+  mealKit: 'readyMeal', retort: 'readyMeal', frozenFood: 'readyMeal',
+  riceCake: 'cannedNoodle', freshNoodle: 'cannedNoodle', grain: 'cannedNoodle',
+  sauce: 'sauce', dryGoods: 'sauce', bread: 'bakery',
+};
+/** 냉장고 홈에서 재료를 묶을 큰 분류 id: 사전 분류 → 종류 → 품목군 → 기타 */
+export function categoryOfItem(item: Pick<Item, 'name' | 'group' | 'kind'>): string {
+  return (
+    findCatalog(item.name)?.category ??
+    (item.kind && KIND_TO_CATEGORY[item.kind]) ??
+    (item.group && GROUP_TO_CATEGORY[item.group]) ??
+    ETC_CATEGORY.id
+  );
 }
 /** 분류 id → 분류 정보 (기타 포함) */
 export function categoryMeta(id: string): FoodCategory {

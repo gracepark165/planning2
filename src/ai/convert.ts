@@ -136,7 +136,7 @@ export function productToPicks(ai: OrderAiResult, today: DateKey, lookup: Lookup
     const label = isDateKey(it.expiresOn) && daysBetween(today, it.expiresOn) >= 0 ? it.expiresOn : undefined;
     const location = entry ? undefined : cleanLocation(it.storage);
     // 분류: 사전 분류 → 그 종류를 쓰는 분류 → 종류의 품목군으로 (기타는 표시하지 않음)
-    const byGroup = kind ? categoryOfItem({ name: read, group: findKind(kind)?.group }) : undefined;
+    const byGroup = kind ? categoryOfItem({ name: read, kind, group: findKind(kind)?.group }) : undefined;
     const category = entry?.category ?? CATEGORIES.find((c) => c.customKind === kind)?.id ?? (byGroup !== 'etc' ? byGroup : undefined);
     picks.push({
       name: entry?.name ?? read,

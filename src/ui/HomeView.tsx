@@ -88,8 +88,11 @@ export function HomeView({
 }: Props) {
   const [loc, setLoc] = useState<LocFilter>('전체');
   const [filter, setFilter] = useState<StateFilter>('전체');
-  // 싱싱해요의 큰 분류·같은 이름 묶음 중 펼친 것 (처음엔 모두 접힘)
-  const [openCats, setOpenCats] = useState<ReadonlySet<string>>(new Set());
+  // 싱싱해요의 큰 분류·같은 이름 묶음 중 펼친 것. 처음엔 접되, 오늘 새로 넣은 재료가 든 분류는 펼쳐 둔다
+  // (2026-11-09 사용자 제보: 까나리액젓을 넣었는데 '기타' 분류 안에 접혀 있어 안 보였음)
+  const [openCats, setOpenCats] = useState<ReadonlySet<string>>(
+    () => new Set(items.filter((i) => i.addedOn === today).map((i) => categoryOfItem(i))),
+  );
   const [openClusters, setOpenClusters] = useState<ReadonlySet<string>>(new Set());
   const toggleIn = (set: ReadonlySet<string>, key: string) => {
     const next = new Set(set);

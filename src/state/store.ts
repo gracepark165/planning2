@@ -206,6 +206,7 @@ export function newItemFromPick(
     expiresAt: pick.expiresAt ?? addDays(today, kindShelfDays(kind, pick.location ?? kind.location, false)),
     expiryBasis: pick.expiresAt ? 'label' : 'kind',
     group: kind.group,
+    kind: kind.id,
     remaining: '넉넉해요',
     source: 'manual',
     portioned: false,

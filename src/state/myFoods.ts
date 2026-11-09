@@ -16,7 +16,7 @@ export function withMyFoods(lookup: Lookup, mine: MyFoods): Lookup {
     const entry = lookup(name);
     if (entry) return entry;
     const m = mine[nameKey(name.trim())];
-    return m && { name: m.name, core: '', shelfDays: m.shelfDays, location: m.location, group: m.group, mine: true };
+    return m && { name: m.name, core: '', shelfDays: m.shelfDays, location: m.location, group: m.group, ...(m.kind ? { kind: m.kind } : {}), mine: true };
   };
 }
 
@@ -29,8 +29,9 @@ export function rememberItems(mine: MyFoods, items: readonly Item[]): MyFoods {
     if (shelfDays < 1) continue;
     const key = nameKey(i.name);
     const prev = next[key];
-    const value: MyFood = { name: i.name, shelfDays, location: i.location, group: i.group ?? prev?.group ?? 'etc' };
-    if (prev && prev.shelfDays === value.shelfDays && prev.location === value.location && prev.group === value.group) continue;
+    const kind = i.kind ?? prev?.kind;
+    const value: MyFood = { name: i.name, shelfDays, location: i.location, group: i.group ?? prev?.group ?? 'etc', ...(kind ? { kind } : {}) };
+    if (prev && prev.shelfDays === value.shelfDays && prev.location === value.location && prev.group === value.group && prev.kind === value.kind) continue;
     next = { ...next, [key]: value };
   }
   return next;

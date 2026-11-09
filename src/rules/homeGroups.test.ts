@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clusterSameName, groupByCategory } from './homeGroups';
-import { categoryOfItem } from '../data';
+import { KINDS, categoryOfItem } from '../data';
 import { addDays } from './date';
 
 const today = '2026-11-09';
@@ -52,5 +52,22 @@ describe('재료의 큰 분류', () => {
     expect(categoryOfItem({ name: '수제 소시지', group: 'meat' })).toBe('meatEgg');
     expect(categoryOfItem({ name: '모르는 음식', group: 'etc' })).toBe('etc');
     expect(categoryOfItem({ name: '모르는 음식' })).toBe('etc');
+  });
+});
+
+describe('사전에 없는 재료의 종류로 분류 (2026-11-09)', () => {
+  it('AI가 읽은 종류가 있으면 품목군보다 먼저 본다 (김치·빵처럼 품목군이 기타인 종류도)', () => {
+    expect(categoryOfItem({ name: '갓김치', group: 'etc', kind: 'kimchi' })).toBe('tofuSide');
+    expect(categoryOfItem({ name: '치아바타', group: 'etc', kind: 'bread' })).toBe('bakery');
+    expect(categoryOfItem({ name: '어간장', group: 'sauce', kind: 'sauce' })).toBe('sauce');
+  });
+
+  it('음료 말고는 모든 종류가 큰 분류를 가진다', () => {
+    for (const k of KINDS.filter((x) => x.id !== 'drink')) expect(categoryOfItem({ name: '모르는 것', kind: k.id }), k.id).not.toBe('etc');
+  });
+
+  it('까나리액젓은 사전에 있어서 양념·소스·가루로', () => {
+    expect(categoryOfItem({ name: '까나리액젓' })).toBe('sauce');
+    expect(categoryOfItem({ name: '까나리 액젓' })).toBe('sauce');
   });
 });

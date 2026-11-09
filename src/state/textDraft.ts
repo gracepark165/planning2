@@ -185,12 +185,14 @@ export function draftToItem(row: DraftRow, today: DateKey, id: string, lookup: L
   const entry = row.catalogName ? lookup(row.catalogName) : undefined;
   // 사전에 없는 재료는 품목군을 같이 저장한다 (상비 재료 제외에 씀)
   const group = entry ? (entry.mine ? entry.group : undefined) : findKind(row.kind)?.group;
+  const kind = entry ? (entry.mine ? entry.kind : undefined) : row.kind;
   return {
     id,
     name: row.name,
     qty: draftQty(row),
     core: entry?.core ?? '',
     ...(group ? { group } : {}),
+    ...(kind ? { kind } : {}),
     location: row.location,
     enteredAt: baseDate(row, today),
     expiresAt: row.expiresAt!,

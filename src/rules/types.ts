@@ -37,6 +37,8 @@ export interface Item {
   source: ItemSource;
   /** 품목군. 재료 사전에 없는 재료만 저장한다 (있는 재료는 사전에서 본다). 상비 재료 제외에 쓴다. */
   group?: FoodGroup;
+  /** 사전에 없는 재료의 종류 (kinds.json id, AI·직접 고른 값). 홈의 큰 분류를 정할 때 쓴다 (2026-11-09) */
+  kind?: string;
   /** 소분 품목인지. 소분 품목은 count 단위로 재고에서 차감한다. */
   portioned: boolean;
   /** 소분 개수 (예: 3) */
@@ -200,6 +202,7 @@ export interface MyFood {
   shelfDays: number;
   location: Location;
   group: FoodGroup;
+  kind?: string;
 }
 
 /** 이번 주 플랜 후보 레시피 */
