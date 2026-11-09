@@ -15,7 +15,6 @@ import {
   reducer,
   showIntro,
   showNotifAsk,
-  showOnboarding,
   showSamplePrompt,
   soonBanner,
   type AddPick,
@@ -26,6 +25,7 @@ import { DiscardSheet } from './DiscardSheet';
 import { HomeView } from './HomeView';
 import { InstallGuideView, NotifyTimeView } from './NotifyView';
 import { ItemSheet } from './ItemSheet';
+import { CommunityView, RankingCard, type CommunityPage } from './CommunityView';
 import { OpeningView } from './OpeningView';
 import { OrderView } from './OrderView';
 import { PlanView } from './PlanView';
@@ -34,7 +34,7 @@ import { VideoView } from './VideoView';
 import { TabBar, type TabKey } from './TabBar';
 import { newId } from './id';
 
-type Screen = TabKey | 'add' | 'notify' | 'install';
+type Screen = TabKey | 'add' | 'notify' | 'install' | 'community';
 
 interface Toast {
   msg: string;
@@ -61,12 +61,25 @@ export function App() {
   const [orderText, setOrderText] = useState('');
   /** "넣은 재료 보기" (V4-4): 누를 때마다 1씩 올려서 홈이 방금 넣은 재료를 보여주게 */
   const [revealNew, setRevealNew] = useState(0);
+  /** 커뮤니티에서 처음 보여줄 곳 (목록·글·프로필) */
+  const [communityPage, setCommunityPage] = useState<CommunityPage>({ view: 'feed' });
+  const openCommunity = (page: CommunityPage) => {
+    setCommunityPage(page);
+    go('community');
+  };
   const doneRevealing = useCallback(() => setRevealNew(0), []);
   const toastTimer = useRef<number | undefined>(undefined);
 
   useEffect(() => saveState(state), [state]);
   // 앱을 연 날 세기 (하루에 한 번만, 홈 화면 추가 카드를 보여줄 때 씀)
   useEffect(() => dispatch({ type: 'appOpened', today }), [today]);
+  // 첫 사용 안내 카드는 랭킹 카드로 바뀌었다 (2026-11-09). 오프닝을 본 뒤에는 예시로 둘러보는 것으로 두어
+  // "예시 재료는 지울까요?"·홈 화면 추가 카드가 예전처럼 나오게 한다
+  const introDone = state.onboarding.introSeen;
+  const onboardSeen = state.onboarding.seen;
+  useEffect(() => {
+    if (introDone && !onboardSeen) dispatch({ type: 'onboard', mode: 'sample' });
+  }, [introDone, onboardSeen]);
 
   const showToast = useCallback((msg: string, action?: Toast['action']) => {
     setToast({ msg, action });
@@ -78,7 +91,7 @@ export function App() {
   const go = (s: Screen) => {
     // 하위 화면(재료 추가·알림 시간·홈 화면 추가 방법)에서 뒤로 가면 들어오기 전 탭으로.
     // 하위 화면끼리 오갈 때는 처음 들어온 탭을 그대로 기억한다
-    const isSub = (x: Screen) => x === 'add' || x === 'notify' || x === 'install';
+    const isSub = (x: Screen) => x === 'add' || x === 'notify' || x === 'install' || x === 'community';
     if (isSub(s) && !isSub(screen)) setPrevScreen(screen);
     setScreen(s);
     setSheetId(null);
@@ -212,14 +225,7 @@ export function App() {
           showToast('냉장고를 비웠어요. 내 재료로 채워 주세요');
         }}
         onOrder={() => go('order')}
-        onboarding={showOnboarding(state)}
-        onOnboard={(mode) => {
-          dispatch({ type: 'onboard', mode });
-          if (mode === 'mine') {
-            go('order');
-            showToast('예시 재료를 비웠어요. 장 본 재료를 올려 주세요');
-          }
-        }}
+        ranking={<RankingCard onOpen={(id) => openCommunity({ view: 'post', id })} onAll={() => openCommunity({ view: 'feed' })} />}
         notifAsk={showNotifAsk(state)}
         onNotifAsk={(choice) => {
           dispatch({ type: 'answerNotifAsk', choice, at: new Date().toISOString() });
@@ -275,6 +281,8 @@ export function App() {
           go('order');
         }}
         onRelocate={(id, location) => dispatch({ type: 'setLocation', id, location })}
+        onProfile={() => openCommunity({ view: 'profile' })}
+        onCommunity={() => openCommunity({ view: 'feed' })}
       />
     );
   } else if (screen === 'notify') {
@@ -291,6 +299,16 @@ export function App() {
     );
   } else if (screen === 'install') {
     view = <InstallGuideView onBack={() => go(installBack)} />;
+  } else if (screen === 'community') {
+    view = (
+      <CommunityView
+        start={communityPage}
+        items={state.items}
+        today={today}
+        onBack={() => go(prevScreen)}
+        onToast={(msg) => showToast(msg)}
+      />
+    );
   } else if (screen === 'add') {
     view = <AddView items={state.items} today={today} onBack={() => go(prevScreen)} onAdd={addFromPicks} />;
   }
@@ -326,7 +344,10 @@ export function App() {
           />
         </div>
       </div>
-      <TabBar active={screen === 'add' || screen === 'notify' || screen === 'install' ? 'home' : screen} onChange={go} />
+      <TabBar
+        active={screen === 'community' ? prevScreen === 'plan' ? 'plan' : 'home' : screen === 'add' || screen === 'notify' || screen === 'install' ? 'home' : screen}
+        onChange={go}
+      />
       {sheetItem && (
         <ItemSheet
           item={sheetItem}

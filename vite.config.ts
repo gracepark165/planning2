@@ -13,17 +13,22 @@ function apiInDev(): Plugin {
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         // 주소가 정확히 /api/read·/api/menu·/api/ingredients인 POST만 (앱이 불러오는 /api/read.ts 소스 파일은 건드리지 않음)
+        // 커뮤니티(/api/community)는 POST(글)·GET(사진) 둘 다. 저장소 키가 없으면 메모리 저장소 (껐다 켜면 사라짐)
         const path = req.url?.split('?')[0];
-        if (req.method !== 'POST' || !['/api/read', '/api/menu', '/api/ingredients'].includes(path ?? '')) return next();
+        const community = path === '/api/community';
+        if (!community && (req.method !== 'POST' || !['/api/read', '/api/menu', '/api/ingredients'].includes(path ?? ''))) return next();
         try {
           const chunks: Buffer[] = [];
-          for await (const c of req) chunks.push(c as Buffer);
-          const mod = (await server.ssrLoadModule('/api/read.ts')) as { POST: (r: Request) => Promise<Response> };
-          const response = await mod.POST(
-            new Request('http://localhost/api/read', {
-              method: 'POST',
+          if (req.method === 'POST') for await (const c of req) chunks.push(c as Buffer);
+          type Fn = (r: Request) => Promise<Response>;
+          const mod = (await server.ssrLoadModule(community ? '/api/community.ts' : '/api/read.ts')) as { POST: Fn; GET?: Fn };
+          if (community) process.env.COMMUNITY_DEV_MEMORY ??= '1';
+          const handler = req.method === 'GET' && mod.GET ? mod.GET : mod.POST;
+          const response = await handler(
+            new Request(`http://localhost${req.url}`, {
+              method: req.method === 'GET' ? 'GET' : 'POST',
               headers: { 'content-type': 'application/json', 'x-forwarded-for': req.socket.remoteAddress ?? 'local' },
-              body: Buffer.concat(chunks),
+              ...(req.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
             }),
           );
           res.statusCode = response.status;

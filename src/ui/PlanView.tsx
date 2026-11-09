@@ -20,13 +20,14 @@ import {
 import { formatDate, formatDayLabel } from '../rules/date';
 import { frozenExpiry } from '../rules/expiry';
 import { eul, eun, withJosa } from '../rules/josa';
-import { recentRange, recentSummary } from '../rules/recentSummary';
+import { recentSummary } from '../rules/recentSummary';
 import { shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
 import type { DateKey, Item, Location, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
 import type { AiSlot } from '../rules/menuCheck';
 import { AI_DAILY_LIMIT, type AiSlotState } from '../state/aiMenu';
 import { RecipeSource, SideDishes, Tile, UseTag } from './parts';
+import { ProfileCommunityCards } from './CommunityView';
 
 const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
 
@@ -64,6 +65,9 @@ interface Props {
   onBought: (names: string[]) => void;
   /** 이번에 못 쓰는 재료의 '냉동실로 옮기기'와 되돌리기 */
   onRelocate: (id: string, location: Location) => void;
+  /** 맨 위 내 프로필 칸·커뮤니티 칸 (2026-11-09: 예전 "최근 7일 요약" 자리) */
+  onProfile: () => void;
+  onCommunity: () => void;
 }
 
 export function PlanView({
@@ -89,6 +93,8 @@ export function PlanView({
   onRemoveShop,
   onBought,
   onRelocate,
+  onProfile,
+  onCommunity,
 }: Props) {
   const { soonTotal, soonSaved, buyAll, lost } = summarizePlan(result, items, plan, today);
   const owned = new Set(items.map((i) => i.name));
@@ -113,37 +119,16 @@ export function PlanView({
   );
 
   const week = recentSummary(logs, items, today);
-  const range = recentRange(today);
 
   return (
     <>
-      {/* 최근 7일 요약 (B-5 → V3-2): 오늘 포함 7일 */}
-      <div className="card week">
-        <div className="eyebrow" style={{ marginTop: 0 }}>
-          최근 7일 요약 · {formatDate(range.start)} ~ {formatDate(range.end)}
-        </div>
-        <p className="week-lead">{week.sentence}</p>
-        {week.kind === 'summary' && (week.showEatenLine || week.showDiscardLine || week.showSoonNowLine) && (
-          <ul className="week-stats">
-            {week.showEatenLine && (
-              <li>
-                먹은 재료 <b>{week.eaten}개</b> · 그중 얼른 먹어야 할 것 <b>{week.eatenSoon}개</b>
-              </li>
-            )}
-            {week.showDiscardLine && (
-              <li>
-                버린 재료 <b>{week.discarded}개</b>
-                {week.topReason && ` · 가장 많은 이유: ${week.topReason}`}
-              </li>
-            )}
-            {week.showSoonNowLine && (
-              <li>
-                지금 얼른 먹어야 할 재료 <b>{week.soonNow}개</b>가 남아 있어요
-              </li>
-            )}
-          </ul>
-        )}
-      </div>
+      {/* 내 프로필 + 커뮤니티 (2026-11-09, 사용자 요청). 최근 7일 먹은·버린 재료 수는 프로필 칸에 남긴다 */}
+      <ProfileCommunityCards
+        eaten={week.kind === 'summary' ? week.eaten : 0}
+        discarded={week.kind === 'summary' ? week.discarded : 0}
+        onProfile={onProfile}
+        onCommunity={onCommunity}
+      />
 
       <h1>앞으로 7일 먹을 순서예요</h1>
       <p className="lead">

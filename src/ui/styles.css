@@ -364,3 +364,110 @@ textarea.text-input:focus{border-color:var(--accent)}
 .side-nm{font-size:15px;font-weight:700}
 .side .tags{margin-top:4px}
 .card .sides{background:var(--bg)}
+/* ── 커뮤니티 (2026-11-09) ── */
+.avatar{flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--accent-bg);line-height:1}
+.community-note{margin:8px 0 12px}
+.me-row{display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;margin:0 0 12px;border-radius:16px;background:var(--card);font-size:14px;text-align:left}
+.me-row span{color:var(--sub);font-size:13px}
+.me-row .go{margin-left:auto;color:var(--accent);font-weight:700}
+.post{background:var(--card);border-radius:20px;margin:12px 0;overflow:hidden}
+.post-body{display:block;width:100%;text-align:left;padding:16px 16px 8px;color:var(--fg)}
+.post-body:disabled{cursor:auto;opacity:1}
+.post-head{display:flex;align-items:center;gap:10px}
+.post-head .who{display:flex;flex-direction:column;min-width:0;flex:1}
+.post-head .who b{font-size:15px}
+.post-head .who span{font-size:12.5px;color:var(--sub)}
+.post-head .tag.topic{flex:none;background:var(--bg)}
+.share-status{display:inline-block;margin-top:10px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:8px}
+.share-status.open{background:var(--green-bg);color:var(--green)}
+.share-status.hold{background:var(--amber-bg);color:var(--amber)}
+.share-status.done{background:var(--line);color:var(--sub)}
+.post-menu{margin:10px 0 0;font-size:16px}
+.post-text{margin:8px 0 0;font-size:15px;line-height:1.55;white-space:pre-wrap;word-break:keep-all;overflow-wrap:anywhere}
+.post-text.clamp{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.post-photo{display:block;width:100%;max-height:360px;object-fit:cover;border-radius:14px;margin-top:10px;background:var(--line)}
+.post-items{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.post-items .tag{background:var(--bg)}
+.post-foot{display:flex;align-items:center;gap:16px;padding:4px 16px 12px;font-size:14px;color:var(--sub)}
+.post-foot .like{min-height:40px;font-size:14px;font-weight:700;color:var(--sub)}
+.post-foot .like.on{color:var(--red)}
+.post-foot .tag.sample{margin-left:auto}
+.owner-acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 8px}
+.owner-acts .note{margin:0}
+.comments{list-style:none;padding:0;margin:8px 0}
+.comments li{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.comments b{font-size:14px}
+.comments b .tag{margin-left:6px;font-size:11px;padding:1px 6px}
+.comments .when{margin-left:8px;font-size:12px;color:var(--sub)}
+.comments p{margin:4px 0 0;font-size:14.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.comment-input{margin-top:12px}
+textarea.post-input{width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--card);border:2px solid transparent;border-radius:14px;padding:14px 16px;outline:none;resize:vertical;margin-top:8px;line-height:1.5}
+textarea.post-input:focus{border-color:var(--accent)}
+.photo-pick{display:flex;align-items:flex-end;gap:10px;margin-top:8px}
+.photo-pick img{width:120px;height:120px;object-fit:cover;border-radius:14px}
+.profile-preview{display:flex;align-items:center;gap:14px;padding:16px;border-radius:20px;background:var(--card)}
+.profile-preview div{display:flex;flex-direction:column}
+.profile-preview b{font-size:18px}
+.profile-preview span{font-size:13px;color:var(--sub)}
+.avatar-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin-top:8px}
+.avatar-grid button{aspect-ratio:1;border-radius:16px;background:var(--card);font-size:26px;border:2px solid transparent}
+.avatar-grid button.on{border-color:var(--accent);background:var(--accent-bg)}
+/* 이번 주 맨 위: 내 프로필 + 커뮤니티 */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:8px 0 12px}
+.duo-card{display:flex;flex-direction:column;align-items:stretch;text-align:left;margin:0;padding:14px;min-width:0;color:var(--fg)}
+.pc-head{display:flex;align-items:center;gap:8px;margin-top:8px;min-width:0}
+.pc-head div{display:flex;flex-direction:column;min-width:0}
+.pc-head b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-head span{font-size:12px;color:var(--sub)}
+.pc-stats{list-style:none;padding:0;margin:10px 0 0;font-size:12.5px;color:var(--sub);line-height:1.5;word-break:keep-all}
+.pc-stats b{color:var(--fg)}
+.community-card{background:var(--accent-bg)}
+.cc-snip{margin:8px 0 6px;font-size:14px;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
+.cc-by{font-size:12px;color:var(--sub)}
+.cc-by .tag{margin-left:4px;font-size:11px;padding:1px 6px}
+.duo-card .go{margin-top:auto;padding-top:8px;font-size:13px;font-weight:700;color:var(--accent)}
+/* 냉장고 맨 위: 이번 주 공감 랭킹 */
+.ranking{padding:16px 16px 10px}
+.rk-head{display:flex;align-items:center;justify-content:space-between}
+.rk-head h3{margin:0;font-size:16px}
+.rk-head .go{font-size:13px;font-weight:700;color:var(--accent);min-height:36px}
+.ranking ol{list-style:none;padding:0;margin:6px 0 0}
+.ranking li button{display:flex;align-items:center;gap:10px;width:100%;padding:8px 0;text-align:left;color:var(--fg)}
+.ranking li+li button{border-top:1px solid var(--line)}
+.ranking .medal{font-size:22px;flex:none}
+.rk-text{display:flex;flex-direction:column;min-width:0;flex:1}
+.rk-text b{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk-text span{font-size:12px;color:var(--sub)}
+.rk-likes{flex:none;font-weight:700;color:var(--red);font-size:14px}
+.rk-empty{display:block;width:100%;text-align:left;padding:10px 0;color:var(--sub);font-size:14px}
+.rk-note{margin:4px 0 4px}
+/* 냉장고 재료 보기: 목록 ↔ 폴더 */
+.filter-row{display:flex;align-items:center;gap:8px}
+.filter-row .chips{flex:1;min-width:0}
+.view-toggle{flex:none;display:flex;background:var(--card);border-radius:12px;padding:3px;margin-top:-4px}
+.view-toggle button{width:38px;height:34px;border-radius:9px;font-size:17px;color:var(--sub)}
+.view-toggle button.on{background:var(--bg);color:var(--fg);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.folders{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 14px;margin:12px 0}
+.folder{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--fg)}
+.folder-box{position:relative;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);gap:5px;width:100%;aspect-ratio:1;padding:10px;border-radius:24px;background:var(--card);box-shadow:inset 0 0 0 1px var(--line)}
+.folder-box .mini{display:flex;align-items:center;justify-content:center;border-radius:7px;background:var(--bg);font-size:15px;line-height:1;overflow:hidden}
+.folder-box .mini .food-img{width:80%;height:80%;object-fit:contain}
+.folder-box .mini.soon{box-shadow:inset 0 0 0 1.5px var(--red)}
+.folder-badge{position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--red);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.folder-name{font-size:13px;font-weight:700;text-align:center;word-break:keep-all}
+.folder-name small{color:var(--sub);font-weight:500}
+.folder-bg{align-items:center;padding:16px;background:rgba(0,0,0,.35);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.folder-pop{width:100%;max-width:400px;max-height:80dvh;overflow-y:auto;background:var(--bg);border-radius:28px;padding:20px 16px 18px;cursor:auto;animation:folderIn .22s cubic-bezier(.2,.7,.3,1)}
+@keyframes folderIn{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+.folder-pop h2{margin:0 0 14px;font-size:18px;text-align:center}
+.folder-apps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 8px}
+.app-icon{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;color:var(--fg)}
+.app-tile{position:relative;display:flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:16px;background:var(--card);font-size:30px;line-height:1}
+.app-tile .food-img{width:78%;height:78%;object-fit:contain}
+.app-tile.soon{box-shadow:inset 0 0 0 2px var(--red)}
+.app-tag{position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);font-size:9px;padding:1px 5px;border-radius:6px;background:var(--fg);color:var(--bg);white-space:nowrap}
+.app-name{font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app-dday{font-size:11px;color:var(--sub);font-weight:700}
+.app-dday.hot{color:var(--red)}
+.app-dday.bur{color:var(--amber)}
+@media (prefers-reduced-motion: reduce){.folder-pop{animation:none}}

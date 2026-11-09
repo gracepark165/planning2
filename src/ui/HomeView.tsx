@@ -16,9 +16,20 @@ import type { DateKey, Item, ItemState, Location, MealLog } from '../rules/types
 import { formatDate } from '../rules/date';
 import { discardLabel } from '../rules/logs';
 import { nextFabHidden } from './fabScroll';
-import { Tile } from './parts';
+import { FoodIcon, Tile } from './parts';
+import { findCatalog } from '../data';
 
 type LocFilter = '전체' | Location;
+/** 재료 보기 (2026-11-09, 사용자 요청): 목록 또는 폰 바탕화면 폴더처럼 분류별 네모 폴더 */
+type ViewMode = 'list' | 'folder';
+const VIEW_KEY = 'fridge-home-view';
+const loadView = (): ViewMode => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'folder' ? 'folder' : 'list';
+  } catch {
+    return 'list';
+  }
+};
 type StateFilter = '전체' | ItemState;
 
 const STATE_FILTERS: StateFilter[] = ['전체', 'soon', 'buried', 'ok'];
@@ -33,9 +44,8 @@ interface Props {
   onReset: () => void;
   onClear: () => void;
   onOrder: () => void;
-  /** 첫 방문 안내 카드 */
-  onboarding: boolean;
-  onOnboard: (mode: 'sample' | 'mine') => void;
+  /** 맨 위 공감 랭킹 카드 (2026-11-09: 예전 "예시 재료" 안내 카드 자리) */
+  ranking: ReactNode;
   /** 내 재료를 넣은 뒤 "예시 재료는 지울까요?" */
   samplePrompt: boolean;
   onSamplePrompt: (remove: boolean) => void;
@@ -64,8 +74,7 @@ export function HomeView({
   onReset,
   onClear,
   onOrder,
-  onboarding,
-  onOnboard,
+  ranking,
   samplePrompt,
   onSamplePrompt,
   todayCard,
@@ -89,6 +98,23 @@ export function HomeView({
     return next;
   };
   const [howOpen, setHowOpen] = useState(false);
+  const [view, setViewState] = useState<ViewMode>(loadView);
+  const setView = (v: ViewMode) => {
+    setViewState(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // 저장 못 해도 이번에는 바뀐다
+    }
+  };
+  /** 폴더 보기에서 연 폴더 (분류 id) */
+  const [openFolder, setOpenFolder] = useState<string | null>(null);
+  useEffect(() => {
+    if (!openFolder) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpenFolder(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [openFolder]);
   // "넣은 재료 보기": 전체 보기로 바꾸고, 방금 넣은 재료가 든 분류·같은 이름 묶음을 펼친 뒤 첫 줄로 스크롤
   useEffect(() => {
     if (!revealNew) return;
@@ -226,6 +252,67 @@ export function HomeView({
       );
     });
 
+  // 폴더 보기: 걸러진 재료를 급한 순서 그대로 분류별 네모 폴더에 담는다 (폴더끼리도 가장 급한 재료 순)
+  const folders = groupByCategory(groups.flatMap((g) => g.items), today, categoryOfItem, CATEGORIES.map((c) => c.id));
+  const iconOf = (i: Item) => <FoodIcon entry={findCatalog(i.name)} core={i.core} />;
+  const folderGrid = (
+    <div className="folders">
+      {folders.map((f) => {
+        const m = categoryMeta(f.id);
+        const soon = f.items.filter((i) => stateOf(i, today) === 'soon').length;
+        return (
+          <button key={f.id} className="folder" onClick={() => setOpenFolder(f.id)} aria-label={`${m.label} 폴더, ${f.items.length}개${soon ? `, 얼른 먹어야 할 재료 ${soon}개` : ''}`}>
+            <span className="folder-box">
+              {f.items.slice(0, 9).map((i) => (
+                <span key={i.id} className={`mini ${stateOf(i, today)}`}>
+                  {iconOf(i)}
+                </span>
+              ))}
+              {soon > 0 && <span className="folder-badge">{soon}</span>}
+            </span>
+            <span className="folder-name">
+              {m.label} <small>{f.items.length}</small>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+  const folderOpen = openFolder ? folders.find((f) => f.id === openFolder) : undefined;
+  const folderPop = folderOpen && (
+    <div className="sheet-bg folder-bg" onClick={() => setOpenFolder(null)}>
+      <div className="folder-pop" role="dialog" aria-modal="true" aria-label={`${categoryMeta(folderOpen.id).label} 폴더`} onClick={(e) => e.stopPropagation()}>
+        <h2>
+          {categoryMeta(folderOpen.id).emoji} {categoryMeta(folderOpen.id).label}
+        </h2>
+        <div className="folder-apps">
+          {folderOpen.items.map((i) => {
+            const st = stateOf(i, today);
+            return (
+              <button
+                key={i.id}
+                className="app-icon"
+                onClick={() => {
+                  setOpenFolder(null);
+                  onOpen(i.id);
+                }}
+              >
+                <span className={`app-tile ${st}`}>
+                  {iconOf(i)}
+                  {i.sample && <span className="app-tag">예시</span>}
+                </span>
+                <span className="app-name">{i.name}</span>
+                <span className={`app-dday ${st === 'soon' ? 'hot' : st === 'buried' ? 'bur' : ''}`}>
+                  {st === 'buried' ? `${daysSinceEntered(i, today)}일째` : dDayLabel(daysLeft(i, today))}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
   const eaten = logs.filter((l) => l.action === 'eat').length;
   const discarded = logs.length - eaten;
   // 최근에 버린 기록 3개 (이유와 함께)
@@ -233,17 +320,7 @@ export function HomeView({
 
   return (
     <>
-      {onboarding && (
-        <div className="card blue onboard">
-          <h3>지금 보이는 건 예시 재료예요. 내 냉장고로 시작해 볼까요?</h3>
-          <button className="cta" onClick={() => onOnboard('mine')}>
-            내 재료로 시작할게요
-          </button>
-          <button className="cta ghost" onClick={() => onOnboard('sample')}>
-            예시로 둘러볼게요
-          </button>
-        </div>
-      )}
+      {ranking}
       {notifAsk && (
         <div className="card blue onboard">
           <h3>홈 화면에 추가해 두면 더 빨리 열 수 있어요</h3>
@@ -292,12 +369,22 @@ export function HomeView({
           </button>
         ))}
       </div>
-      <div className="chips" style={{ marginTop: 8 }}>
-        {STATE_FILTERS.map((f) => (
-          <button key={f} className={`chip ${filter === f ? 'on' : ''}`} onClick={() => setFilter(f)}>
-            {filterLabel(f)}
+      <div className="filter-row">
+        <div className="chips" style={{ marginTop: 8 }}>
+          {STATE_FILTERS.map((f) => (
+            <button key={f} className={`chip ${filter === f ? 'on' : ''}`} onClick={() => setFilter(f)}>
+              {filterLabel(f)}
+            </button>
+          ))}
+        </div>
+        <div className="view-toggle" role="radiogroup" aria-label="재료 보기">
+          <button role="radio" aria-checked={view === 'list'} className={view === 'list' ? 'on' : ''} onClick={() => setView('list')} aria-label="목록으로 보기">
+            ☰
           </button>
-        ))}
+          <button role="radio" aria-checked={view === 'folder'} className={view === 'folder' ? 'on' : ''} onClick={() => setView('folder')} aria-label="폴더로 보기">
+            ▦
+          </button>
+        </div>
       </div>
 
       <div>
@@ -314,6 +401,8 @@ export function HomeView({
               </button>
             </div>
           </div>
+        ) : groups.length && view === 'folder' ? (
+          folderGrid
         ) : groups.length ? (
           groups.map((g) => (
             <section key={g.state} aria-label={STATE_META[g.state].label}>
@@ -378,6 +467,7 @@ export function HomeView({
       </div>
       {/* 맨 아래까지 스크롤하면 마지막 줄이 + 버튼·하단 탭에 가리지 않게 */}
       <div className="fab-space" aria-hidden="true" />
+      {folderPop}
       <button className={`fab ${fabHidden ? 'hide' : ''}`} onClick={onAdd} tabIndex={fabHidden ? -1 : 0}>
         + 재료 추가
       </button>
