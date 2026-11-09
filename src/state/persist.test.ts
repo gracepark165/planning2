@@ -39,11 +39,10 @@ const v1 = {
 describe('저장 형식 v1 → v2 옮기기', () => {
   const s = migrate(v1)!;
 
-  it('예시 재료에 예시 표시, 근거는 "예시 재료" (직접 고친 값은 그대로)', () => {
-    expect(s.items[0]).toMatchObject({ sample: true, expiryBasis: 'sample' });
-    expect(s.items[1]).toMatchObject({ sample: true, expiryBasis: 'user', remaining: '반쯤' });
-    expect(s.items[2].sample).toBeUndefined();
-    expect(s.items[2]).toMatchObject({ name: '계란', expiryBasis: 'table' });
+  it('예시 재료(sample- id)는 지우고 직접 넣은 재료만 남긴다 (v4, 빈 냉장고로 시작)', () => {
+    expect(s.items).toHaveLength(1);
+    expect(s.items[0].sample).toBeUndefined();
+    expect(s.items[0]).toMatchObject({ name: '계란', expiryBasis: 'table' });
   });
 
   it('예전 기록은 상태 unknown, 버린 이유 null', () => {
@@ -59,7 +58,7 @@ describe('저장 형식 v1 → v2 옮기기', () => {
 
   it('새 필드 기본값: 장보기 목록 비움, 이미 쓰던 사람이라 첫 사용 안내는 본 것으로, 알림 오후 6시', () => {
     expect(s.shoppingList).toEqual([]);
-    expect(s.onboarding).toEqual({ introSeen: true, seen: true, mode: 'sample', sampleAsked: false, firstConfirmAt: null });
+    expect(s.onboarding).toEqual({ introSeen: true, seen: true, mode: 'mine', sampleAsked: false, firstConfirmAt: null });
     expect(s.opens).toEqual({ count: 0, lastDate: null });
     expect(s.notif).toEqual({ askedAt: null, optedLater: false, time: '18:00', bannerClosedOn: null });
     expect(migrate({ ...v1, items: [v1.items[2]] })!.onboarding.mode).toBe('mine');
@@ -87,10 +86,11 @@ describe('저장 형식 v1 → v2 옮기기', () => {
     });
   });
 
-  it('v2는 옮겨도 그대로 (예시 재료를 직접 고친 근거도 유지)', () => {
+  it('v2는 예시 재료만 빠지고 나머지는 그대로', () => {
     const s0 = initialState(today);
-    const s1 = { ...s0, items: s0.items.map((i, n) => (n === 0 ? { ...i, expiryBasis: 'table' as const } : i)) };
-    expect(migrate({ version: 2, ...s1 })).toEqual(s1);
+    const mine = { ...s0.items[0], id: 'm1', sample: undefined, expiryBasis: 'table' as const };
+    const s1 = { ...s0, items: [...s0.items, mine] };
+    expect(migrate({ version: 2, ...s1 })).toEqual({ ...s1, items: [mine] });
   });
 });
 
@@ -103,6 +103,15 @@ describe('저장 형식 v2 → v3 (V3-5)', () => {
     expect(s.opens).toEqual({ count: 0, lastDate: null });
     expect(s.onboarding.firstConfirmAt).toBeNull();
     expect(s.notif.askedAt).toBe('T');
-    expect(STORAGE_VERSION).toBe(3);
+  });
+});
+
+describe('저장 형식 v3 → v4 (2026-11-09: 예시 재료 지우기)', () => {
+  it('v3까지 저장된 예시 재료는 한 번 지우고, v4에서 되돌리기로 넣은 예시 재료는 그대로 둔다', () => {
+    const s0 = initialState(today);
+    expect(s0.items.some((i) => i.sample)).toBe(true);
+    expect(migrate({ version: 3, ...s0 })!.items).toEqual([]);
+    expect(migrate({ version: 4, ...s0 })).toEqual(s0);
+    expect(STORAGE_VERSION).toBe(4);
   });
 });

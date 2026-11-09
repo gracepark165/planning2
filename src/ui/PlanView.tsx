@@ -68,6 +68,9 @@ interface Props {
   /** 맨 위 내 프로필 칸·커뮤니티 칸 (2026-11-09: 예전 "최근 7일 요약" 자리) */
   onProfile: () => void;
   onCommunity: () => void;
+  /** 냉장고가 비었을 때: 장보기 올리기·재료 추가로 */
+  onOrder: () => void;
+  onAdd: () => void;
 }
 
 export function PlanView({
@@ -95,6 +98,8 @@ export function PlanView({
   onRelocate,
   onProfile,
   onCommunity,
+  onOrder,
+  onAdd,
 }: Props) {
   const { soonTotal, soonSaved, buyAll, lost } = summarizePlan(result, items, plan, today);
   const owned = new Set(items.map((i) => i.name));
@@ -130,6 +135,25 @@ export function PlanView({
         onCommunity={onCommunity}
       />
 
+      {/* 냉장고가 비었으면 빈 끼니 칸을 늘어놓지 않고 재료부터 넣게 한다 (2026-11-09: 빈 냉장고로 시작) */}
+      {items.length === 0 && plan.pinned.length === 0 ? (
+        <>
+          <h1>앞으로 7일 먹을 순서예요</h1>
+          <div className="card" style={{ textAlign: 'center', padding: '28px 16px' }}>
+            <h3>냉장고가 비어 있어요</h3>
+            <p>재료를 넣으면 얼른 먹어야 할 재료부터 앞으로 7일 저녁 메뉴를 짜 드려요.</p>
+            <div className="ctas">
+              <button className="cta ghost" onClick={onAdd}>
+                재료 추가
+              </button>
+              <button className="cta" onClick={onOrder}>
+                장보기 올리기
+              </button>
+            </div>
+          </div>
+        </>
+      ) : (
+      <>
       <h1>앞으로 7일 먹을 순서예요</h1>
       <p className="lead">
         {soonTotal
@@ -403,6 +427,8 @@ export function PlanView({
         여러 번 나눠 쓰는 재료는 한 끼에 한 단계씩 줄어요. 메뉴와 배치 이유는 정해진 규칙으로 만든 예시예요.
         {result.slots.some((s) => s.ai) && ' AI 제안 메뉴는 재고에 있는 재료만 쓰도록 확인했어요. 맛과 조리법은 직접 판단해 주세요.'}
       </p>
+      </>
+      )}
     </>
   );
 }

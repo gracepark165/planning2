@@ -9,6 +9,7 @@ import {
   initialState,
   newItemFromCatalog,
   newItemFromPick,
+  freshState,
   reducer,
   showIntro,
   showNotifAsk,
@@ -596,5 +597,16 @@ describe('나눠 쓰는 재료는 한 끼에 한 단계씩 (V4-3)', () => {
     const tofu = newItemFromCatalog(findCatalog('두부')!, today, 't1');
     const s = reducer({ ...initialState(today), items: [tofu] }, { type: 'setPortion', id: 't1', portion: 'level' });
     expect(s.items[0].portion).toBe('level');
+  });
+});
+
+describe('처음 연 사람 (2026-11-09)', () => {
+  it('예시 재료 없이 빈 냉장고로 시작하고, 예시 재료로 되돌리기를 누르면 예시 재료가 들어온다', () => {
+    const s = freshState(today);
+    expect(s.items).toEqual([]);
+    expect(s.onboarding.introSeen).toBe(false);
+    const reset = reducer(s, { type: 'reset', today });
+    expect(reset.items.length).toBeGreaterThan(0);
+    expect(reset.items.every((i) => i.sample)).toBe(true);
   });
 });

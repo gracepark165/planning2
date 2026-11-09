@@ -424,7 +424,7 @@ textarea.post-input:focus{border-color:var(--accent)}
 .community-card{background:var(--accent-bg)}
 .cc-snip{margin:8px 0 6px;font-size:14px;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:keep-all}
 .cc-by{font-size:12px;color:var(--sub)}
-.cc-by .tag{margin-left:4px;font-size:11px;padding:1px 6px}
+.cc-by .tag{margin-left:4px;font-size:11px;padding:1px 6px;white-space:nowrap;display:inline-block}
 .duo-card .go{margin-top:auto;padding-top:8px;font-size:13px;font-weight:700;color:var(--accent)}
 /* 냉장고 맨 위: 이번 주 공감 랭킹 */
 .ranking{padding:16px 16px 10px}

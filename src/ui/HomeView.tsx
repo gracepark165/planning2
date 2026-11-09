@@ -468,9 +468,12 @@ export function HomeView({
       {/* 맨 아래까지 스크롤하면 마지막 줄이 + 버튼·하단 탭에 가리지 않게 */}
       <div className="fab-space" aria-hidden="true" />
       {folderPop}
-      <button className={`fab ${fabHidden ? 'hide' : ''}`} onClick={onAdd} tabIndex={fabHidden ? -1 : 0}>
-        + 재료 추가
-      </button>
+      {/* 냉장고가 비었으면 안내 카드에 재료 추가 버튼이 있으니 떠 있는 버튼은 숨긴다 */}
+      {items.length > 0 && (
+        <button className={`fab ${fabHidden ? 'hide' : ''}`} onClick={onAdd} tabIndex={fabHidden ? -1 : 0}>
+          + 재료 추가
+        </button>
+      )}
     </>
   );
 }

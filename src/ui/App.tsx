@@ -10,7 +10,7 @@ import type { PinnedMeal, Recipe } from '../rules/types';
 import { loadState, saveState } from '../state/persist';
 import { withMyFoods } from '../state/myFoods';
 import {
-  initialState,
+  freshState,
   newItemFromPick,
   reducer,
   showIntro,
@@ -44,7 +44,7 @@ interface Toast {
 
 export function App() {
   const today = todayKey();
-  const [state, dispatch] = useReducer(reducer, today, (t) => loadState() ?? initialState(t));
+  const [state, dispatch] = useReducer(reducer, today, (t) => loadState() ?? freshState(t));
   const [screen, setScreen] = useState<Screen>('home');
   const [prevScreen, setPrevScreen] = useState<Screen>('home');
   /** 홈 화면에 추가하는 방법에서 뒤로 갈 곳 (홈 카드 또는 알림 시간 설정) */
@@ -281,6 +281,8 @@ export function App() {
           go('order');
         }}
         onRelocate={(id, location) => dispatch({ type: 'setLocation', id, location })}
+        onOrder={() => go('order')}
+        onAdd={() => go('add')}
         onProfile={() => openCommunity({ view: 'profile' })}
         onCommunity={() => openCommunity({ view: 'feed' })}
       />

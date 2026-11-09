@@ -123,6 +123,15 @@ export function initialState(today: DateKey): AppState {
   };
 }
 
+/**
+ * 처음 연 사람의 상태 (2026-11-09, 사용자 요청: 예시 재료 없이 빈 냉장고로 시작).
+ * 예시 재료는 "예시 재료로 되돌리기"(reset)를 누를 때만 들어간다.
+ */
+export function freshState(today: DateKey): AppState {
+  const s = initialState(today);
+  return { ...s, items: [], onboarding: { ...s.onboarding, mode: 'mine' } };
+}
+
 /** 기록 한 줄. 기록할 때 재료 상태를 같이 남긴다 (이번 주 요약용) */
 const logOf = (item: Item, action: MealLog['action'], today: DateKey, at: string): MealLog => ({
   itemId: item.id,
