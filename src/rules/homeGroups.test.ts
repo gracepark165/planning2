@@ -78,7 +78,7 @@ describe('종류별 대표 그림 (2026-11-09)', () => {
   it('사전에 없는 재료는 종류 그림, 사전 재료는 제 그림이나 이모지', () => {
     expect(imageOf(undefined, 'sauce')).toBe('/ingredients/kind-sauce.png');
     expect(imageOf(findCatalog('까나리액젓'), 'sauce')).toBe('/ingredients/sand-lance-sauce.png');
-    expect(imageOf(findCatalog('사과'))).toBeUndefined(); // 🍎 이모지가 더 정확
+    expect(imageOf(findCatalog('키위'))).toBeUndefined(); // 그림이 없는 사전 재료는 🥝 이모지가 더 정확
     expect(imageOf(undefined)).toBeUndefined();
   });
 
