@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SUBSTITUTES } from '../data';
 import { addDays } from './date';
-import { adaptRecipe } from './recipeAdapt';
+import { adaptRecipe, adaptRecipeVariants } from './recipeAdapt';
 import type { Item, Recipe } from './types';
 
 const today = '2026-11-09';
@@ -33,5 +33,19 @@ describe('레시피 재료를 냉장고 재료로 맞추기 (2026-11-09)', () =>
 
   it('묶음에 없는 재료는 그대로 (대파 ↔ 양파는 바꾸지 않는다)', () => {
     expect(adaptRecipe(rec('파무침', ['대파']), [item('양파', 4)], SUBSTITUTES, today).uses).toEqual(['대파']);
+  });
+
+  it('다른 낱말의 일부(마파두부의 두부)는 이름을 바꾸지 않는다', () => {
+    expect(adaptRecipe(rec('마파두부', ['두부']), [item('부침두부', 3)], SUBSTITUTES, today)).toMatchObject({ name: '마파두부', uses: ['부침두부'] });
+  });
+
+  it('후보가 여럿이면 급한 순으로 갈래를 만든다 (앞 끼니가 하나를 쓰면 다음 끼니는 다른 것으로)', () => {
+    const v = adaptRecipeVariants(rec('두부조림', ['두부']), [item('연두부', 5), item('부침두부', 2)], SUBSTITUTES, today);
+    expect(v.map((r) => r.uses[0])).toEqual(['부침두부', '연두부']);
+  });
+
+  it('사야 할 재료도 냉장고에 같은 묶음 재료가 있으면 그걸로', () => {
+    const r = adaptRecipe({ name: '두부 김치찌개', uses: ['피코크 김치찌개'], keeps: [], buy: ['두부'] }, [item('피코크 김치찌개', 3), item('부침두부', 3)], SUBSTITUTES, today);
+    expect(r.buy).toEqual(['부침두부']);
   });
 });

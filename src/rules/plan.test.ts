@@ -14,6 +14,7 @@ import {
   fitPin,
   lostMealsText,
   minMealsToUseLost,
+  noMenuFor,
   makePlan,
   minMealsToCover,
   reasonOf,
@@ -512,5 +513,20 @@ describe('실제 레시피 목록 (2026-11-09 확장)', () => {
       expect(r.url, r.name).toMatch(/^https:\/\/(www\.youtube\.com\/watch\?v=|www\.10000recipe\.com\/recipe\/)/);
     }
     expect(new Set(ALL_RECIPES.map((r) => r.name)).size).toBe(ALL_RECIPES.length);
+  });
+});
+
+describe('사용자 제보 (2026-11-09): D-7 재료 7개가 모두 못 쓰는 재료로 나옴', () => {
+  const t = '2026-11-09';
+  const it7 = (name: string) => item(name, 0, 0, { enteredAt: t, expiresAt: addDays(t, 7), group: findCatalog(name)?.group });
+  const fridge = ['부침두부', '게맛살', '어묵', '도토리묵', '연두부', '피코크 김치찌개', '생크림'].map(it7);
+
+  it('집밥 7번이면 모두 쓴다 (두부조림은 연두부로도 만든다)', () => {
+    const plan = planOf({ mealsPerWeek: 7 });
+    expect(summarizePlan(makePlan(fridge, ALL_RECIPES, plan, t), fridge, plan, t).lost).toEqual([]);
+  });
+
+  it('쓰는 메뉴가 없는 재료를 알려준다', () => {
+    expect(noMenuFor(['도토리묵', '아무재료'], fridge, ALL_RECIPES, t)).toEqual(['아무재료']);
   });
 });

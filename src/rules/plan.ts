@@ -123,7 +123,9 @@ function build(
     }
     cands.sort((a, b) => a.minLeft - b.minLeft || b.soon - a.soon || b.score - a.score);
     // 같은 메뉴(이름)는 앞으로 7일에 한 번만 (V4-1a). 반복을 막아 빈 칸이 생기면 AI 메뉴 제안이 채운다
-    const fresh = cands.filter((c) => !picked.has(c.r.name));
+    // 같은 메뉴의 갈래(두부조림을 부침두부로·연두부로)는 그날 가장 앞선 하나만 (recipeAdapt)
+    const seen = new Set<string>();
+    const fresh = cands.filter((c) => !picked.has(c.r.name) && !seen.has(c.r.name) && seen.add(c.r.name));
     return [...fresh.filter((c) => c.r.uses.length), ...fresh.filter((c) => !c.r.uses.length)];
   };
 
@@ -424,4 +426,14 @@ export function lostMealsText(r: { meals: number; names: readonly string[]; all:
   return r.all
     ? `집밥을 ${r.meals}번으로 늘리면 모두 먹을 수 있어요.`
     : `집밥을 ${r.meals}번으로 늘리면 ${r.names.join(', ')}${eul(r.names.at(-1) ?? '')} 먹을 수 있어요.`;
+}
+
+/**
+ * 못 쓰는 재료 중 어떤 메뉴에도 안 들어가는 재료 (레시피 목록에 쓰는 메뉴가 없음).
+ * 집밥을 늘려도 못 먹는 이유를 알려줄 때 쓴다. AI 메뉴 제안이 켜져 있으면 빈 칸에서 채운다.
+ */
+export function noMenuFor(names: readonly string[], items: readonly Item[], recipes: readonly Recipe[], today: DateKey): string[] {
+  const all = adaptRecipes(recipes, items, SUBSTITUTES, today);
+  const used = new Set(all.flatMap((r) => [...r.uses, ...r.keeps, ...r.buy]));
+  return names.filter((n) => !used.has(n));
 }

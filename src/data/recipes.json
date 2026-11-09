@@ -9,7 +9,7 @@
     {"name": "삼겹살 구이", "uses": ["삼겹살"], "keeps": ["대파"], "buy": ["상추"]},
     {"name": "베이컨 계란볶음밥", "uses": ["삼겹 베이컨", "대파"], "keeps": ["계란", "양파"], "buy": []},
     {"name": "닭다리살 구이", "uses": ["닭다리살"], "keeps": [], "buy": ["상추"]},
-    {"name": "두부 김치찌개", "uses": ["피코크 김치찌개", "두부"], "keeps": ["대파"], "buy": []},
+    {"name": "두부 김치찌개", "uses": ["피코크 김치찌개"], "keeps": [], "buy": ["두부", "대파"]},
     {"name": "닭가슴살 볶음밥", "uses": ["닭가슴살"], "keeps": ["계란", "대파"], "buy": []},
     {"name": "닭가슴살 카레", "uses": ["닭가슴살"], "keeps": ["양파", "카레가루"], "buy": ["감자"]},
     {"name": "닭가슴살 샐러드", "uses": ["닭가슴살"], "keeps": [], "buy": ["상추"]},
@@ -87,6 +87,7 @@
     {"name": "된장찌개", "uses": ["애호박"], "keeps": [], "buy": ["두부", "된장", "양파"], "by": "백종원", "url": "https://www.youtube.com/watch?v=ffuakdFmuh4"},
     {"name": "고추장찌개", "uses": ["감자"], "keeps": [], "buy": ["애호박", "고추장", "양파"], "by": "백종원", "url": "https://www.youtube.com/watch?v=B2s5seuBCn0"},
     {"name": "돼지고기 덮밥", "uses": ["돼지고기 불고기용"], "keeps": [], "buy": ["양파"], "by": "백종원", "url": "https://www.youtube.com/watch?v=5iRPP3nqCJE"},
-    {"name": "시금치나물 비빔밥", "uses": ["시금치"], "keeps": [], "buy": ["계란"], "by": "백종원", "url": "https://www.youtube.com/watch?v=tD8ApzPsDx8"}
+    {"name": "시금치나물 비빔밥", "uses": ["시금치"], "keeps": [], "buy": ["계란"], "by": "백종원", "url": "https://www.youtube.com/watch?v=tD8ApzPsDx8"},
+    {"name": "도토리묵 상추무침", "uses": ["도토리묵"], "keeps": [], "buy": ["상추"], "by": "만개의레시피 인기", "url": "https://www.10000recipe.com/recipe/6855387"}
   ]
 }

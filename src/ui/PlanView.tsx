@@ -7,6 +7,7 @@ import {
   coverageText,
   lostMealsText,
   minMealsToUseLost,
+  noMenuFor,
   doneToday,
   minMealsToCover,
   reasonOf,
@@ -17,7 +18,7 @@ import {
 } from '../rules/plan';
 import { formatDate, formatDayLabel } from '../rules/date';
 import { frozenExpiry } from '../rules/expiry';
-import { eul, withJosa } from '../rules/josa';
+import { eul, eun, withJosa } from '../rules/josa';
 import { recentRange, recentSummary } from '../rules/recentSummary';
 import { shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
@@ -98,6 +99,12 @@ export function PlanView({
   const coverMeals = uncovered.length ? minMealsToCover(items, PLAN_RECIPES, plan, today) : null;
   // 이번에 못 쓰는 재료: 집밥을 늘리면 먹을 수 있는지, 냉동하면 얼마나 늘어나는지 (2026-11-09)
   const lostMeals = lost.length ? minMealsToUseLost(items, PLAN_RECIPES, plan, today) : null;
+  // 집밥을 늘려도 못 먹을 때: 쓰는 메뉴가 아예 없는 재료면 그렇게 알려준다
+  const lostTip = (names: string[]) => {
+    const none = noMenuFor([...new Set(names)], items, PLAN_RECIPES, today);
+    if (!none.length) return plan.mealsPerWeek >= 7 ? '집밥 7번이 다 찼어요. 따로 챙겨 드세요.' : '앞으로 7일 메뉴로는 쓰기 어려워요. 따로 챙겨 드세요.';
+    return `${withJosa(none.join(', '), eun)} 아직 쓰는 메뉴가 없어요. 따로 챙겨 드세요.`;
+  };
   const [frozen, setFrozen] = useState<{ id: string; name: string; from: Location; until: DateKey } | null>(null);
 
   const dayHead = (slot: PlanSlot) => (
@@ -347,7 +354,7 @@ export function PlanView({
                   .join(', ')}
               </p>
               <p className="lost-tip">
-                {lostMeals ? lostMealsText(lostMeals) : '앞으로 7일 메뉴로는 쓰기 어려워요. 따로 챙겨 드세요.'}
+                {lostMeals ? lostMealsText(lostMeals) : lostTip(lost.map((i) => i.name))}
               </p>
               {lostMeals && (
                 <button className="small-btn main" onClick={() => onMeals(lostMeals.meals)}>
