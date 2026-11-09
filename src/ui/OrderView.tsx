@@ -306,6 +306,16 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
         예시 주문 화면으로 해볼게요<small>실제 인식 없이 정해진 결과가 나와요</small>
       </button>
 
+      <p className="note">사진은 AI가 읽어요. AI를 쓸 수 없을 때는 예시 결과를 보여드려요.</p>
+
+      {/* 2026-11-09 사용자 요청: 사진 찍어서 올리기를 글 입력 위로, 읽어볼게요는 맨 아래 */}
+      <div className="eyebrow" style={{ marginTop: 28 }}>
+        사진 찍어서 올리기
+      </div>
+      <button className="sample-btn" onClick={onPickCatalog}>
+        재료를 직접 골라서 담을게요<small>제품을 찍어 올리거나, 목록에서 골라 담아요</small>
+      </button>
+
       <div className="eyebrow" style={{ marginTop: 28 }}>
         글로 입력해서 올리기
       </div>
@@ -317,18 +327,13 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
         onChange={(e) => setText(e.target.value)}
         aria-label="장 본 재료를 글로 입력"
       />
-      <button className="cta" style={{ marginTop: 8 }} disabled={!text.trim()} onClick={() => void readText()}>
-        읽어볼게요
-      </button>
       <p className="note">
         쉼표나 줄바꿈으로 나눠 적어요. “소분”이라고 쓰면 나눠 둔 재료로 넣고, 한 끼에 하나씩 써요. 읽은 결과는 넣기 전에 한 번
         보여드려요.
       </p>
-
-      <button className="sample-btn" style={{ marginTop: 20 }} onClick={onPickCatalog}>
-        재료를 직접 골라서 담을게요<small>사진 없이 고르기만 하면 돼요</small>
+      <button className="cta" style={{ marginTop: 12 }} disabled={!text.trim()} onClick={() => void readText()}>
+        읽어볼게요
       </button>
-      <p className="note">사진은 AI가 읽어요. AI를 쓸 수 없을 때는 예시 결과를 보여드려요.</p>
     </>
   );
 }
