@@ -14,6 +14,7 @@ import {
   fitPin,
   lostMealsText,
   minMealsToUseLost,
+  mealRecipe,
   noMenuFor,
   makePlan,
   minMealsToCover,
@@ -508,7 +509,8 @@ describe('실제 레시피 목록 (2026-11-09 확장)', () => {
   it('확장한 레시피는 모두 출처(만든 사람·주소)가 있고, 이름이 겹치지 않는다', () => {
     const added = ALL_RECIPES.filter((r) => !PROTO_RECIPES.includes(r) && r.name !== '닭다리살 구이');
     expect(added.length).toBeGreaterThanOrEqual(60);
-    for (const r of added) {
+    // 출처 없이 넣은 기본 반찬(연두부 양념장)은 빼고 본다
+    for (const r of added.filter((x) => !(x.side && !x.by))) {
       expect(r.by, r.name).toBeTruthy();
       expect(r.url, r.name).toMatch(/^https:\/\/(www\.youtube\.com\/watch\?v=|www\.10000recipe\.com\/recipe\/)/);
     }
@@ -520,6 +522,23 @@ describe('사용자 제보 (2026-11-09): D-7 재료 7개가 모두 못 쓰는 �
   const t = '2026-11-09';
   const it7 = (name: string) => item(name, 0, 0, { enteredAt: t, expiresAt: addDays(t, 7), group: findCatalog(name)?.group });
   const fridge = ['부침두부', '게맛살', '어묵', '도토리묵', '연두부', '피코크 김치찌개', '생크림'].map(it7);
+
+  it('집밥 4번이어도 반찬으로 곁들여 모두 쓴다 (한국 밥상은 메인 + 반찬)', () => {
+    const plan = planOf({ mealsPerWeek: 4 });
+    const r = makePlan(fridge, ALL_RECIPES, plan, t);
+    expect(summarizePlan(r, fridge, plan, t).lost).toEqual([]);
+    const sides = r.slots.flatMap((s) => (s.sides ?? []).map((x) => x.name));
+    expect(sides).toEqual(expect.arrayContaining(['연두부 양념장', '도토리묵 상추무침']));
+    // 한 끼에 반찬은 2개까지, 반찬이 적은 끼니부터 붙인다
+    for (const s of r.slots) expect((s.sides ?? []).length).toBeLessThanOrEqual(2);
+  });
+
+  it('확정하면 반찬 재료까지 함께 뺀다 (이름은 메인)', () => {
+    const slot = makePlan(fridge, ALL_RECIPES, planOf({ mealsPerWeek: 4 }), t).slots.find((s) => s.sides?.length)!;
+    const meal = mealRecipe(slot)!;
+    expect(meal.name).toBe(slot.recipe!.name);
+    expect(meal.uses).toEqual(expect.arrayContaining([...slot.recipe!.uses, ...slot.sides!.flatMap((x) => x.uses)]));
+  });
 
   it('집밥 7번이면 모두 쓴다 (두부조림은 연두부로도 만든다)', () => {
     const plan = planOf({ mealsPerWeek: 7 });

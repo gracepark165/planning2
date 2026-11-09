@@ -214,6 +214,10 @@ export interface Recipe {
   /** 레시피 출처 (2026-11-09): 만든 사람(흑백요리사 셰프 등)과 영상·글 주소 */
   by?: string;
   url?: string;
+  /** 반찬 (2026-11-09): 한 끼의 메인에 곁들여 남는 재료를 같이 먹는다. 메인 후보로는 다른 메인 뒤에 */
+  side?: boolean;
+  /** 냉장고 재료에 맞춰 대체 묶음 재료로 바꾼 갈래 (recipeAdapt) */
+  adapted?: boolean;
 }
 
 export interface Retailer {

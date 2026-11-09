@@ -35,6 +35,29 @@ export interface PlanSlot {
   pinned?: PinnedMeal;
   /** AI가 제안한 메뉴 칸 (V4-1b): 화면에 "AI 제안" 태그와 한 줄 만드는 법 */
   ai?: { howto: string };
+  /** 같이 먹을 반찬 (2026-11-09, 사용자 요청: 한국 밥상은 메인 + 반찬) */
+  sides?: Recipe[];
+}
+
+/** 한 끼에 붙이는 반찬 수 상한 */
+export const MAX_SIDES = 2;
+
+/** 그 끼니의 메인과 반찬 */
+export const mealParts = (slot: Pick<PlanSlot, 'recipe' | 'sides'>): Recipe[] =>
+  slot.recipe ? [slot.recipe, ...(slot.sides ?? [])] : [];
+
+/** 확정할 때 쓰는 한 끼: 메인 이름으로, 반찬 재료까지 함께 뺀다 */
+export function mealRecipe(slot: Pick<PlanSlot, 'recipe' | 'sides'>): Recipe | null {
+  if (!slot.recipe) return null;
+  if (!slot.sides?.length) return slot.recipe;
+  const parts = mealParts(slot);
+  const uniq = (xs: string[]) => [...new Set(xs)];
+  return {
+    ...slot.recipe,
+    uses: uniq(parts.flatMap((r) => r.uses)),
+    keeps: uniq(parts.flatMap((r) => r.keeps)),
+    buy: uniq(parts.flatMap((r) => r.buy)),
+  };
 }
 
 export interface PlanResult {
@@ -126,7 +149,12 @@ function build(
     // 같은 메뉴의 갈래(두부조림을 부침두부로·연두부로)는 그날 가장 앞선 하나만 (recipeAdapt)
     const seen = new Set<string>();
     const fresh = cands.filter((c) => !picked.has(c.r.name) && !seen.has(c.r.name) && seen.add(c.r.name));
-    return [...fresh.filter((c) => c.r.uses.length), ...fresh.filter((c) => !c.r.uses.length)];
+    // 메인 → 반찬(메인 후보가 없을 때만 메인으로) → 쓰는 재료 없는 가벼운 끼니
+    return [
+      ...fresh.filter((c) => c.r.uses.length && !c.r.side),
+      ...fresh.filter((c) => c.r.uses.length && c.r.side),
+      ...fresh.filter((c) => !c.r.uses.length),
+    ];
   };
 
   const slots: PlanSlot[] = [];
@@ -190,8 +218,36 @@ function build(
   eatPinsBefore(WEEK_DAYS);
   slots.sort((a, b) => a.dayOffset - b.dayOffset);
 
+  // 3) 반찬: 메인에 안 들어가 남을 재료(7일 안에 끝나거나 잊혀지는 중)를 반찬으로 끼니에 곁들인다.
+  //    급한 재료부터, 그 재료가 끝나기 전 가장 빠른 끼니에, 한 끼에 반찬 2개까지. 같은 반찬은 한 번만
+  // 그 재료로 적힌 반찬을 먼저, 대체 묶음으로 맞춘 반찬은 뒤에 (연두부 → 연두부 양념장이 연두부조림보다 먼저)
+  const sides = recipes
+    .filter((r) => r.side && r.uses.length && !plan.rejectedRecipes.includes(r.name))
+    .sort((a, b) => Number(!!a.adapted) - Number(!!b.adapted));
+  const meals = slots.filter((s) => s.recipe);
+  const targets = [...sim.values()]
+    .filter((e) => e.count - e.reserved > 0)
+    .filter((e) => daysLeft(e.item, today) <= LOST_WITHIN_DAYS || stateOf(e.item, today) === 'buried')
+    .sort((a, b) => daysLeft(a.item, today) - daysLeft(b.item, today));
+  for (const e of targets) {
+    const name = e.item.name;
+    for (const r of sides) {
+      if (picked.has(r.name) || !r.uses.includes(name) || !r.uses.every(free) || !r.keeps.every(present)) continue;
+      const last = Math.min(...r.uses.map(left));
+      // 반찬이 적은 끼니부터 (같으면 빠른 날)
+      const slot = meals
+        .filter((s) => s.dayOffset <= last && (s.sides?.length ?? 0) < MAX_SIDES)
+        .sort((a, b) => (a.sides?.length ?? 0) - (b.sides?.length ?? 0) || a.dayOffset - b.dayOffset)[0];
+      if (!slot) continue;
+      slot.sides = [...(slot.sides ?? []), r];
+      picked.add(r.name);
+      for (const u of r.uses) sim.get(u)!.count -= 1;
+      break;
+    }
+  }
+
   const covered = new Set(
-    slots.flatMap((s) => s.recipe?.uses ?? []).filter((u) => {
+    slots.flatMap((s) => mealParts(s).flatMap((r) => r.uses)).filter((u) => {
       const it = findItem(items, u, today);
       return it !== undefined && stateOf(it, today) === 'soon';
     }),
@@ -289,7 +345,7 @@ export function pantryNames(recipes: readonly Recipe[]): Set<string> {
 
 /** 플랜이 쓰지 못하고 남는 얼른 먹어야 할 재료 이름 (중복 없이, 급한 순) */
 export function uncoveredSoon(result: PlanResult, items: readonly Item[], today: DateKey): string[] {
-  const used = new Set(result.slots.flatMap((s) => (s.recipe ? s.recipe.uses : [])));
+  const used = new Set(result.slots.flatMap((s) => mealParts(s).flatMap((r) => r.uses)));
   const soon = items
     .filter((i) => stateOf(i, today) === 'soon' && !used.has(i.name))
     .sort((a, b) => daysLeft(a, today) - daysLeft(b, today));
@@ -370,7 +426,7 @@ export interface PlanSummary {
 export const LOST_WITHIN_DAYS = 7;
 
 export function summarizePlan(result: PlanResult, items: readonly Item[], plan: Plan, today: DateKey): PlanSummary {
-  const picked = result.slots.flatMap((s) => (s.recipe ? [s.recipe] : []));
+  const picked = result.slots.flatMap(mealParts);
   const used = new Set(picked.flatMap((r) => r.uses));
   const owned = new Set(items.map((i) => i.name));
   // 사야 할 재료로 적힌 것(양파·대파 등 곁들이)도 냉장고에 있으면 그 끼니에 쓰는 것으로 본다 (2026-11-09)

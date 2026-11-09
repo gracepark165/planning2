@@ -1,9 +1,9 @@
 // 홈의 오늘의 한 끼 (B-2): 이번 주 플랜의 오늘 끼니를 그대로 보여준다.
 // 버튼은 이번 주 화면과 같은 동작이다 (이걸로 할게요 = 확정, 다른 메뉴 = 바꾸기, 되돌리기 = 확정 취소).
 
-import { reasonOf, type TodayMeal } from '../rules/plan';
+import { mealRecipe, reasonOf, type TodayMeal } from '../rules/plan';
 import type { DateKey, Item, Recipe } from '../rules/types';
-import { UseTag, RecipeSource } from './parts';
+import { UseTag, RecipeSource, SideDishes } from './parts';
 
 interface Props {
   meal: TodayMeal;
@@ -71,8 +71,9 @@ export function TodayCard({ meal, items, today, onConfirm, onSwap, onUndo, onPla
           ))}
         </div>
       )}
+      <SideDishes sides={slot.sides} items={items} today={today} />
       <div className="meal-acts">
-        <button className="small-btn main" onClick={() => onConfirm(slot.recipe)}>
+        <button className="small-btn main" onClick={() => onConfirm(mealRecipe(slot)!)}>
           이걸로 할게요
         </button>
         {slot.candidateCount > 1 && (

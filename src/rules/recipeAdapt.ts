@@ -56,7 +56,7 @@ export function adaptRecipeVariants(recipe: Recipe, items: readonly Item[], tabl
     const same = c.every((n, k) => n === all[k]) && buy.every((b, k) => b === recipe.buy[k]);
     if (same) return recipe;
     const name = c.reduce((acc, n, k) => (n === all[k] ? acc : rename(acc, all[k], n)), recipe.name);
-    return { ...recipe, name, uses: c.slice(0, recipe.uses.length), keeps: c.slice(recipe.uses.length), buy };
+    return { ...recipe, name, uses: c.slice(0, recipe.uses.length), keeps: c.slice(recipe.uses.length), buy, adapted: true };
   });
 }
 

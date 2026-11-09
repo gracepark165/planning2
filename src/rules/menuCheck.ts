@@ -15,7 +15,7 @@ import type { MenuAiItem, MenuRequest } from '../../api/read';
 import { canonicalName } from '../data';
 import { BASIC_SEASONINGS } from './constants';
 import { daysBetween } from './date';
-import { LOST_WITHIN_DAYS, doneToday, findItem, type PlanResult, type PlanSlot } from './plan';
+import { LOST_WITHIN_DAYS, doneToday, findItem, mealParts, type PlanResult, type PlanSlot } from './plan';
 import { portionOf } from './portion';
 import { daysLeft, stateOf } from './status';
 import type { DateKey, Item, Plan, SubstituteTable } from './types';
@@ -35,7 +35,7 @@ const nameKey = (n: string) => n.replace(/\s+/g, '');
 /** AI에게 맡길 칸. 맡길 게 없거나(다 채워졌고 못 쓰는 재료도 없음) 남은 재고가 없으면 null */
 export function menuTargets(result: PlanResult, items: readonly Item[], today: DateKey): MenuTargets | null {
   if (!result.leftover.some((e) => e.count > 0)) return null;
-  const inMeals = new Set(result.slots.flatMap((s) => (s.recipe ? [...s.recipe.uses, ...s.recipe.keeps] : [])));
+  const inMeals = new Set(result.slots.flatMap((s) => mealParts(s).flatMap((r) => [...r.uses, ...r.keeps])));
   const left = new Set(result.leftover.filter((e) => e.count > 0).map((e) => e.item.name));
   const lost = items
     .filter((i) => left.has(i.name) && !inMeals.has(i.name))

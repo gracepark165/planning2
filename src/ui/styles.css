@@ -357,3 +357,10 @@ textarea.text-input:focus{border-color:var(--accent)}
 .freeze-done .small-btn{white-space:nowrap;min-height:40px}
 /* 레시피 출처 (2026-11-09) */
 .recipe-src{display:inline-flex;align-items:center;min-height:32px;margin-top:2px;font-size:13px;font-weight:600;color:var(--accent);text-decoration:none}
+/* 같이 먹을 반찬 (2026-11-09) */
+.sides{margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--card)}
+.sides-h{font-size:12px;font-weight:700;color:var(--sub);margin-bottom:4px}
+.side + .side{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.side-nm{font-size:15px;font-weight:700}
+.side .tags{margin-top:4px}
+.card .sides{background:var(--bg)}

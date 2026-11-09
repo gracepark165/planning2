@@ -7,7 +7,7 @@ import { addDays, daysBetween } from '../rules/date';
 import { emojiOf, imageOf } from '../rules/emoji';
 import { findItem } from '../rules/plan';
 import { dDayLabel, daysLeft, stateOf } from '../rules/status';
-import type { CatalogEntry, Core, DateKey, Item, ItemState } from '../rules/types';
+import type { CatalogEntry, Core, DateKey, Item, ItemState, Recipe } from '../rules/types';
 
 /** 재료 그림: 사전에 그림이 있으면 그림, 없으면 이모지 */
 export function FoodIcon({ entry, core }: { entry: CatalogEntry | undefined; core: Core }) {
@@ -102,5 +102,34 @@ export function RecipeSource({ recipe }: { recipe: { by?: string; url?: string }
     </a>
   ) : (
     <div className="recipe-src">{label}</div>
+  );
+}
+
+/** 같이 먹을 반찬 (2026-11-09): 메인에 곁들여 남는 재료를 같이 먹는다 */
+export function SideDishes({ sides, items, today }: { sides?: Recipe[]; items: Item[]; today: DateKey }) {
+  if (!sides?.length) return null;
+  const owned = new Set(items.map((i) => i.name));
+  return (
+    <div className="sides">
+      <div className="sides-h">같이 먹을 반찬</div>
+      {sides.map((r) => (
+        <div key={r.name} className="side">
+          <div className="side-nm">{r.name}</div>
+          <div className="tags">
+            {r.uses.map((n) => (
+              <UseTag key={n} name={n} items={items} today={today} />
+            ))}
+            {r.buy
+              .filter((n) => !owned.has(n))
+              .map((n) => (
+                <span key={n} className="tag buy">
+                  사야 해요 · {n}
+                </span>
+              ))}
+          </div>
+          <RecipeSource recipe={r} />
+        </div>
+      ))}
+    </div>
   );
 }

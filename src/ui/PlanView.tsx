@@ -5,6 +5,7 @@ import { PLAN_RECIPES, findCatalog } from '../data';
 import { MAX_MEALS_PER_WEEK, MIN_MEALS_PER_WEEK, STATE_META } from '../rules/constants';
 import {
   coverageText,
+  mealRecipe,
   lostMealsText,
   minMealsToUseLost,
   noMenuFor,
@@ -25,7 +26,7 @@ import { dDayLabel, daysLeft } from '../rules/status';
 import type { DateKey, Item, Location, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
 import type { AiSlot } from '../rules/menuCheck';
 import { AI_DAILY_LIMIT, type AiSlotState } from '../state/aiMenu';
-import { RecipeSource, Tile, UseTag } from './parts';
+import { RecipeSource, SideDishes, Tile, UseTag } from './parts';
 
 const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
 
@@ -258,6 +259,7 @@ export function PlanView({
                       </span>
                     ))}
                 </div>
+                <SideDishes sides={slot.sides} items={items} today={today} />
                 {aiSwapping === slot.index ? (
                   <div className="ai-skeleton">
                     다른 메뉴를 찾고 있어요
@@ -265,7 +267,7 @@ export function PlanView({
                   </div>
                 ) : (
                 <div className="meal-acts">
-                  <button className="small-btn main" onClick={() => onConfirm(slot.recipe!)}>
+                  <button className="small-btn main" onClick={() => onConfirm(mealRecipe(slot)!)}>
                     이걸로 할게요
                   </button>
                   {slot.candidateCount > 1 && (
