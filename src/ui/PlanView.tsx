@@ -24,7 +24,7 @@ import { dDayLabel, daysLeft } from '../rules/status';
 import type { DateKey, Item, Location, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
 import type { AiSlot } from '../rules/menuCheck';
 import { AI_DAILY_LIMIT, type AiSlotState } from '../state/aiMenu';
-import { Tile, UseTag } from './parts';
+import { RecipeSource, Tile, UseTag } from './parts';
 
 const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEEK + 1 }, (_, i) => MIN_MEALS_PER_WEEK + i);
 
@@ -229,6 +229,7 @@ export function PlanView({
                   {slot.ai && <span className="tag ai">AI 제안</span>}
                 </div>
                 {slot.ai?.howto && <div className="ai-howto">{slot.ai.howto}</div>}
+                <RecipeSource recipe={slot.recipe} />
                 {/* 배치 이유는 AI가 아니라 실제 재고로 규칙이 만든다 */}
                 <div style={{ color: 'var(--sub)', fontSize: 13, marginTop: 2 }}>
                   {reasonOf(slot.recipe, items, today)}

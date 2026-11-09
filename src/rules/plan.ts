@@ -13,7 +13,9 @@
 // - 고른 레시피의 쓰는 재료는 시뮬레이션 재고에서 뺀다 (소분 품목은 한 끼에 1개씩)
 // - "바꾸기"는 같은 끼니의 다음 후보로 넘긴다
 
+import { SUBSTITUTES } from '../data';
 import { MAX_MEALS_PER_WEEK } from './constants';
+import { adaptRecipes } from './recipeAdapt';
 import { addDays } from './date';
 import { eul, iga } from './josa';
 import { mealsLeft, portionOf } from './portion';
@@ -81,6 +83,8 @@ function build(
   pinDays: ReadonlyMap<PinnedMeal, number>,
   regularCount: number,
 ): Built {
+  // 레시피의 대표 재료를 냉장고에 있는 같은 묶음 재료로 맞춘다 (제육용 → 돼지고기 앞다리살)
+  recipes = adaptRecipes(recipes, items, SUBSTITUTES, today);
   // 이름 → { 가장 급한 재료, 남은 끼니 수, 고정 끼니가 맡아 둔 수 }
   const sim = new Map<string, { item: Item; count: number; reserved: number }>();
   for (const i of items) {
@@ -366,8 +370,9 @@ export const LOST_WITHIN_DAYS = 7;
 export function summarizePlan(result: PlanResult, items: readonly Item[], plan: Plan, today: DateKey): PlanSummary {
   const picked = result.slots.flatMap((s) => (s.recipe ? [s.recipe] : []));
   const used = new Set(picked.flatMap((r) => r.uses));
-  const kept = new Set(picked.flatMap((r) => r.keeps));
   const owned = new Set(items.map((i) => i.name));
+  // 사야 할 재료로 적힌 것(양파·대파 등 곁들이)도 냉장고에 있으면 그 끼니에 쓰는 것으로 본다 (2026-11-09)
+  const kept = new Set(picked.flatMap((r) => [...r.keeps, ...r.buy.filter((n) => owned.has(n))]));
 
   const soonNow = items.filter((i) => stateOf(i, today) === 'soon');
   const doneSoon = doneToday(plan, today).reduce((a, d) => a + d.soonUsed.length, 0);

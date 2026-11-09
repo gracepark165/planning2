@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG, PLAN_RECIPES, findCatalog } from '../data';
+import { CATALOG, PLAN_RECIPES as ALL_RECIPES, findCatalog } from '../data';
+import { PROTO_RECIPES } from '../test/protoRecipes';
+// 알고리즘 검사는 레시피 확장(2026-11-09) 전 프로토타입 목록으로 고정한다. 실제 목록 검사는 맨 아래.
+const PLAN_RECIPES = PROTO_RECIPES;
 import { parseTextInput } from './textInput';
 import { draftFromParsed, draftToItem } from '../state/textDraft';
 import { makeSampleInventory } from '../data/sampleInventory';
@@ -483,5 +486,31 @@ describe('못 쓰는 재료를 먹으려면 (2026-11-09)', () => {
 
   it('일부만 먹을 수 있으면 그 재료 이름으로', () => {
     expect(lostMealsText({ meals: 5, names: ['삼겹살'], all: false })).toBe('집밥을 5번으로 늘리면 삼겹살을 먹을 수 있어요.');
+  });
+});
+
+describe('실제 레시피 목록 (2026-11-09 확장)', () => {
+  it('샘플 재고·집밥 4번: 얼른 먹어야 할 재료를 모두 쓰고, 같은 메뉴는 한 번만', () => {
+    const plan = planOf({ mealsPerWeek: 4 });
+    const r = makePlan(inv, ALL_RECIPES, plan, today);
+    expect(uncoveredSoon(r, inv, today)).toEqual([]);
+    const named = r.slots.flatMap((s) => (s.recipe ? [s.recipe.name] : []));
+    expect(named).toHaveLength(4);
+    expect(new Set(named).size).toBe(4);
+  });
+
+  it('샘플 재고·집밥 7번: 이번에 못 쓰는 재료가 없다', () => {
+    const plan = planOf({ mealsPerWeek: 7 });
+    expect(summarizePlan(makePlan(inv, ALL_RECIPES, plan, today), inv, plan, today).lost).toEqual([]);
+  });
+
+  it('확장한 레시피는 모두 출처(만든 사람·주소)가 있고, 이름이 겹치지 않는다', () => {
+    const added = ALL_RECIPES.filter((r) => !PROTO_RECIPES.includes(r) && r.name !== '닭다리살 구이');
+    expect(added.length).toBeGreaterThanOrEqual(60);
+    for (const r of added) {
+      expect(r.by, r.name).toBeTruthy();
+      expect(r.url, r.name).toMatch(/^https:\/\/(www\.youtube\.com\/watch\?v=|www\.10000recipe\.com\/recipe\/)/);
+    }
+    expect(new Set(ALL_RECIPES.map((r) => r.name)).size).toBe(ALL_RECIPES.length);
   });
 });

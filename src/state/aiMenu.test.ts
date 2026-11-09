@@ -1,6 +1,7 @@
+import { PROTO_RECIPES } from '../test/protoRecipes';
 import { describe, expect, it } from 'vitest';
 import type { MenuAiItem, MenuRequest } from '../../api/read';
-import { CATALOG, PLAN_RECIPES, SUBSTITUTES, findCatalog } from '../data';
+import { CATALOG, SUBSTITUTES, findCatalog } from '../data';
 import { buildMenuRequest, menuTargets, withAiMenus } from '../rules/menuCheck';
 import { makePlan, summarizePlan } from '../rules/plan';
 import { parseTextInput } from '../rules/textInput';
@@ -12,7 +13,7 @@ const today = '2026-10-30';
 const REPRO = '닭가슴살 세봉지 소분, 계란 10구 지난주에 산거, 우유 반쯤 남음\n두부 1모, 김치 1통, 애호박 1개, 방울토마토 1팩';
 const items = parseTextInput(REPRO, CATALOG).map((l, k) => draftToItem(draftFromParsed(l, `r${k}`, today, findCatalog), today, `r${k}`, findCatalog));
 const plan = { ...emptyPlan(), mealsPerWeek: 4 };
-const result = makePlan(items, PLAN_RECIPES, plan, today);
+const result = makePlan(items, PROTO_RECIPES, plan, today); // 시나리오 고정 (레시피 확장 전 목록)
 const req = buildMenuRequest(menuTargets(result, items, today)!, result, plan, today);
 
 const menu = (slotIndex: number, name: string, uses: string[]): MenuAiItem => ({ slotIndex, name, uses, keeps: [], buy: [], howto: '' });

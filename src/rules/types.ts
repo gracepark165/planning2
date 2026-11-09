@@ -211,6 +211,9 @@ export interface Recipe {
   keeps: string[];
   /** 사야 할 재료 */
   buy: string[];
+  /** 레시피 출처 (2026-11-09): 만든 사람(흑백요리사 셰프 등)과 영상·글 주소 */
+  by?: string;
+  url?: string;
 }
 
 export interface Retailer {

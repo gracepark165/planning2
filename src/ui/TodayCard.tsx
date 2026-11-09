@@ -3,7 +3,7 @@
 
 import { reasonOf, type TodayMeal } from '../rules/plan';
 import type { DateKey, Item, Recipe } from '../rules/types';
-import { UseTag } from './parts';
+import { UseTag, RecipeSource } from './parts';
 
 interface Props {
   meal: TodayMeal;
@@ -62,6 +62,7 @@ export function TodayCard({ meal, items, today, onConfirm, onSwap, onUndo, onPla
         {slot.ai && <span className="tag ai">AI 제안</span>}
       </h3>
       {slot.ai?.howto && <div className="ai-howto">{slot.ai.howto}</div>}
+      <RecipeSource recipe={slot.recipe} />
       <p>{reasonOf(slot.recipe, items, today)}</p>
       {slot.recipe.uses.length > 0 && (
         <div className="tags">

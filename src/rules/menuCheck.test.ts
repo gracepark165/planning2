@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { CATALOG, PLAN_RECIPES, SUBSTITUTES, findCatalog } from '../data';
+import { CATALOG, SUBSTITUTES, findCatalog } from '../data';
 import { draftFromParsed, draftToItem } from '../state/textDraft';
 import { emptyPlan } from '../state/store';
 import { addDays } from './date';
 import { buildMenuRequest, checkMenus, menuTargets, withAiMenus } from './menuCheck';
 import { makePlan } from './plan';
+import { PROTO_RECIPES } from '../test/protoRecipes';
 import { parseTextInput } from './textInput';
 import type { Item, Plan } from './types';
 
 const today = '2026-10-30';
 const planOf = (p: Partial<Plan>): Plan => ({ ...emptyPlan(), ...p });
+const RECIPES = PROTO_RECIPES; // 시나리오 고정 (레시피 확장 전 목록)
 // 수정명세 v4 재현 시나리오
 const REPRO = '닭가슴살 세봉지 소분, 계란 10구 지난주에 산거, 우유 반쯤 남음\n두부 1모, 김치 1통, 애호박 1개, 방울토마토 1팩';
 const repro = (): Item[] =>
@@ -18,7 +20,7 @@ const repro = (): Item[] =>
 const setup = () => {
   const items = repro();
   const plan = planOf({ mealsPerWeek: 4 });
-  const result = makePlan(items, PLAN_RECIPES, plan, today);
+  const result = makePlan(items, RECIPES, plan, today);
   const targets = menuTargets(result, items, today)!;
   const req = buildMenuRequest(targets, result, plan, today);
   return { items, plan, result, targets, req };
@@ -39,7 +41,7 @@ describe('AI에게 맡길 칸과 요청 (V4-1b)', () => {
   it('규칙 메뉴로 다 채워지고 못 쓰는 재료도 없으면 부르지 않는다', () => {
     const items = repro().filter((i) => i.name === '닭가슴살');
     const plan = planOf({ mealsPerWeek: 1 });
-    expect(menuTargets(makePlan(items, PLAN_RECIPES, plan, today), items, today)).toBeNull();
+    expect(menuTargets(makePlan(items, RECIPES, plan, today), items, today)).toBeNull();
   });
 });
 

@@ -90,3 +90,17 @@ export function EnteredPicker({ value, today, onChange }: { value: DateKey; toda
     </div>
   );
 }
+
+/** 레시피 출처 (2026-11-09): "▶ 백종원 레시피 영상 보기" — 누르면 영상(또는 레시피 글) */
+export function RecipeSource({ recipe }: { recipe: { by?: string; url?: string } }) {
+  if (!recipe.by) return null;
+  const label = `${recipe.by} 레시피`;
+  const video = recipe.url?.includes('youtube.com') || recipe.url?.includes('youtu.be');
+  return recipe.url ? (
+    <a className="recipe-src" href={recipe.url} target="_blank" rel="noreferrer">
+      {video ? `▶ ${label} 영상 보기` : `${label} 보기 ›`}
+    </a>
+  ) : (
+    <div className="recipe-src">{label}</div>
+  );
+}
