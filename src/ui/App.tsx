@@ -32,6 +32,7 @@ import { PlanView } from './PlanView';
 import { TodayCard } from './TodayCard';
 import { VideoView } from './VideoView';
 import { TabBar, type TabKey } from './TabBar';
+import { ReportView } from './ReportView';
 import { newId } from './id';
 
 type Screen = TabKey | 'add' | 'notify' | 'install' | 'community';
@@ -287,6 +288,8 @@ export function App() {
         onCommunity={() => openCommunity({ view: 'feed' })}
       />
     );
+  } else if (screen === 'report') {
+    view = <ReportView logs={state.logs} doneMeals={state.plan.doneMeals} today={today} onHome={() => go('home')} />;
   } else if (screen === 'notify') {
     view = (
       <NotifyTimeView

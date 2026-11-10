@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export type TabKey = 'home' | 'video' | 'order' | 'plan';
+export type TabKey = 'home' | 'video' | 'order' | 'plan' | 'report';
 
 const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
   {
@@ -39,6 +39,17 @@ const TABS: { key: TabKey; label: string; icon: ReactNode }[] = [
       <svg viewBox="0 0 24 24">
         <rect x="3.5" y="5" width="17" height="15" rx="3" />
         <path d="M3.5 10h17M8 3v4M16 3v4" />
+      </svg>
+    ),
+  },
+  {
+    // 나의 활동 (2026-11-10, 사용자 요청): 시계 그림, 리포트를 본다
+    key: 'report',
+    label: '나의 활동',
+    icon: (
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M12 7.5V12l3 2" />
       </svg>
     ),
   },

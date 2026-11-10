@@ -471,3 +471,26 @@ textarea.post-input:focus{border-color:var(--accent)}
 .app-dday.hot{color:var(--red)}
 .app-dday.bur{color:var(--amber)}
 @media (prefers-reduced-motion: reduce){.folder-pop{animation:none}}
+
+/* 나의 활동 (2026-11-10) */
+.report-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.report-stats .stat{background:var(--card);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.report-stats .stat span{font-size:13px;color:var(--sub)}
+.report-stats .stat b{font-size:24px;font-weight:700;letter-spacing:-.02em}
+.report-stats .stat b.warn{color:var(--red)}
+.report-stats .stat b.good{color:var(--green)}
+.report-stats .stat small{font-size:12px;color:var(--amber)}
+.saved-bar{height:10px;border-radius:5px;background:var(--red-bg);margin:12px 0 4px;overflow:hidden}
+.saved-bar i{display:block;height:100%;background:var(--green);border-radius:5px}
+.reason-list{list-style:none;margin:8px 0 0;padding:0}
+.reason-list li{display:grid;grid-template-columns:110px 1fr 24px;align-items:center;gap:10px;min-height:32px;font-size:14px}
+.reason-list li i{display:block;height:8px;border-radius:4px;background:var(--red);opacity:.7}
+.reason-list li b{text-align:right}
+.day-log{padding:12px 0;border-bottom:1px solid var(--line)}
+.day-log .when{font-size:13px;font-weight:700;color:var(--sub);margin-bottom:4px}
+.day-log p{margin:4px 0;font-size:14px;line-height:1.5}
+.day-log .kind{display:inline-block;font-size:12px;font-weight:600;padding:1px 7px;border-radius:7px;margin-right:6px}
+.kind.meal{background:var(--accent-bg);color:var(--accent)}
+.kind.eat{background:var(--green-bg);color:var(--green)}
+.kind.discard{background:var(--red-bg);color:var(--red)}
+.tab{white-space:nowrap;letter-spacing:-.03em}
