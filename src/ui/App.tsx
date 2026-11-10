@@ -199,7 +199,6 @@ export function App() {
     view = (
       <HomeView
         items={state.items}
-        logs={state.logs}
         today={today}
         onOpen={setSheetId}
         onAdd={() => go('add')}

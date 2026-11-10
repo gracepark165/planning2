@@ -12,9 +12,8 @@ import {
 } from '../rules/status';
 import { clusterSameName, groupByCategory } from '../rules/homeGroups';
 import { CATEGORIES, categoryMeta, categoryOfItem } from '../data';
-import type { DateKey, Item, ItemState, Location, MealLog } from '../rules/types';
+import type { DateKey, Item, ItemState, Location } from '../rules/types';
 import { formatDate } from '../rules/date';
-import { discardLabel } from '../rules/logs';
 import { nextFabHidden } from './fabScroll';
 import { FoodIcon, Tile } from './parts';
 import { findCatalog } from '../data';
@@ -37,7 +36,6 @@ const filterLabel = (f: StateFilter) => (f === '전체' ? f : STATE_META[f].labe
 
 interface Props {
   items: Item[];
-  logs: MealLog[];
   today: DateKey;
   onOpen: (id: string) => void;
   onAdd: () => void;
@@ -67,7 +65,6 @@ interface Props {
 
 export function HomeView({
   items,
-  logs,
   today,
   onOpen,
   onAdd,
@@ -316,10 +313,6 @@ export function HomeView({
     </div>
   );
 
-  const eaten = logs.filter((l) => l.action === 'eat').length;
-  const discarded = logs.length - eaten;
-  // 최근에 버린 기록 3개 (이유와 함께)
-  const recentDiscards = logs.filter((l) => l.action === 'discard').slice(-3).reverse();
 
   return (
     <>
@@ -425,25 +418,6 @@ export function HomeView({
           </p>
         )}
       </div>
-
-      {logs.length > 0 && (
-        <div className="card">
-          <h3>이번 기록</h3>
-          <p>
-            다 먹었어요 {eaten}개 · 버렸어요 {discarded}개
-          </p>
-          {recentDiscards.length > 0 && (
-            <ul className="log-list">
-              {recentDiscards.map((l) => (
-                <li key={`${l.itemId}-${l.at}`}>
-                  {l.name && <b>{l.name}</b>}
-                  {discardLabel(l)}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
 
       <button className="note how" aria-expanded={howOpen} onClick={() => setHowOpen(!howOpen)}>
         상태는 어떻게 정해요? {howOpen ? '▴' : '▾'}
