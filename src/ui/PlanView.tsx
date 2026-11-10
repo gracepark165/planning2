@@ -1,6 +1,6 @@
 // 이번 주(FR-20~28): 집밥 횟수 → 끼니 카드 → 이걸로 할게요 / 바꾸기 / 건너뛰기
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PLAN_RECIPES, findCatalog } from '../data';
 import { MAX_MEALS_PER_WEEK, MIN_MEALS_PER_WEEK, STATE_META } from '../rules/constants';
 import {
@@ -70,6 +70,8 @@ interface Props {
   /** 맨 위 내 프로필 칸·커뮤니티 칸 (2026-11-09: 예전 "최근 7일 요약" 자리) */
   onProfile: () => void;
   onCommunity: () => void;
+  /** 앱을 열 때 팝업에서 왔으면 이 날 끼니 카드로 내려가 잠깐 강조 */
+  focusDate?: DateKey | null;
   /** 냉장고가 비었을 때: 장보기 올리기·재료 추가로 */
   onOrder: () => void;
   onAdd: () => void;
@@ -101,6 +103,7 @@ export function PlanView({
   onRelocate,
   onProfile,
   onCommunity,
+  focusDate,
   onOrder,
   onAdd,
 }: Props) {
@@ -120,6 +123,11 @@ export function PlanView({
     if (!none.length) return plan.mealsPerWeek >= 7 ? '집밥 7번이 다 찼어요. 따로 챙겨 드세요.' : '앞으로 7일 메뉴로는 쓰기 어려워요. 따로 챙겨 드세요.';
     return `${withJosa(none.join(', '), eun)} 아직 쓰는 메뉴가 없어요. 따로 챙겨 드세요.`;
   };
+  useEffect(() => {
+    if (!focusDate) return;
+    const el = document.querySelector(`.day[data-date="${focusDate}"]`);
+    el?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [focusDate]);
   const [frozen, setFrozen] = useState<{ id: string; name: string; from: Location; until: DateKey } | null>(null);
 
   const dayHead = (slot: PlanSlot) => (
@@ -259,7 +267,7 @@ export function PlanView({
 
         {result.slots.map((slot) =>
           slot.recipe ? (
-            <div key={slot.index} className="day">
+            <div key={slot.index} className={`day ${focusDate === slot.date ? 'focus' : ''}`} data-date={slot.date}>
               <div className="body">
                 {dayHead(slot)}
                 <div className="nm" style={{ fontWeight: 700, fontSize: 16 }}>

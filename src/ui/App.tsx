@@ -3,10 +3,11 @@ import { PLAN_RECIPES, SUBSTITUTES, findCatalog } from '../data';
 import { suggestMenus } from '../ai/client';
 import { AI_DAILY_LIMIT, useAiMenus } from '../state/aiMenu';
 import { todayKey } from '../rules/date';
-import { fitPin, makePlan, mealsForNewPin, todayMeal } from '../rules/plan';
+import { fitPin, makePlan, mealsForNewPin, slotUsing, todayMeal } from '../rules/plan';
+import { stateOf } from '../rules/status';
 import { missingToBuy } from '../rules/shopping';
 import { eul, eun, ro, withJosa } from '../rules/josa';
-import type { PinnedMeal, Recipe } from '../rules/types';
+import type { DateKey, PinnedMeal, Recipe } from '../rules/types';
 import { loadState, saveState } from '../state/persist';
 import { withMyFoods } from '../state/myFoods';
 import {
@@ -21,6 +22,7 @@ import {
 } from '../state/store';
 import { AddView } from './AddView';
 import { BuyCheckSheet } from './BuyCheckSheet';
+import { UrgentPopup } from './UrgentPopup';
 import { DiscardSheet } from './DiscardSheet';
 import { HomeView } from './HomeView';
 import { InstallGuideView, NotifyTimeView } from './NotifyView';
@@ -47,6 +49,8 @@ export function App() {
   const today = todayKey();
   const [state, dispatch] = useReducer(reducer, today, (t) => loadState() ?? freshState(t));
   const [screen, setScreen] = useState<Screen>('home');
+  /** 팝업에서 `이번 주 플랜 보기`로 왔을 때 내려갈 끼니 날짜 */
+  const [planFocus, setPlanFocus] = useState<DateKey | null>(null);
   const [prevScreen, setPrevScreen] = useState<Screen>('home');
   /** 홈 화면에 추가하는 방법에서 뒤로 갈 곳 (홈 카드 또는 알림 시간 설정) */
   const [installBack, setInstallBack] = useState<Screen>('home');
@@ -95,6 +99,7 @@ export function App() {
     const isSub = (x: Screen) => x === 'add' || x === 'notify' || x === 'install' || x === 'community';
     if (isSub(s) && !isSub(screen)) setPrevScreen(screen);
     setScreen(s);
+    if (s !== 'plan') setPlanFocus(null);
     setSheetId(null);
     window.scrollTo(0, 0);
   };
@@ -122,6 +127,8 @@ export function App() {
   // 규칙 플랜이 못 채운 칸은 AI가 채운다 (V4-1b). 결과는 재고·칸·제외 메뉴로 만든 이름표로 저장해 두고 다시 부르지 않는다
   const ai = useAiMenus(basePlan, state.items, state.plan, today, SUBSTITUTES, suggestMenus);
   const planResult = ai.result;
+  // 앱을 열 때 하루 한 번 뜨는 팝업 (홈 배너 대신, 2026-11-10)
+  const urgent = soonBanner(state, today);
 
   /** "이걸로 할게요" (홈·이번 주 화면 공통): 사야 할 재료가 아직 없으면 먼저 묻고, 아니면 바로 확정 */
   const confirmMeal = (recipe: Recipe) => {
@@ -232,10 +239,8 @@ export function App() {
           if (choice === 'install') openInstallGuide();
           else showToast('알겠어요. 홈 화면에 추가하는 방법은 ‘알림 시간 설정’에서 언제든 볼 수 있어요');
         }}
-        bannerItem={soonBanner(state, today)}
         revealNew={revealNew}
         onRevealed={doneRevealing}
-        onCloseBanner={() => dispatch({ type: 'closeBanner', today })}
         onNotifySettings={() => go('notify')}
         samplePrompt={showSamplePrompt(state)}
         onSamplePrompt={(remove) => {
@@ -286,6 +291,7 @@ export function App() {
         onAdd={() => go('add')}
         onProfile={() => openCommunity({ view: 'profile' })}
         onCommunity={() => openCommunity({ view: 'feed' })}
+        focusDate={planFocus}
       />
     );
   } else if (screen === 'report') {
@@ -381,6 +387,20 @@ export function App() {
               run: () => dispatch({ type: 'addItems', items: [removed] }),
             });
           }}
+        />
+      )}
+      {urgent && !sheetItem && !buyAsk && !discardAsk && (
+        <UrgentPopup
+          item={urgent}
+          soonCount={state.items.filter((i) => stateOf(i, today) === 'soon').length}
+          slot={slotUsing(planResult, urgent.name)}
+          today={today}
+          onPlan={() => {
+            dispatch({ type: 'closeBanner', today });
+            setPlanFocus(slotUsing(planResult, urgent.name)?.date ?? null);
+            go('plan');
+          }}
+          onClose={() => dispatch({ type: 'closeBanner', today })}
         />
       )}
       {buyAsk && (

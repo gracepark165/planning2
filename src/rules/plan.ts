@@ -493,3 +493,8 @@ export function noMenuFor(names: readonly string[], items: readonly Item[], reci
   const used = new Set(all.flatMap((r) => [...r.uses, ...r.keeps, ...r.buy]));
   return names.filter((n) => !used.has(n));
 }
+
+/** 이 재료를 쓰는 가장 빠른 끼니 (앱을 열 때 팝업: "내일 · 11/11 (수) 닭안심 카레에 넣어 뒀어요") */
+export function slotUsing(result: PlanResult, name: string): (PlanSlot & { recipe: Recipe }) | undefined {
+  return result.slots.find((s): s is PlanSlot & { recipe: Recipe } => !!s.recipe && mealParts(s).some((r) => r.uses.includes(name)));
+}

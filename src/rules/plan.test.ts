@@ -22,6 +22,7 @@ import {
   summarizePlan,
   todayMeal,
   uncoveredSoon,
+  slotUsing,
 } from './plan';
 import type { Item, PinnedMeal, Plan, Recipe } from './types';
 
@@ -547,5 +548,16 @@ describe('사용자 제보 (2026-11-09): D-7 재료 7개가 모두 못 쓰는 �
 
   it('쓰는 메뉴가 없는 재료를 알려준다', () => {
     expect(noMenuFor(['도토리묵', '아무재료'], fridge, ALL_RECIPES, t)).toEqual(['아무재료']);
+  });
+});
+
+describe('slotUsing (앱을 열 때 팝업)', () => {
+  it('이 재료를 쓰는 가장 빠른 끼니, 없으면 undefined', () => {
+    const r = { name: '닭안심 카레', uses: ['닭안심'], keeps: [], buy: [] };
+    const slot = (dayOffset: number, recipe: typeof r | null) =>
+      ({ index: dayOffset, dayOffset, date: `2026-11-1${dayOffset}`, recipe, candidateCount: 1 });
+    const result = { slots: [slot(0, null), slot(1, { ...r, uses: ['두부'] }), slot(2, r)], leftover: [] };
+    expect(slotUsing(result as never, '닭안심')?.dayOffset).toBe(2);
+    expect(slotUsing(result as never, '우유')).toBeUndefined();
   });
 });

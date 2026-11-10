@@ -3,7 +3,6 @@ import { BURIED_AGO, LOCATIONS, SOON_DAYS, STATE_META } from '../rules/constants
 import {
   countByState,
   dDayLabel,
-  dueBannerText,
   daysLeft,
   daysSinceEntered,
   groupForHome,
@@ -53,8 +52,6 @@ interface Props {
   notifAsk: boolean;
   onNotifAsk: (choice: 'install' | 'later') => void;
   /** 인앱 배너가 짚을 가장 급한 재료 (없으면 숨김) */
-  bannerItem: Item | undefined;
-  onCloseBanner: () => void;
   /** 알림 시간 설정 화면으로 */
   onNotifySettings: () => void;
   /** "넣은 재료 보기"를 누를 때마다 바뀌는 값: 방금 넣은 재료가 보이게 펼치고 그 줄로 스크롤 (V4-4) */
@@ -77,8 +74,6 @@ export function HomeView({
   todayCard,
   notifAsk,
   onNotifAsk,
-  bannerItem,
-  onCloseBanner,
   onNotifySettings,
   revealNew,
   onRevealed,
@@ -326,16 +321,6 @@ export function HomeView({
           </button>
           <button className="cta ghost" onClick={() => onNotifAsk('later')}>
             나중에
-          </button>
-        </div>
-      )}
-      {bannerItem && (
-        <div className="banner" role="status">
-          <button className="banner-text" onClick={() => onOpen(bannerItem.id)}>
-            {STATE_META.soon.icon} {dueBannerText(bannerItem, today)}
-          </button>
-          <button className="banner-x" aria-label="배너 닫기" onClick={onCloseBanner}>
-            ✕
           </button>
         </div>
       )}
