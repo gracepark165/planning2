@@ -3,7 +3,7 @@
 // - 그림·스크립트 등: 저장해 둔 것 먼저 (빌드 파일 이름이 바뀌므로 오래된 것이 남지 않음)
 // - /api/ (AI 연결 서버)는 저장하지 않는다
 
-const CACHE = 'fridge-planner-v11'; // 2026-11-10: 부침가루·실온 간편식 그림 글씨 지움 (같은 파일 이름이라 예전 그림이 남지 않게)
+const CACHE = 'fridge-planner-v12'; // 2026-11-10: 부침가루 그림을 그림 쪽만 크게 (같은 파일 이름이라 예전 그림이 남지 않게)
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
