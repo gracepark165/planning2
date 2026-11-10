@@ -78,6 +78,8 @@ export type Action =
   | { type: 'removePinned'; id: string }
   /** 장보기 목록 체크 (플랜에서 온 재료면 저장해 둔다) */
   | { type: 'toggleShopping'; name: string }
+  /** 이번 주 추천 장보기의 전체 선택·해제 (2026-11-10) */
+  | { type: 'checkAllShopping'; names: string[]; checked: boolean }
   /** 장보기 목록 ✕ */
   | { type: 'removeShopping'; name: string }
   // 첫 사용 안내
@@ -380,6 +382,17 @@ export function reducer(state: AppState, action: Action): AppState {
         shoppingList: cur
           ? state.shoppingList.map((s) => (s === cur ? { ...s, checked: !s.checked } : s))
           : [...state.shoppingList, { name: action.name, from: 'plan', checked: true }],
+      };
+    }
+    case 'checkAllShopping': {
+      const want = new Set(action.names);
+      const listed = new Set(state.shoppingList.map((s) => s.name));
+      return {
+        ...state,
+        shoppingList: [
+          ...state.shoppingList.map((s) => (want.has(s.name) && !s.removed ? { ...s, checked: action.checked } : s)),
+          ...action.names.filter((n) => !listed.has(n)).map((name) => ({ name, from: 'plan' as const, checked: action.checked })),
+        ],
       };
     }
     case 'removeShopping': {

@@ -357,6 +357,19 @@ describe('영상 메뉴 → 플랜·장보기 목록 (B-1)', () => {
     expect(s.plan.pinned).toEqual([]);
   });
 
+  it('장보기 목록 전체 선택·해제 (2026-11-10): 저장된 줄은 체크만 바꾸고, 플랜 재료는 체크한 줄로 더한다. 지운 줄은 그대로', () => {
+    let s = reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, mealsPerWeek: 4 });
+    s = reducer(s, { type: 'removeShopping', name: '당근' });
+    s = reducer(s, { type: 'checkAllShopping', names: ['고추장', '감자'], checked: true });
+    expect(s.shoppingList).toEqual([
+      { name: '고추장', from: 'video', checked: true },
+      { name: '당근', from: 'plan', checked: false, removed: true },
+      { name: '감자', from: 'plan', checked: true },
+    ]);
+    s = reducer(s, { type: 'checkAllShopping', names: ['고추장', '감자'], checked: false });
+    expect(s.shoppingList.filter((i) => i.checked)).toEqual([]);
+  });
+
   it('장보기 목록: 체크, ✕로 지우기(플랜 재료는 숨김), 냉장고에 넣으면 목록에서 빠진다', () => {
     let s = reducer(initialState(today), { type: 'pinMeal', meal: jeyuk, mealsPerWeek: 4 });
     s = reducer(s, { type: 'toggleShopping', name: '고추장' });

@@ -273,6 +273,7 @@ export function App() {
         }}
         shoppingList={state.shoppingList}
         onToggleShop={(name) => dispatch({ type: 'toggleShopping', name })}
+        onCheckAllShop={(names, checked) => dispatch({ type: 'checkAllShopping', names, checked })}
         onRemoveShop={(name) => dispatch({ type: 'removeShopping', name })}
         onBought={(names) => {
           // 바로 읽지 않고, 글 입력칸에 채워서 장보기 올리기로

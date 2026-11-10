@@ -1,7 +1,7 @@
 // 장보기 목록 (B-1): 이번 주 플랜의 사야 할 재료 + 영상 확인에서 담은 재료.
 // 플랜의 재료는 그때그때 계산하므로 저장하지 않고, 체크하거나 ✕로 지운 것만 저장한다.
 
-import { canonicalName } from '../data';
+import { CATEGORIES, canonicalName, categoryMeta, categoryOfItem } from '../data';
 import { groupOf } from './videoCheck';
 import type { ShoppingItem, SubstituteTable } from './types';
 
@@ -17,6 +17,32 @@ export function shoppingView(
     ...saved.filter((s) => !s.removed).map(({ name, from, checked }) => ({ name, from, checked })),
     ...planBuy.filter((n) => !savedNames.has(n)).map((name) => ({ name, from: 'plan' as const, checked: false })),
   ].filter((s) => !have.has(s.name));
+}
+
+/** 장보기 목록을 묶는 순서 (2026-11-10, 사용자 요청): 재료 추가 화면의 분류 순서 그대로, 기타는 맨 끝 */
+const SHOP_ORDER = CATEGORIES.map((c) => c.id);
+
+export interface ShoppingGroup<T> {
+  id: string;
+  label: string;
+  emoji: string;
+  items: T[];
+}
+
+/** 장보기 목록을 종류별로 묶는다. 묶음 안은 원래 순서 그대로 */
+export function shoppingGroups<T extends { name: string }>(list: readonly T[]): ShoppingGroup<T>[] {
+  const map = new Map<string, T[]>();
+  for (const it of list) {
+    const id = categoryOfItem({ name: canonicalName(it.name) });
+    map.set(id, [...(map.get(id) ?? []), it]);
+  }
+  const rank = (id: string) => (SHOP_ORDER.includes(id) ? SHOP_ORDER.indexOf(id) : SHOP_ORDER.length);
+  return [...map]
+    .sort((a, b) => rank(a[0]) - rank(b[0]))
+    .map(([id, items]) => {
+      const m = categoryMeta(id);
+      return { id, label: m.label, emoji: m.emoji, items };
+    });
 }
 
 /**

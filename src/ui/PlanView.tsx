@@ -21,7 +21,7 @@ import { formatDate, formatDayLabel } from '../rules/date';
 import { frozenExpiry } from '../rules/expiry';
 import { eul, eun, withJosa } from '../rules/josa';
 import { recentSummary } from '../rules/recentSummary';
-import { shoppingView } from '../rules/shopping';
+import { shoppingGroups, shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
 import type { DateKey, Item, Location, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
 import type { AiSlot } from '../rules/menuCheck';
@@ -60,6 +60,8 @@ interface Props {
   /** 장보기 목록 (저장된 줄) */
   shoppingList: ShoppingItem[];
   onToggleShop: (name: string) => void;
+  /** 전체 선택·해제 */
+  onCheckAllShop: (names: string[], checked: boolean) => void;
   onRemoveShop: (name: string) => void;
   /** "샀어요 → 냉장고에 넣기": 체크한 재료 이름 */
   onBought: (names: string[]) => void;
@@ -93,6 +95,7 @@ export function PlanView({
   onRemovePinned,
   shoppingList,
   onToggleShop,
+  onCheckAllShop,
   onRemoveShop,
   onBought,
   onRelocate,
@@ -174,21 +177,40 @@ export function PlanView({
 
       {shopping.length > 0 && (
         <div className="card blue">
-          <h3>이번 주 추천 장보기</h3>
-          <ul className="shop">
-            {shopping.map((it) => (
-              <li key={it.name}>
-                <label>
-                  <input type="checkbox" checked={it.checked} onChange={() => onToggleShop(it.name)} />
-                  <span className={it.checked ? 'done' : ''}>{it.name}</span>
-                  {it.from === 'video' && <span className="tag video">영상</span>}
-                </label>
-                <button className="shop-x" aria-label={`${it.name} 지우기`} onClick={() => onRemoveShop(it.name)}>
-                  ✕
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="shop-head">
+            <h3>이번 주 추천 장보기</h3>
+            {/* 전체 선택 (2026-11-10, 사용자 요청): 다 골라져 있으면 전체 해제 */}
+            <label className="shop-all">
+              <input
+                type="checkbox"
+                checked={bought.length === shopping.length}
+                onChange={() => onCheckAllShop(shopping.map((it) => it.name), bought.length !== shopping.length)}
+              />
+              전체 선택
+            </label>
+          </div>
+          {/* 종류별로 묶기 (2026-11-10, 사용자 요청): 재료 추가 화면의 분류 순서 */}
+          {shoppingGroups(shopping).map((g) => (
+            <div key={g.id} className="shop-group">
+              <div className="shop-cat">
+                {g.emoji} {g.label}
+              </div>
+              <ul className="shop">
+                {g.items.map((it) => (
+                  <li key={it.name}>
+                    <label>
+                      <input type="checkbox" checked={it.checked} onChange={() => onToggleShop(it.name)} />
+                      <span className={it.checked ? 'done' : ''}>{it.name}</span>
+                      {it.from === 'video' && <span className="tag video">영상</span>}
+                    </label>
+                    <button className="shop-x" aria-label={`${it.name} 지우기`} onClick={() => onRemoveShop(it.name)}>
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
           {bought.length > 0 && (
             <button className="small-btn" onClick={() => onBought(bought)}>
               샀어요 → 냉장고에 넣기
