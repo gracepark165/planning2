@@ -7,6 +7,7 @@
 // - v3 (2026-10-30, 수정명세 v3): onboarding.firstConfirmAt, opens (홈 화면 추가 카드를 보여줄 때)
 // - v4 (2026-11-09): 예시 재료를 쓰지 않기로 해서, 예전 버전을 읽으면 예시 재료(sample)를 한 번 지운다.
 //   v4부터는 "예시 재료로 되돌리기"로 넣은 예시 재료를 그대로 둔다.
+// - v5 (2026-11-16): onboarding.entry (오프닝에서 고른 시작 방법). 예전 사람은 이미 쓰던 사람이라 'member'(내 냉장고).
 // 예전 버전을 읽으면 migrate()가 새 필드의 기본값을 채워서 옮긴다.
 
 import { canonicalName } from '../data';
@@ -14,7 +15,7 @@ import { defaultNotif, type AppState } from './store';
 import type { Item, MealLog } from '../rules/types';
 
 export const STORAGE_KEY = 'fridge-planner-v1';
-export const STORAGE_VERSION = 4;
+export const STORAGE_VERSION = 5;
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
@@ -67,6 +68,7 @@ export function migrate(data: unknown): AppState | null {
       mode: items.some((i) => i.sample) ? 'sample' : 'mine',
       sampleAsked: false,
       firstConfirmAt: null,
+      entry: 'member',
       ...onboarding,
     },
     notif: { ...defaultNotif(), ...(isObj(data.notif) ? data.notif : {}) },

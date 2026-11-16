@@ -1,8 +1,10 @@
-// 오프닝 화면: 처음 열었을 때 한 번만, 마스코트가 서비스를 소개한다. 시작하기를 누르면 홈(첫 사용 안내 카드)으로.
+// 오프닝 화면: 처음 열었을 때 한 번만, 마스코트가 서비스를 소개한다.
+// 카카오로 시작하기(빈 내 냉장고 + 로그인) / 로그인 없이 둘러보기(예시 냉장고, 커뮤니티는 읽기만) 중 고르면 홈으로.
 // 모션(2026-11-04, 사용자 요청): 냉장고가 위에서 떨어져 착지 → 반짝임 → 글자가 한 자씩 생겨남 → 시작하기.
 // 화면을 한 번 누르면 글자·버튼을 바로 다 보여준다. 움직임 줄이기 설정이면 처음부터 다 보인다.
 
 import { useState, type CSSProperties } from 'react';
+import { KakaoButton } from './parts';
 
 const TITLE = '안녕하세요, 저는 냉집사예요!';
 const LINES = [
@@ -50,7 +52,7 @@ const SPARKLES: { x: number; y: number; s: number; d: number }[] = [
   { x: 18, y: -4, s: 12, d: 2.0 },
 ];
 
-export function OpeningView({ onStart }: { onStart: () => void }) {
+export function OpeningView({ onKakao, onGuest }: { onKakao: () => void; onGuest: () => void }) {
   const [skip, setSkip] = useState(false);
 
   const titleEnd = TEXT_START + TITLE_STEP * len(TITLE);
@@ -94,9 +96,13 @@ export function OpeningView({ onStart }: { onStart: () => void }) {
           </p>
         ))}
       </div>
-      <button className="cta opening-cta" style={{ animationDelay: `${ctaDelay.toFixed(2)}s` }} onClick={onStart}>
-        시작하기
-      </button>
+      {/* 시작 방법 (2026-11-16): 카카오로 시작(내 냉장고, 커뮤니티 글쓰기) / 로그인 없이 예시 냉장고로 둘러보기 */}
+      <div className="opening-cta" style={{ animationDelay: `${ctaDelay.toFixed(2)}s` }}>
+        <KakaoButton onClick={onKakao} label="카카오로 시작하기" />
+        <button className="cta ghost" onClick={onGuest}>
+          로그인 없이 둘러보기
+        </button>
+      </div>
     </div>
   );
 }

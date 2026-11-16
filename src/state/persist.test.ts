@@ -58,7 +58,7 @@ describe('저장 형식 v1 → v2 옮기기', () => {
 
   it('새 필드 기본값: 장보기 목록 비움, 이미 쓰던 사람이라 첫 사용 안내는 본 것으로, 알림 오후 6시', () => {
     expect(s.shoppingList).toEqual([]);
-    expect(s.onboarding).toEqual({ introSeen: true, seen: true, mode: 'mine', sampleAsked: false, firstConfirmAt: null });
+    expect(s.onboarding).toEqual({ introSeen: true, seen: true, mode: 'mine', sampleAsked: false, firstConfirmAt: null, entry: 'member' });
     expect(s.opens).toEqual({ count: 0, lastDate: null });
     expect(s.notif).toEqual({ askedAt: null, optedLater: false, time: '18:00', bannerClosedOn: null });
     expect(migrate({ ...v1, items: [v1.items[2]] })!.onboarding.mode).toBe('mine');
@@ -83,6 +83,7 @@ describe('저장 형식 v1 → v2 옮기기', () => {
       mode: 'sample',
       sampleAsked: false,
       firstConfirmAt: null,
+      entry: 'member',
     });
   });
 
@@ -111,7 +112,17 @@ describe('저장 형식 v3 → v4 (2026-11-09: 예시 재료 지우기)', () => 
     const s0 = initialState(today);
     expect(s0.items.some((i) => i.sample)).toBe(true);
     expect(migrate({ version: 3, ...s0 })!.items).toEqual([]);
-    expect(migrate({ version: 4, ...s0 })).toEqual(s0);
-    expect(STORAGE_VERSION).toBe(4);
+    expect(migrate({ version: 4, ...s0 })!.items).toEqual(s0.items);
+  });
+});
+
+describe('저장 형식 v4 → v5 (2026-11-16: 시작 방법)', () => {
+  it('예전 사람은 이미 쓰던 사람이라 내 냉장고(member), v5에 저장된 값은 그대로', () => {
+    const s0 = initialState(today);
+    const { entry: _e, ...oldOnboarding } = s0.onboarding;
+    expect(migrate({ version: 4, ...s0, onboarding: oldOnboarding })!.onboarding.entry).toBe('member');
+    const guest = { ...s0, onboarding: { ...s0.onboarding, introSeen: true, entry: 'guest' as const } };
+    expect(migrate({ version: 5, ...guest })).toEqual(guest);
+    expect(STORAGE_VERSION).toBe(5);
   });
 });

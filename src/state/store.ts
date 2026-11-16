@@ -85,6 +85,8 @@ export type Action =
   // 첫 사용 안내
   /** 오프닝 화면의 시작하기 */
   | { type: 'finishIntro' }
+  /** 오프닝에서 시작 방법 고르기 / 둘러보다가 카카오로 로그인하고 돌아왔을 때 member */
+  | { type: 'enter'; entry: 'guest' | 'member'; today: DateKey }
   /** 안내 카드: 내 재료로 시작할게요(mine, 예시 재료를 지움) / 예시로 둘러볼게요(sample) */
   | { type: 'onboard'; mode: Onboarding['mode'] }
   /** "예시 재료는 지울까요?": 지우기(remove) / 놔둘게요 */
@@ -119,7 +121,7 @@ export function initialState(today: DateKey): AppState {
     plan: emptyPlan(),
     myFoods: {},
     shoppingList: [],
-    onboarding: { introSeen: false, seen: false, mode: 'sample', sampleAsked: false, firstConfirmAt: null },
+    onboarding: { introSeen: false, seen: false, mode: 'sample', sampleAsked: false, firstConfirmAt: null, entry: null },
     notif: defaultNotif(),
     opens: { count: 0, lastDate: null },
   };
@@ -416,6 +418,14 @@ export function reducer(state: AppState, action: Action): AppState {
       return { ...state, notif: { ...state.notif, time: action.time } };
     case 'finishIntro':
       return { ...state, onboarding: { ...state.onboarding, introSeen: true } };
+    case 'enter': {
+      // 둘러보기: 냉장고가 비어 있으면 예시 재료로 채운다 (시연용). 카카오로 시작: 예시 재료를 비우고 내 냉장고로
+      const onboarding = { ...state.onboarding, introSeen: true, entry: action.entry };
+      if (action.entry === 'guest') {
+        return state.items.length ? { ...state, onboarding } : { ...state, items: makeSampleInventory(action.today), onboarding: { ...onboarding, mode: 'sample' } };
+      }
+      return { ...withoutSamples(state), onboarding: { ...onboarding, mode: 'mine', sampleAsked: true } };
+    }
     case 'onboard': {
       const next = action.mode === 'mine' ? withoutSamples(state) : state;
       return { ...next, onboarding: { ...state.onboarding, seen: true, mode: action.mode } };

@@ -1,40 +1,22 @@
-// 커뮤니티 공용 상태: 내 프로필·통계, 서버 연결 여부.
-// 프로필은 기기에도 저장해서, 서버를 연결하기 전에도 이번 주 화면의 프로필 칸이 보이게 한다.
+// 커뮤니티 공용 상태: 서버 연결 여부, 카카오 로그인 여부, 내 프로필·통계.
+// 로그인하지 않은 방문자는 읽기만 한다 (2026-11-16). 프로필은 서버에만 둔다 (로그인한 회원만 있음).
 
 import { useEffect, useState } from 'react';
-import { AVATARS, community, type MyStats, type Profile } from './client';
-
-const PROFILE_KEY = 'fridge-community-profile';
+import { community, fetchAuth, logout as doLogout, type AuthState, type MyStats, type Profile } from './client';
 
 export type Conn = 'loading' | 'on' | 'off' | 'error';
 
 export interface MeState {
+  /** 커뮤니티 저장소 연결 (off = 아직 연결 전: 예시 글) */
   conn: Conn;
-  profile: Profile;
+  /** 카카오 로그인 (undefined = 아직 모름) */
+  auth?: AuthState;
+  /** 로그인한 회원의 커뮤니티 프로필 */
+  profile?: Profile;
   stats?: MyStats;
 }
 
-const FALLBACK: Profile = { nick: '나', avatar: AVATARS[0], area: '' };
-
-function localProfile(): Profile | undefined {
-  try {
-    const raw = localStorage.getItem(PROFILE_KEY);
-    const p = raw ? (JSON.parse(raw) as Profile) : undefined;
-    return p && typeof p.nick === 'string' && typeof p.avatar === 'string' ? { ...p, area: p.area ?? '' } : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function storeLocal(p: Profile) {
-  try {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(p));
-  } catch {
-    // 저장 못 해도 이번에 연 동안은 보인다
-  }
-}
-
-let state: MeState = { conn: 'loading', profile: localProfile() ?? FALLBACK };
+let state: MeState = { conn: 'loading' };
 const listeners = new Set<(s: MeState) => void>();
 const set = (next: MeState) => {
   state = next;
@@ -42,42 +24,45 @@ const set = (next: MeState) => {
 };
 
 let loading: Promise<void> | undefined;
-/** 서버에서 내 프로필·통계를 다시 읽는다. 기기에 저장한 프로필이 서버와 다르면 서버로 올린다. */
+/** 서버에서 로그인·프로필·통계를 다시 읽는다 */
 export function refreshMe(): Promise<void> {
   loading ??= (async () => {
-    const r = await community.me();
-    if (!r.ok) {
-      set({ ...state, conn: r.reason === 'not-configured' ? 'off' : 'error' });
+    const [auth, r] = await Promise.all([fetchAuth(), community.me()]);
+    const authState = auth ?? { loggedIn: false, configured: false };
+    if (r.ok) {
+      set({ conn: 'on', auth: authState, profile: r.data.profile, stats: r.data.stats });
       return;
     }
-    const local = localProfile();
-    // 이 기기에서 먼저 정해 둔 프로필이 있으면 서버에도 올린다 (서버 연결 전에 만든 프로필)
-    if (local && (local.nick !== r.data.profile.nick || local.avatar !== r.data.profile.avatar || local.area !== r.data.profile.area)) {
-      const saved = await community.saveProfile(local);
-      set({ conn: 'on', profile: saved.ok ? local : r.data.profile, stats: r.data.stats });
-      return;
-    }
-    storeLocal(r.data.profile);
-    set({ conn: 'on', profile: r.data.profile, stats: r.data.stats });
+    const conn: Conn = r.reason === 'not-configured' ? 'off' : r.reason === 'login-required' ? 'on' : 'error';
+    // 로그인 쿠키가 있어도 저장소가 연결 전이면 프로필은 없다
+    set({ conn, auth: authState });
   })().finally(() => {
     loading = undefined;
   });
   return loading;
 }
 
-/** 프로필 저장: 기기에 먼저, 서버가 연결돼 있으면 서버에도 */
+/** 프로필 저장 (로그인한 회원만) */
 export async function saveProfile(p: Profile): Promise<boolean> {
-  storeLocal(p);
-  set({ ...state, profile: p });
-  if (state.conn !== 'on') return true;
   const r = await community.saveProfile(p);
+  if (r.ok) set({ ...state, profile: p });
   return r.ok;
 }
+
+export async function logout(): Promise<void> {
+  await doLogout();
+  set({ conn: state.conn, auth: { loggedIn: false, configured: state.auth?.configured ?? false } });
+  await refreshMe();
+}
+
+/** 로그인해서 쓸 수 있는지: 저장소 연결 + 카카오 로그인 */
+export const canWrite = (s: MeState) => s.conn === 'on' && !!s.auth?.loggedIn;
 
 export function useMe(): MeState {
   const [s, setS] = useState(state);
   useEffect(() => {
     listeners.add(setS);
+    setS(state);
     if (state.conn === 'loading' || state.conn === 'error') void refreshMe();
     return () => {
       listeners.delete(setS);

@@ -15,24 +15,32 @@ function apiInDev(): Plugin {
         // 주소가 정확히 /api/read·/api/menu·/api/ingredients인 POST만 (앱이 불러오는 /api/read.ts 소스 파일은 건드리지 않음)
         // 커뮤니티(/api/community)는 POST(글)·GET(사진) 둘 다. 저장소 키가 없으면 메모리 저장소 (껐다 켜면 사라짐)
         const path = req.url?.split('?')[0];
-        const community = path === '/api/community';
+        // 카카오 로그인(/api/auth)도 GET(시작·돌아옴)·POST(me·logout). 카카오 키가 없으면 시험 로그인
+        const community = path === '/api/community' || path === '/api/auth';
         if (!community && (req.method !== 'POST' || !['/api/read', '/api/menu', '/api/ingredients'].includes(path ?? ''))) return next();
         try {
           const chunks: Buffer[] = [];
           if (req.method === 'POST') for await (const c of req) chunks.push(c as Buffer);
           type Fn = (r: Request) => Promise<Response>;
-          const mod = (await server.ssrLoadModule(community ? '/api/community.ts' : '/api/read.ts')) as { POST: Fn; GET?: Fn };
+          const mod = (await server.ssrLoadModule(community ? `${path}.ts` : '/api/read.ts')) as { POST: Fn; GET?: Fn };
           if (community) process.env.COMMUNITY_DEV_MEMORY ??= '1';
           const handler = req.method === 'GET' && mod.GET ? mod.GET : mod.POST;
           const response = await handler(
             new Request(`http://localhost${req.url}`, {
               method: req.method === 'GET' ? 'GET' : 'POST',
-              headers: { 'content-type': 'application/json', 'x-forwarded-for': req.socket.remoteAddress ?? 'local' },
+              headers: {
+                'content-type': 'application/json',
+                'x-forwarded-for': req.socket.remoteAddress ?? 'local',
+                ...(req.headers.cookie ? { cookie: req.headers.cookie } : {}),
+              },
               ...(req.method === 'POST' ? { body: Buffer.concat(chunks) } : {}),
             }),
           );
           res.statusCode = response.status;
-          response.headers.forEach((v, k) => res.setHeader(k, v));
+          response.headers.forEach((v, k) => k !== 'set-cookie' && res.setHeader(k, v));
+          // 쿠키가 여러 개면 따로 (로그인 쿠키 + state 쿠키 지우기)
+          const setCookies = response.headers.getSetCookie();
+          if (setCookies.length) res.setHeader('set-cookie', setCookies);
           res.end(Buffer.from(await response.arrayBuffer()));
         } catch (e) {
           server.config.logger.error(String(e));

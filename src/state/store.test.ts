@@ -79,7 +79,7 @@ describe('재고 상태 바꾸기', () => {
     const s0 = initialState(today);
     const s1 = {
       ...s0,
-      onboarding: { introSeen: true, seen: true, mode: 'mine' as const, sampleAsked: true, firstConfirmAt: null },
+      onboarding: { introSeen: true, seen: true, mode: 'mine' as const, sampleAsked: true, firstConfirmAt: null, entry: 'member' as const },
       notif: { ...s0.notif, optedLater: true, bannerClosedOn: today },
     };
     const s2 = reducer(s1, { type: 'reset', today });
@@ -248,7 +248,7 @@ describe('첫 사용 안내 (B-6)', () => {
   it('처음 열면 안내 카드를 보여주고, 예시 재료에는 예시 표시가 있다', () => {
     const s = initialState(today);
     expect(showOnboarding(s)).toBe(true);
-    expect(s.onboarding).toEqual({ introSeen: false, seen: false, mode: 'sample', sampleAsked: false, firstConfirmAt: null });
+    expect(s.onboarding).toEqual({ introSeen: false, seen: false, mode: 'sample', sampleAsked: false, firstConfirmAt: null, entry: null });
     expect(s.items.every((i) => i.sample)).toBe(true);
   });
 
@@ -621,5 +621,25 @@ describe('처음 연 사람 (2026-11-09)', () => {
     const reset = reducer(s, { type: 'reset', today });
     expect(reset.items.length).toBeGreaterThan(0);
     expect(reset.items.every((i) => i.sample)).toBe(true);
+  });
+});
+
+describe('시작 방법 고르기 (2026-11-16)', () => {
+  it('로그인 없이 둘러보기: 빈 냉장고를 예시 재료로 채우고, 이미 재료가 있으면 그대로', () => {
+    const s = reducer(freshState(today), { type: 'enter', entry: 'guest', today });
+    expect(s.onboarding).toMatchObject({ introSeen: true, entry: 'guest', mode: 'sample' });
+    expect(s.items.length).toBeGreaterThan(0);
+    expect(s.items.every((i) => i.sample)).toBe(true);
+    const mine = newItemFromCatalog(findCatalog('두부')!, today, 'm1');
+    const kept = reducer({ ...freshState(today), items: [mine] }, { type: 'enter', entry: 'guest', today });
+    expect(kept.items).toEqual([mine]);
+  });
+
+  it('카카오로 시작(또는 둘러보다가 로그인): 예시 재료만 비우고 내 재료는 남긴다, 예시 재료 질문은 다시 안 함', () => {
+    const guest = reducer(freshState(today), { type: 'enter', entry: 'guest', today });
+    const mine = newItemFromCatalog(findCatalog('두부')!, today, 'm1');
+    const member = reducer({ ...guest, items: [...guest.items, mine] }, { type: 'enter', entry: 'member', today });
+    expect(member.items).toEqual([mine]);
+    expect(member.onboarding).toMatchObject({ introSeen: true, entry: 'member', mode: 'mine', sampleAsked: true });
   });
 });

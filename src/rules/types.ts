@@ -110,6 +110,11 @@ export interface Onboarding {
   sampleAsked: boolean;
   /** 처음으로 "이걸로 할게요"를 누른 시각 (홈 화면 추가 카드를 보여줄 때, V3-5) */
   firstConfirmAt: string | null;
+  /**
+   * 오프닝에서 고른 시작 방법 (2026-11-16): guest = 로그인 없이 예시 냉장고로 둘러보기, member = 카카오로 시작(내 냉장고).
+   * null = 아직 안 고름. 카카오 로그인 여부는 서버 쿠키로 따로 본다 (냉장고는 어느 쪽이든 기기에 저장).
+   */
+  entry: 'guest' | 'member' | null;
 }
 
 /** 앱을 연 날 수 (같은 날 여러 번 연 건 한 번으로 센다, V3-5) */

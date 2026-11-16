@@ -10,6 +10,7 @@ import {
   TOPICS,
   community,
   failureText,
+  startKakaoLogin,
   imageUrl,
   type CommentView,
   type PostView,
@@ -20,10 +21,10 @@ import {
 import { shrinkPhoto } from '../community/photo';
 import { samplePosts } from '../community/samples';
 import { STATUS_CLASS, TOPIC_META, timeAgo } from '../community/text';
-import { refreshMe, saveProfile, useMe } from '../community/useCommunity';
+import { canWrite, logout, refreshMe, saveProfile, useMe } from '../community/useCommunity';
 import { stateOf, daysLeft } from '../rules/status';
 import type { DateKey, Item } from '../rules/types';
-import { BackButton } from './parts';
+import { BackButton, KakaoButton } from './parts';
 
 export type CommunityPage = { view: 'feed' } | { view: 'post'; id: string } | { view: 'write'; topic?: Topic } | { view: 'profile' };
 
@@ -40,6 +41,27 @@ function Avatar({ emoji, size = 36 }: { emoji: string; size?: number }) {
     <span className="avatar" style={{ width: size, height: size, fontSize: size * 0.58 }} aria-hidden="true">
       {emoji}
     </span>
+  );
+}
+
+/** 로그인이 필요한 걸 눌렀을 때 (둘러보는 방문자) */
+function LoginSheet({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="sheet-bg" onClick={onClose}>
+      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="login-title" onClick={(e) => e.stopPropagation()}>
+        <h1 id="login-title">카카오로 로그인할까요?</h1>
+        <p className="lead">로그인하면 글을 쓰고 공감·댓글을 남길 수 있어요. 냉장고 재료는 지금처럼 이 폰에만 저장돼요.</p>
+        <KakaoButton onClick={startKakaoLogin} />
+        <button className="cta ghost" onClick={onClose}>
+          계속 둘러볼게요
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -112,6 +134,16 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
   }, [page]);
 
   const offline = useCallback(() => onToast('지금은 예시 글이에요. 커뮤니티 서버를 연결하면 쓸 수 있어요'), [onToast]);
+  const writable = canWrite(me);
+  const [askLogin, setAskLogin] = useState(false);
+  const closeLogin = useCallback(() => setAskLogin(false), []);
+  /** 쓰기 버튼을 눌렀는데 못 쓸 때: 서버 연결 전 → 안내, 카카오 연결 전 → 안내, 방문자 → 로그인 시트 */
+  const needLogin = () => {
+    if (preview) return offline();
+    if (!me.auth?.configured) return onToast('카카오 로그인을 아직 연결하지 않았어요');
+    setAskLogin(true);
+  };
+  const loginSheet = askLogin && <LoginSheet onClose={closeLogin} />;
 
   // ── 목록 ──
   const [topic, setTopic] = useState<Topic | undefined>(undefined);
@@ -149,7 +181,7 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
     setDetail((d) => (d && d.post.id === p.id ? { ...d, post: p } : d));
   };
   const like = async (p: PostView) => {
-    if (preview) return offline();
+    if (!writable) return needLogin();
     // 먼저 화면을 바꾸고, 서버 결과로 맞춘다
     replace({ ...p, liked: !p.liked, likes: p.likes + (p.liked ? -1 : 1) });
     const r = await community.like(p.id);
@@ -188,7 +220,7 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
 
   const sendComment = async () => {
     if (!detail || !comment.trim()) return;
-    if (preview) return offline();
+    if (!writable) return needLogin();
     setSending(true);
     const r = await community.comment(detail.post.id, comment.trim());
     setSending(false);
@@ -244,7 +276,7 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
     }
   };
   const submit = async () => {
-    if (preview) return offline();
+    if (!writable) return needLogin();
     if (!wText.trim()) return onToast('내용을 적어 주세요');
     setSending(true);
     const r = await community.create({
@@ -263,11 +295,11 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
   };
 
   // ── 프로필 ──
-  const [pNick, setPNick] = useState(me.profile.nick);
-  const [pAvatar, setPAvatar] = useState(me.profile.avatar);
-  const [pArea, setPArea] = useState(me.profile.area);
+  const [pNick, setPNick] = useState(me.profile?.nick ?? '');
+  const [pAvatar, setPAvatar] = useState<string>(me.profile?.avatar ?? AVATARS[0]);
+  const [pArea, setPArea] = useState(me.profile?.area ?? '');
   useEffect(() => {
-    if (page.view !== 'profile') return;
+    if (page.view !== 'profile' || !me.profile) return;
     setPNick(me.profile.nick);
     setPAvatar(me.profile.avatar);
     setPArea(me.profile.area);
@@ -276,7 +308,8 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
     const nick = pNick.trim();
     if (!nick) return onToast('닉네임을 적어 주세요');
     const ok = await saveProfile({ nick: nick.slice(0, LIMITS.nick), avatar: pAvatar, area: pArea.trim().slice(0, LIMITS.area) } as Profile);
-    onToast(ok ? '프로필을 저장했어요' : '이 기기에 저장했어요. 서버에는 다음에 올릴게요');
+    if (!ok) return onToast('프로필을 저장하지 못했어요. 잠시 뒤에 다시 해 주세요');
+    onToast('프로필을 저장했어요');
     setPage({ view: 'feed' });
   };
 
@@ -287,6 +320,23 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
       <span>지금 보이는 건 예시 글이에요. 커뮤니티 서버를 연결하면 이웃 글이 보이고 글을 쓸 수 있어요.</span>
     </div>
   );
+
+  if (page.view === 'profile' && !writable) {
+    return (
+      <>
+        <BackButton onClick={back} />
+        <h1>내 프로필</h1>
+        {preview ? (
+          <p className="lead">커뮤니티 서버를 연결하면 카카오로 로그인해서 프로필을 만들 수 있어요.</p>
+        ) : (
+          <>
+            <p className="lead">지금은 로그인 없이 둘러보는 중이에요. 카카오로 로그인하면 프로필을 만들고 글을 쓸 수 있어요.</p>
+            {me.auth?.configured ? <KakaoButton onClick={startKakaoLogin} /> : <p className="note">카카오 로그인을 아직 연결하지 않았어요.</p>}
+          </>
+        )}
+      </>
+    );
+  }
 
   if (page.view === 'profile') {
     return (
@@ -323,6 +373,18 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
             저장할게요
           </button>
         </div>
+        <button
+          className="note"
+          style={{ textDecoration: 'underline', display: 'block', margin: '20px auto 0' }}
+          onClick={() => {
+            void logout().then(() => {
+              onToast('로그아웃했어요');
+              setPage({ view: 'feed' });
+            });
+          }}
+        >
+          카카오 로그아웃
+        </button>
       </>
     );
   }
@@ -465,6 +527,7 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
           </>
         )}
         <div className="fab-space" aria-hidden="true" />
+        {loginSheet}
       </>
     );
   }
@@ -475,12 +538,21 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
       <BackButton onClick={back} />
       <h1>이웃 커뮤니티</h1>
       <p className="lead">냉장고 재료로 만든 한 끼, 나눔, 꿀팁을 나눠요.</p>
-      <button className="me-row" onClick={() => setPage({ view: 'profile' })}>
-        <Avatar emoji={me.profile.avatar} size={32} />
-        <b>{me.profile.nick}</b>
-        <span>{me.profile.area || '동네 미설정'}</span>
-        <span className="go">프로필 고치기 ›</span>
-      </button>
+      {writable && me.profile ? (
+        <button className="me-row" onClick={() => setPage({ view: 'profile' })}>
+          <Avatar emoji={me.profile.avatar} size={32} />
+          <b>{me.profile.nick}</b>
+          <span>{me.profile.area || '동네 미설정'}</span>
+          <span className="go">프로필 고치기 ›</span>
+        </button>
+      ) : (
+        !preview && (
+          <div className="guest-row">
+            <span>둘러보는 중이에요. 로그인하면 글을 쓰고 공감할 수 있어요.</span>
+            {me.auth?.configured && <KakaoButton onClick={startKakaoLogin} label="카카오로 로그인" />}
+          </div>
+        )
+      )}
       {previewNote}
       <div className="chips">
         <button className={`chip ${!topic ? 'on' : ''}`} onClick={() => setTopic(undefined)}>
@@ -513,9 +585,10 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
         </button>
       )}
       <div className="fab-space" aria-hidden="true" />
-      <button className="fab" onClick={() => (preview ? offline() : setPage({ view: 'write', topic }))}>
+      <button className="fab" onClick={() => (writable ? setPage({ view: 'write', topic }) : needLogin())}>
         ✏️ 글쓰기
       </button>
+      {loginSheet}
     </>
   );
 }
@@ -554,13 +627,23 @@ export function ProfileCommunityCards({
         <div className="eyebrow" style={{ marginTop: 0 }}>
           내 프로필
         </div>
-        <div className="pc-head">
-          <Avatar emoji={me.profile.avatar} size={40} />
-          <div>
-            <b>{me.profile.nick}</b>
-            <span>{me.profile.area || '동네 미설정'}</span>
+        {canWrite(me) && me.profile ? (
+          <div className="pc-head">
+            <Avatar emoji={me.profile.avatar} size={40} />
+            <div>
+              <b>{me.profile.nick}</b>
+              <span>{me.profile.area || '동네 미설정'}</span>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="pc-head">
+            <Avatar emoji="👀" size={40} />
+            <div>
+              <b>둘러보는 중</b>
+              <span>{me.auth?.configured ? '카카오로 로그인 ›' : '로그인 없이 체험해요'}</span>
+            </div>
+          </div>
+        )}
         <ul className="pc-stats">
           <li>
             최근 7일 먹은 재료 <b>{eaten}</b> · 버린 재료 <b>{discarded}</b>

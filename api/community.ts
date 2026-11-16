@@ -5,8 +5,8 @@
 //   UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN (Upstash 기본 이름) — 둘 중 하나만 있으면 된다.
 // 저장소가 없으면 { ok: false, error: 'not-configured' }를 돌려주고, 앱은 예시 글로 보여준다.
 //
-// 로그인은 없다. 앱이 기기마다 만든 비밀값(secret)을 보내면 서버가 해시로 작성자 id를 만든다.
-// 같은 비밀값을 가진 기기만 그 글을 지우거나 나눔 상태를 바꿀 수 있다.
+// 읽기(목록·랭킹·글 보기)는 누구나. 글쓰기·공감·댓글·나눔 상태·지우기·프로필은 카카오 로그인한 사람만 (2026-11-16).
+// 로그인 쿠키(fs_session)는 api/auth.ts가 굽고, 여기서는 같은 방식으로 서명만 확인한다. 작성자 id = 회원 uid의 해시.
 //
 // 배포 때 다른 파일을 불러오다 깨지지 않도록 이 파일은 다른 파일을 import하지 않는다 (api/read.ts와 같은 방식).
 
@@ -66,18 +66,18 @@ export interface MyStats {
 }
 
 export type CommunityRequest =
-  | { action: 'feed'; secret: string; topic?: Topic; before?: number }
-  | { action: 'ranking'; secret: string }
-  | { action: 'post'; secret: string; id: string }
-  | { action: 'create'; secret: string; topic: Topic; text: string; menu?: string; items?: string[]; photo?: string }
-  | { action: 'like'; secret: string; id: string }
-  | { action: 'comment'; secret: string; id: string; text: string }
-  | { action: 'status'; secret: string; id: string; status: ShareStatus }
-  | { action: 'delete'; secret: string; id: string }
-  | { action: 'me'; secret: string }
-  | { action: 'profile'; secret: string; profile: Profile };
+  | { action: 'feed'; topic?: Topic; before?: number }
+  | { action: 'ranking' }
+  | { action: 'post'; id: string }
+  | { action: 'create'; topic: Topic; text: string; menu?: string; items?: string[]; photo?: string }
+  | { action: 'like'; id: string }
+  | { action: 'comment'; id: string; text: string }
+  | { action: 'status'; id: string; status: ShareStatus }
+  | { action: 'delete'; id: string }
+  | { action: 'me' }
+  | { action: 'profile'; profile: Profile };
 
-export type CommunityErrorCode = 'not-configured' | 'bad-request' | 'not-found' | 'forbidden' | 'too-many' | 'server';
+export type CommunityErrorCode = 'not-configured' | 'login-required' | 'bad-request' | 'not-found' | 'forbidden' | 'too-many' | 'server';
 
 export type CommunityResponse =
   | { ok: true; posts: PostView[]; next?: number }
@@ -246,6 +246,8 @@ interface StoredComment {
 export interface Deps {
   store: Store | undefined;
   now: () => number;
+  /** 로그인한 회원 (없으면 둘러보는 방문자: 읽기만) */
+  session?: { uid: string; nick: string } | null;
   /** 글·댓글 id */
   newId?: () => string;
 }
@@ -276,19 +278,18 @@ const str = (v: unknown, max: number, min = 0): string => {
 const optStr = (v: unknown, max: number) => (v === undefined || v === null || v === '' ? undefined : str(v, max, 1));
 const isTopic = (v: unknown): v is Topic => typeof v === 'string' && (TOPICS as readonly string[]).includes(v);
 
-/** 비밀값 → 작성자 id (앞 16자리 해시). 비밀값은 저장하지 않는다. */
-export async function authorIdOf(secret: unknown): Promise<string> {
-  if (typeof secret !== 'string' || secret.length < 16 || secret.length > 128) throw new Fail('bad-request');
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`fridge-community:${secret}`));
+/** 회원 uid → 작성자 id (앞 16자리 해시). 카카오 회원번호는 글에 그대로 남기지 않는다. */
+export async function authorIdOf(uid: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`fridge-community:${uid}`));
   return [...new Uint8Array(buf)]
     .slice(0, 8)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 }
 
-/** 처음 쓰는 사람의 기본 프로필: "이웃 + 숫자 4자리" */
-export const defaultProfile = (authorId: string): Profile => ({
-  nick: `이웃${(parseInt(authorId.slice(0, 6), 16) % 10000).toString().padStart(4, '0')}`,
+/** 처음 쓰는 사람의 기본 프로필: 카카오 닉네임, 없으면 "이웃 + 숫자 4자리" */
+export const defaultProfile = (authorId: string, nick?: string): Profile => ({
+  nick: nick?.trim().slice(0, LIMITS.nick) || `이웃${(parseInt(authorId.slice(0, 6), 16) % 10000).toString().padStart(4, '0')}`,
   avatar: AVATARS[parseInt(authorId.slice(6, 8), 16) % AVATARS.length],
   area: '',
 });
@@ -351,6 +352,16 @@ async function loadPost(store: Store, id: unknown): Promise<StoredPost> {
   return p;
 }
 
+/** 로그인한 회원의 프로필이 아직 없으면 카카오 닉네임으로 만들어 둔다 (글·댓글에 그 이름이 보이게) */
+async function ensureProfile(store: Store, me: string, nick: string | undefined): Promise<Profile> {
+  const [raw] = await store.exec([['GET', K.user(me)]]);
+  const old = parse<Profile>(raw);
+  if (old) return old;
+  const p = defaultProfile(me, nick);
+  await store.exec([['SET', K.user(me), JSON.stringify(p)]]);
+  return p;
+}
+
 async function rateLimit(store: Store, me: string, kind: 'post' | 'comment', now: number) {
   const key = K.rate(me, kind, dayKey(now));
   const [n] = await store.exec([['INCR', key], ['EXPIRE', key, 2 * 86400]]);
@@ -364,7 +375,11 @@ export async function handleCommunity(body: unknown, deps: Deps): Promise<{ stat
   if (!store) return { status: 503, body: { ok: false, error: 'not-configured' } };
   try {
     const b = (body ?? {}) as Record<string, unknown>;
-    const me = await authorIdOf(b.secret);
+    const session = deps.session ?? null;
+    // 둘러보는 방문자는 작성자 id가 없다 (내 글·내가 공감한 글 표시도 없음)
+    const me = session ? await authorIdOf(session.uid) : '';
+    const READ = ['feed', 'ranking', 'post'];
+    if (!READ.includes(String(b.action)) && !session) throw new Fail('login-required');
     const t = now();
     switch (b.action) {
       case 'feed': {
@@ -410,6 +425,7 @@ export async function handleCommunity(body: unknown, deps: Deps): Promise<{ stat
           photo = b.photo;
         }
         await rateLimit(store, me, 'post', t);
+        await ensureProfile(store, me, session?.nick);
         const id = newId();
         const post: StoredPost = {
           id,
@@ -443,6 +459,7 @@ export async function handleCommunity(body: unknown, deps: Deps): Promise<{ stat
         const p = await loadPost(store, b.id);
         const text = str(b.text, LIMITS.comment, 1);
         await rateLimit(store, me, 'comment', t);
+        await ensureProfile(store, me, session?.nick);
         const c: StoredComment = { id: newId(), authorId: me, text, createdAt: t };
         await store.exec([['RPUSH', K.comments(p.id), JSON.stringify(c)]]);
         return { status: 200, body: { ok: true, done: true } };
@@ -468,18 +485,18 @@ export async function handleCommunity(body: unknown, deps: Deps): Promise<{ stat
         return { status: 200, body: { ok: true, done: true } };
       }
       case 'me': {
-        const [rawProfile, weekIds, total] = (await store.exec([
-          ['GET', K.user(me)],
+        const profile = await ensureProfile(store, me, session?.nick);
+        const [weekIds, total] = (await store.exec([
           ['ZREVRANGEBYSCORE', K.userPosts(me), '+inf', t - 7 * DAY],
           ['ZCARD', K.userPosts(me)],
-        ])) as [unknown, string[], number];
+        ])) as [string[], number];
         const likes = weekIds.length ? await store.exec(weekIds.map((id) => ['SCARD', K.likes(id)])) : [];
         return {
           status: 200,
           body: {
             ok: true,
             authorId: me,
-            profile: parse<Profile>(rawProfile) ?? defaultProfile(me),
+            profile,
             stats: { weekPosts: weekIds.length, weekLikes: likes.reduce<number>((n, x) => n + Number(x ?? 0), 0), totalPosts: Number(total ?? 0) },
           },
         };
@@ -497,7 +514,7 @@ export async function handleCommunity(body: unknown, deps: Deps): Promise<{ stat
     }
   } catch (e) {
     if (e instanceof Fail) {
-      const status = { 'bad-request': 400, forbidden: 403, 'not-found': 404, 'too-many': 429 }[e.code as string] ?? 500;
+      const status = { 'bad-request': 400, 'login-required': 401, forbidden: 403, 'not-found': 404, 'too-many': 429 }[e.code as string] ?? 500;
       return { status, body: { ok: false, error: e.code } };
     }
     console.error('커뮤니티 처리 실패:', e);
@@ -525,6 +542,40 @@ export function devStore(): Store {
 
 const pickStore = () => storeFromEnv(process.env, fetch) ?? (process.env.COMMUNITY_DEV_MEMORY === '1' ? devStore() : undefined);
 
+// ── 로그인 쿠키 확인 (api/auth.ts의 signSession과 같은 형식. 테스트가 둘이 맞는지 확인한다) ──
+const SESSION_COOKIE = 'fs_session';
+const b64urlBytes = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+export async function sessionFrom(cookieHeader: string | null, secret: string | undefined, now: number): Promise<{ uid: string; nick: string } | null> {
+  if (!secret) return null;
+  const token = (cookieHeader ?? '')
+    .split(';')
+    .map((p) => p.trim())
+    .find((p) => p.startsWith(`${SESSION_COOKIE}=`))
+    ?.slice(SESSION_COOKIE.length + 1);
+  if (!token) return null;
+  const [body, sig] = decodeURIComponent(token).split('.');
+  if (!body || !sig) return null;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const want = b64urlBytes(new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body))));
+  if (want.length !== sig.length) return null;
+  let diff = 0;
+  for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ sig.charCodeAt(i);
+  if (diff) return null;
+  try {
+    const s = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(body.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)))) as {
+      uid?: unknown;
+      nick?: unknown;
+      exp?: unknown;
+    };
+    if (typeof s.uid !== 'string' || typeof s.exp !== 'number' || s.exp <= now) return null;
+    return { uid: s.uid, nick: typeof s.nick === 'string' ? s.nick : '' };
+  } catch {
+    return null;
+  }
+}
+const authSecret = () =>
+  process.env.AUTH_SECRET ?? (process.env.COMMUNITY_DEV_MEMORY === '1' && !process.env.KAKAO_REST_API_KEY ? 'dev-secret-dev-secret-dev-secret' : undefined);
+
 /** Vercel 진입점 */
 export async function POST(request: Request): Promise<Response> {
   let body: unknown;
@@ -533,7 +584,8 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     body = null;
   }
-  const { status, body: out } = await handleCommunity(body, { store: pickStore(), now: Date.now });
+  const session = await sessionFrom(request.headers.get('cookie'), authSecret(), Date.now());
+  const { status, body: out } = await handleCommunity(body, { store: pickStore(), now: Date.now, session });
   return Response.json(out, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 

@@ -28,6 +28,9 @@ import { HomeView } from './HomeView';
 import { InstallGuideView, NotifyTimeView } from './NotifyView';
 import { ItemSheet } from './ItemSheet';
 import { CommunityView, RankingCard, type CommunityPage } from './CommunityView';
+import { startKakaoLogin } from '../community/client';
+import { refreshMe } from '../community/useCommunity';
+import { KakaoButton } from './parts';
 import { OpeningView } from './OpeningView';
 import { OrderView } from './OrderView';
 import { PlanView } from './PlanView';
@@ -82,9 +85,10 @@ export function App() {
   // "예시 재료는 지울까요?"·홈 화면 추가 카드가 예전처럼 나오게 한다
   const introDone = state.onboarding.introSeen;
   const onboardSeen = state.onboarding.seen;
+  const entryNow = state.onboarding.entry;
   useEffect(() => {
-    if (introDone && !onboardSeen) dispatch({ type: 'onboard', mode: 'sample' });
-  }, [introDone, onboardSeen]);
+    if (introDone && !onboardSeen) dispatch({ type: 'onboard', mode: entryNow === 'member' ? 'mine' : 'sample' });
+  }, [introDone, onboardSeen, entryNow]);
 
   const showToast = useCallback((msg: string, action?: Toast['action']) => {
     setToast({ msg, action });
@@ -92,6 +96,34 @@ export function App() {
     // 되돌리기 같은 버튼이 있으면 누를 시간을 더 준다
     toastTimer.current = window.setTimeout(() => setToast(null), action ? 5000 : 2200);
   }, []);
+
+  // ── 카카오 로그인 (2026-11-16) ──
+  // 오프닝에서 카카오로 시작을 고르면: 시작 방법을 먼저 저장한 뒤(저장 effect가 먼저 돈다) 카카오 화면으로
+  const [goKakao, setGoKakao] = useState(false);
+  useEffect(() => {
+    if (goKakao) startKakaoLogin();
+  }, [goKakao]);
+  // 카카오에서 돌아오면 주소에 ?login=kakao|fail|off
+  const entry = state.onboarding.entry;
+  const loginHandled = useRef(false);
+  useEffect(() => {
+    if (loginHandled.current) return;
+    loginHandled.current = true;
+    const url = new URL(window.location.href);
+    const result = url.searchParams.get('login');
+    if (!result) return;
+    url.searchParams.delete('login');
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+    if (result === 'kakao') {
+      // 둘러보다가 로그인했으면 예시 재료를 비우고 내 냉장고로
+      if (entry !== 'member') {
+        dispatch({ type: 'enter', entry: 'member', today });
+        showToast('카카오로 로그인했어요. 예시 재료를 비우고 내 냉장고로 시작해요');
+      } else showToast('카카오로 로그인했어요');
+      void refreshMe();
+    } else if (result === 'off') showToast('카카오 로그인을 아직 연결하지 않았어요. 지금은 로그인 없이 쓸 수 있어요');
+    else showToast('로그인하지 못했어요. 다시 해 주세요');
+  }, [entry, today, showToast]);
 
   const go = (s: Screen) => {
     // 하위 화면(재료 추가·알림 시간·홈 화면 추가 방법)에서 뒤로 가면 들어오기 전 탭으로.
@@ -199,7 +231,17 @@ export function App() {
   }, [discardAsk, showToast]);
 
   // 처음 열었을 때 한 번만 오프닝 화면 (하단 탭 없이)
-  if (showIntro(state)) return <OpeningView onStart={() => dispatch({ type: 'finishIntro' })} />;
+  // 처음 열었을 때 오프닝에서 시작 방법을 고른다 (고르기 전까지는 계속 오프닝)
+  if (showIntro(state) || entry === null)
+    return (
+      <OpeningView
+        onKakao={() => {
+          dispatch({ type: 'enter', entry: 'member', today });
+          setGoKakao(true);
+        }}
+        onGuest={() => dispatch({ type: 'enter', entry: 'guest', today })}
+      />
+    );
 
   let view: ReactNode = null;
   if (screen === 'home') {
@@ -232,7 +274,17 @@ export function App() {
           showToast('냉장고를 비웠어요. 내 재료로 채워 주세요');
         }}
         onOrder={() => go('order')}
-        ranking={<RankingCard onOpen={(id) => openCommunity({ view: 'post', id })} onAll={() => openCommunity({ view: 'feed' })} />}
+        ranking={
+          <>
+            {entry === 'guest' && (
+              <div className="guest-bar">
+                <span>👀 예시 냉장고로 둘러보는 중이에요. 내 재료로 쓰려면</span>
+                <KakaoButton onClick={startKakaoLogin} label="카카오로 시작하기" />
+              </div>
+            )}
+            <RankingCard onOpen={(id) => openCommunity({ view: 'post', id })} onAll={() => openCommunity({ view: 'feed' })} />
+          </>
+        }
         notifAsk={showNotifAsk(state)}
         onNotifAsk={(choice) => {
           dispatch({ type: 'answerNotifAsk', choice, at: new Date().toISOString() });

@@ -133,3 +133,15 @@ export function SideDishes({ sides, items, today }: { sides?: Recipe[]; items: I
     </div>
   );
 }
+
+/** 카카오 로그인 버튼 (카카오 디자인 가이드의 노란 버튼·말풍선 모양) */
+export function KakaoButton({ onClick, label = '카카오로 로그인' }: { onClick: () => void; label?: string }) {
+  return (
+    <button className="kakao-btn" onClick={onClick}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3C6.48 3 2 6.58 2 11c0 2.85 1.86 5.35 4.66 6.77-.2.74-.74 2.7-.85 3.12-.13.52.19.51.4.37.17-.11 2.63-1.79 3.7-2.52.68.1 1.38.15 2.09.15 5.52 0 10-3.58 10-8S17.52 3 12 3z" />
+      </svg>
+      {label}
+    </button>
+  );
+}
