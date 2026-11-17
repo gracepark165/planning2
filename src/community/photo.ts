@@ -22,3 +22,24 @@ export async function shrinkPhoto(file: File): Promise<string> {
     URL.revokeObjectURL(url);
   }
 }
+
+/** 프로필 사진: 가운데를 정사각형으로 잘라 256px JPEG로 (2026-11-17) */
+export async function squarePhoto(file: File, side = 256): Promise<string> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = url;
+    });
+    const s = Math.min(img.naturalWidth, img.naturalHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = side;
+    canvas.height = side;
+    canvas.getContext('2d')!.drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2, s, s, 0, 0, side, side);
+    return canvas.toDataURL('image/jpeg', 0.8);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}

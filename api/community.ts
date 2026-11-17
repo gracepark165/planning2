@@ -23,6 +23,8 @@ export interface Profile {
   avatar: string;
   /** 동네 (나눔 글에 보임). 비워 둬도 된다 */
   area: string;
+  /** 프로필 사진을 올린 시각 (2026-11-17). 있으면 그림 대신 사진(GET /api/community?avatar=작성자id&v=이 값) */
+  photoV?: number;
 }
 
 export interface AuthorView extends Profile {
@@ -98,6 +100,8 @@ export const LIMITS = {
   area: 20,
   /** 사진 data URL 최대 길이 (앱이 640px JPEG로 줄여서 보낸다) */
   photo: 400_000,
+  /** 프로필 사진 data URL 최대 길이 (앱이 256px 정사각 JPEG로 줄여서 보낸다) */
+  profilePhoto: 120_000,
   postsPerDay: 20,
   commentsPerDay: 100,
   pageSize: 20,
@@ -259,6 +263,7 @@ const K = {
   likes: (id: string) => `likes:${id}`,
   comments: (id: string) => `cmts:${id}`,
   user: (id: string) => `user:${id}`,
+  userImg: (id: string) => `uimg:${id}`,
   userPosts: (id: string) => `uposts:${id}`,
   rate: (id: string, kind: string, day: string) => `rl:${id}:${kind}:${day}`,
 };
@@ -506,7 +511,22 @@ export async function handleCommunity(body: unknown, deps: Deps): Promise<{ stat
         const avatar = typeof p.avatar === 'string' && (AVATARS as readonly string[]).includes(p.avatar) ? p.avatar : undefined;
         if (!avatar) throw new Fail('bad-request');
         const profile: Profile = { nick: str(p.nick, LIMITS.nick, 1), avatar, area: str(p.area ?? '', LIMITS.area) };
-        await store.exec([['SET', K.user(me), JSON.stringify(profile)]]);
+        // 사진: 새 사진(data URL)이면 저장, null이면 지우기, 없으면 그대로
+        const cmds: Cmd[] = [];
+        if (typeof p.photo === 'string') {
+          if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.photo) || p.photo.length > LIMITS.profilePhoto) throw new Fail('bad-request');
+          cmds.push(['SET', K.userImg(me), p.photo]);
+          profile.photoV = t;
+        } else if (p.photo === null) {
+          cmds.push(['DEL', K.userImg(me)]);
+        } else if (p.photo !== undefined) {
+          throw new Fail('bad-request');
+        } else {
+          const [raw] = await store.exec([['GET', K.user(me)]]);
+          const old = parse<Profile>(raw);
+          if (old?.photoV) profile.photoV = old.photoV;
+        }
+        await store.exec([...cmds, ['SET', K.user(me), JSON.stringify(profile)]]);
         return { status: 200, body: { ok: true, done: true } };
       }
       default:
@@ -522,11 +542,11 @@ export async function handleCommunity(body: unknown, deps: Deps): Promise<{ stat
   }
 }
 
-/** 사진: data URL → 바이트 */
-export async function handleImage(id: string | null, store: Store | undefined): Promise<Response> {
+/** 사진: data URL → 바이트. kind 'post' = 글 사진, 'avatar' = 프로필 사진 (작성자 id) */
+export async function handleImage(id: string | null, store: Store | undefined, kind: 'post' | 'avatar' = 'post'): Promise<Response> {
   if (!store) return new Response('not configured', { status: 503 });
   if (!id || !/^[a-z0-9]{4,32}$/.test(id)) return new Response('bad request', { status: 400 });
-  const [raw] = await store.exec([['GET', K.img(id)]]);
+  const [raw] = await store.exec([['GET', kind === 'avatar' ? K.userImg(id) : K.img(id)]]);
   const m = typeof raw === 'string' ? /^data:(image\/[a-z]+);base64,(.+)$/.exec(raw) : null;
   if (!m) return new Response('not found', { status: 404 });
   const bytes = Uint8Array.from(atob(m[2]), (c) => c.charCodeAt(0));
@@ -590,5 +610,7 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 export async function GET(request: Request): Promise<Response> {
-  return handleImage(new URL(request.url).searchParams.get('img'), pickStore());
+  const q = new URL(request.url).searchParams;
+  // 프로필 사진은 주소에 올린 시각(v)이 붙어 있어 바뀌면 주소도 바뀐다 → 오래 저장해도 된다
+  return q.has('avatar') ? handleImage(q.get('avatar'), pickStore(), 'avatar') : handleImage(q.get('img'), pickStore());
 }

@@ -66,10 +66,15 @@ export const community = {
   remove: async (id: string) => pick(await call({ action: 'delete', id }), () => true),
   me: async () =>
     pick(await call({ action: 'me' }), (d) => ({ profile: d.profile as Profile, stats: d.stats as MyStats, authorId: d.authorId as string })),
-  saveProfile: async (profile: Profile) => pick(await call({ action: 'profile', profile }), () => true),
+  /** photo: 새 사진 data URL / null = 사진 지우기 / 없음 = 그대로 */
+  saveProfile: async (profile: Profile, photo?: string | null) =>
+    pick(await call({ action: 'profile', profile: { ...profile, ...(photo !== undefined ? { photo } : {}) } } as CommunityRequest), () => true),
 };
 
 export const imageUrl = (postId: string) => `${ENDPOINT}?img=${encodeURIComponent(postId)}`;
+/** 프로필 사진 주소 (사진이 없으면 undefined → 그림 이모지) */
+export const avatarUrl = (author: { id?: string; photoV?: number }) =>
+  author.id && author.photoV ? `${ENDPOINT}?avatar=${encodeURIComponent(author.id)}&v=${author.photoV}` : undefined;
 
 export function failureText(reason: CommunityFailure): string {
   switch (reason) {

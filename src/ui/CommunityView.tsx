@@ -12,13 +12,14 @@ import {
   failureText,
   startKakaoLogin,
   imageUrl,
+  avatarUrl,
   type CommentView,
   type PostView,
   type Profile,
   type ShareStatus,
   type Topic,
 } from '../community/client';
-import { shrinkPhoto } from '../community/photo';
+import { shrinkPhoto, squarePhoto } from '../community/photo';
 import { samplePosts } from '../community/samples';
 import { STATUS_CLASS, TOPIC_META, timeAgo } from '../community/text';
 import { canWrite, logout, refreshMe, saveProfile, useMe } from '../community/useCommunity';
@@ -36,10 +37,11 @@ interface Props {
   onToast: (msg: string) => void;
 }
 
-function Avatar({ emoji, size = 36 }: { emoji: string; size?: number }) {
+/** 프로필 그림: 사진이 있으면 사진, 없으면 그림 이모지 */
+function Avatar({ emoji, photo, size = 36 }: { emoji: string; photo?: string; size?: number }) {
   return (
     <span className="avatar" style={{ width: size, height: size, fontSize: size * 0.58 }} aria-hidden="true">
-      {emoji}
+      {photo ? <img src={photo} alt="" loading="lazy" decoding="async" /> : emoji}
     </span>
   );
 }
@@ -85,7 +87,7 @@ function PostCard({
     <article className={`post ${full ? 'full' : ''}`}>
       <button className="post-body" onClick={onOpen} disabled={!onOpen} aria-label={onOpen ? `${p.author.nick}의 글 보기` : undefined}>
         <div className="post-head">
-          <Avatar emoji={p.author.avatar} />
+          <Avatar emoji={p.author.avatar} photo={avatarUrl(p.author)} />
           <div className="who">
             <b>{p.author.nick}</b>
             <span>
@@ -297,9 +299,25 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
   // ── 프로필 ──
   const [pNick, setPNick] = useState(me.profile?.nick ?? '');
   const [pAvatar, setPAvatar] = useState<string>(me.profile?.avatar ?? AVATARS[0]);
+  /** 프로필 사진: undefined = 그대로, string = 새로 고른 사진, null = 사진 빼기 */
+  const [pPhoto, setPPhoto] = useState<string | null | undefined>(undefined);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+  const savedPhoto = me.profile ? avatarUrl({ id: me.authorId, photoV: me.profile.photoV }) : undefined;
+  const shownPhoto = pPhoto === null ? undefined : (pPhoto ?? savedPhoto);
+  const onAvatarFile = async (f: File | undefined) => {
+    if (!f) return;
+    try {
+      const data = await squarePhoto(f);
+      if (data.length > LIMITS.profilePhoto) return onToast('사진이 너무 커요. 다른 사진을 골라 주세요');
+      setPPhoto(data);
+    } catch {
+      onToast('사진을 읽지 못했어요');
+    }
+  };
   const [pArea, setPArea] = useState(me.profile?.area ?? '');
   useEffect(() => {
     if (page.view !== 'profile' || !me.profile) return;
+    setPPhoto(undefined);
     setPNick(me.profile.nick);
     setPAvatar(me.profile.avatar);
     setPArea(me.profile.area);
@@ -307,7 +325,7 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
   const saveMine = async () => {
     const nick = pNick.trim();
     if (!nick) return onToast('닉네임을 적어 주세요');
-    const ok = await saveProfile({ nick: nick.slice(0, LIMITS.nick), avatar: pAvatar, area: pArea.trim().slice(0, LIMITS.area) } as Profile);
+    const ok = await saveProfile({ nick: nick.slice(0, LIMITS.nick), avatar: pAvatar, area: pArea.trim().slice(0, LIMITS.area) } as Profile, pPhoto);
     if (!ok) return onToast('프로필을 저장하지 못했어요. 잠시 뒤에 다시 해 주세요');
     onToast('프로필을 저장했어요');
     setPage({ view: 'feed' });
@@ -343,14 +361,29 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
       <>
         <BackButton onClick={back} />
         <h1>내 프로필</h1>
-        <p className="lead">커뮤니티 글에 이 이름과 그림이 보여요.</p>
+        <p className="lead">커뮤니티 글에 이 이름과 사진(없으면 그림)이 보여요.</p>
         <div className="profile-preview">
-          <Avatar emoji={pAvatar} size={64} />
+          <Avatar emoji={pAvatar} photo={shownPhoto} size={64} />
           <div>
             <b>{pNick.trim() || '닉네임'}</b>
             <span>{pArea.trim() || '동네를 적으면 나눔 글에 보여요'}</span>
           </div>
         </div>
+        <div className="eyebrow">사진</div>
+        <input ref={avatarFileRef} type="file" accept="image/*" hidden onChange={(e) => void onAvatarFile(e.target.files?.[0])} />
+        <div className="photo-acts">
+          <button className="small-btn" onClick={() => avatarFileRef.current?.click()}>
+            📷 {shownPhoto ? '사진 바꾸기' : '사진 넣기'}
+          </button>
+          {shownPhoto && (
+            <button className="small-btn alt" onClick={() => setPPhoto(null)}>
+              사진 빼고 그림 쓰기
+            </button>
+          )}
+        </div>
+        <p className="note" style={{ marginTop: 6 }}>
+          사진은 가운데를 정사각형으로 잘라 올려요. 사진이 없으면 아래 그림이 보여요.
+        </p>
         <div className="eyebrow">그림</div>
         <div className="avatar-grid" role="radiogroup" aria-label="프로필 그림">
           {AVATARS.map((a) => (
@@ -499,7 +532,7 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
             <ul className="comments">
               {detail.comments.map((c) => (
                 <li key={c.id}>
-                  <Avatar emoji={c.author.avatar} size={28} />
+                  <Avatar emoji={c.author.avatar} photo={avatarUrl(c.author)} size={28} />
                   <div>
                     <b>
                       {c.author.nick}
@@ -540,7 +573,7 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
       <p className="lead">냉장고 재료로 만든 한 끼, 나눔, 꿀팁을 나눠요.</p>
       {writable && me.profile ? (
         <button className="me-row" onClick={() => setPage({ view: 'profile' })}>
-          <Avatar emoji={me.profile.avatar} size={32} />
+          <Avatar emoji={me.profile.avatar} photo={avatarUrl({ id: me.authorId, photoV: me.profile.photoV })} size={32} />
           <b>{me.profile.nick}</b>
           <span>{me.profile.area || '동네 미설정'}</span>
           <span className="go">프로필 고치기 ›</span>
@@ -629,7 +662,7 @@ export function ProfileCommunityCards({
         </div>
         {canWrite(me) && me.profile ? (
           <div className="pc-head">
-            <Avatar emoji={me.profile.avatar} size={40} />
+            <Avatar emoji={me.profile.avatar} photo={avatarUrl({ id: me.authorId, photoV: me.profile.photoV })} size={40} />
             <div>
               <b>{me.profile.nick}</b>
               <span>{me.profile.area || '동네 미설정'}</span>
@@ -665,7 +698,7 @@ export function ProfileCommunityCards({
               {TOPIC_META[latest.topic].emoji} {latest.menu ?? latest.text}
             </p>
             <span className="cc-by">
-              {latest.author.avatar} {latest.author.nick} · ♥ {latest.likes}
+              <Avatar emoji={latest.author.avatar} photo={avatarUrl(latest.author)} size={16} /> {latest.author.nick} · ♥ {latest.likes}
               {me.conn !== 'on' && <span className="tag sample">예시</span>}
             </span>
           </>
@@ -722,7 +755,7 @@ export function RankingCard({ onOpen, onAll }: { onOpen: (id: string) => void; o
                 <span className="rk-text">
                   <b>{p.menu ?? p.text}</b>
                   <span>
-                    {p.author.avatar} {p.author.nick} · {TOPIC_META[p.topic].label}
+                    <Avatar emoji={p.author.avatar} photo={avatarUrl(p.author)} size={16} /> {p.author.nick} · {TOPIC_META[p.topic].label}
                   </span>
                 </span>
                 <span className="rk-likes">♥ {p.likes}</span>

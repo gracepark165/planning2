@@ -187,6 +187,49 @@ describe('커뮤니티 서버', () => {
   });
 });
 
+describe('프로필 사진 (2026-11-17)', () => {
+  const JPG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ==';
+  const meOf = async (call: ReturnType<typeof setup>['call'], who: string) =>
+    ((await call({ action: 'me' }, who)) as { profile: { nick: string; photoV?: number } }).profile;
+
+  it('사진을 올리면 photoV가 생기고 글·댓글 작성자에도 보이며, GET으로 사진을 준다', async () => {
+    const { store, call, tick } = setup();
+    expect(await call({ action: 'profile', profile: { nick: '냉집사', avatar: '🥕', area: '', photo: JPG } }, A)).toEqual({ ok: true, done: true });
+    const v1 = (await meOf(call, A)).photoV;
+    expect(v1).toBeGreaterThan(0);
+    await post(call, A);
+    const feed = (await call({ action: 'feed' })) as { posts: { author: { id: string; photoV?: number } }[] };
+    expect(feed.posts[0].author.photoV).toBe(v1);
+    const res = await handleImage(feed.posts[0].author.id, store, 'avatar');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Content-Type')).toBe('image/jpeg');
+    // 새 사진으로 바꾸면 photoV도 바뀐다 (주소가 바뀌어 예전 사진이 남지 않게)
+    tick(1000);
+    await call({ action: 'profile', profile: { nick: '냉집사', avatar: '🥕', area: '', photo: JPG } }, A);
+    expect((await meOf(call, A)).photoV).toBe(v1! + 1000);
+  });
+
+  it('이름만 고치면 사진은 그대로, null이면 지운다', async () => {
+    const { store, call } = setup();
+    await call({ action: 'profile', profile: { nick: '냉집사', avatar: '🥕', area: '', photo: JPG } }, A);
+    const v = (await meOf(call, A)).photoV;
+    await call({ action: 'profile', profile: { nick: '새이름', avatar: '🥕', area: '망원동' } }, A);
+    expect(await meOf(call, A)).toMatchObject({ nick: '새이름', photoV: v });
+    await call({ action: 'profile', profile: { nick: '새이름', avatar: '🥕', area: '', photo: null } }, A);
+    expect((await meOf(call, A)).photoV).toBeUndefined();
+    expect((await handleImage(await authorIdOf(A), store, 'avatar')).status).toBe(404);
+  });
+
+  it('사진 형식·크기가 맞지 않으면 bad-request', async () => {
+    const { call } = setup();
+    const bad = (photo: unknown) => call({ action: 'profile', profile: { nick: '냉집사', avatar: '🥕', area: '', photo } }, A);
+    expect(await bad('javascript:alert(1)')).toEqual({ ok: false, error: 'bad-request' });
+    expect(await bad('data:image/svg+xml;base64,PHN2Zz4=')).toEqual({ ok: false, error: 'bad-request' });
+    expect(await bad(`data:image/jpeg;base64,${'A'.repeat(LIMITS.profilePhoto)}`)).toEqual({ ok: false, error: 'bad-request' });
+    expect(await bad(123)).toEqual({ ok: false, error: 'bad-request' });
+  });
+});
+
 describe('카카오 로그인 쿠키', () => {
   const SECRET = 'x'.repeat(40);
   const NOW = Date.UTC(2026, 10, 16);

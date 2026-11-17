@@ -14,6 +14,8 @@ export interface MeState {
   /** 로그인한 회원의 커뮤니티 프로필 */
   profile?: Profile;
   stats?: MyStats;
+  /** 내 작성자 id (프로필 사진 주소에 씀) */
+  authorId?: string;
 }
 
 let state: MeState = { conn: 'loading' };
@@ -30,7 +32,7 @@ export function refreshMe(): Promise<void> {
     const [auth, r] = await Promise.all([fetchAuth(), community.me()]);
     const authState = auth ?? { loggedIn: false, configured: false };
     if (r.ok) {
-      set({ conn: 'on', auth: authState, profile: r.data.profile, stats: r.data.stats });
+      set({ conn: 'on', auth: authState, profile: r.data.profile, stats: r.data.stats, authorId: r.data.authorId });
       return;
     }
     const conn: Conn = r.reason === 'not-configured' ? 'off' : r.reason === 'login-required' ? 'on' : 'error';
@@ -42,10 +44,10 @@ export function refreshMe(): Promise<void> {
   return loading;
 }
 
-/** 프로필 저장 (로그인한 회원만) */
-export async function saveProfile(p: Profile): Promise<boolean> {
-  const r = await community.saveProfile(p);
-  if (r.ok) set({ ...state, profile: p });
+/** 프로필 저장 (로그인한 회원만). photo: 새 사진 data URL / null = 지우기 / 없음 = 그대로 */
+export async function saveProfile(p: Profile, photo?: string | null): Promise<boolean> {
+  const r = await community.saveProfile(p, photo);
+  if (r.ok) await refreshMe(); // 사진 시각(photoV)은 서버가 정한다
   return r.ok;
 }
 
