@@ -530,3 +530,12 @@ textarea.post-input:focus{border-color:var(--accent)}
 .avatar img{display:block;width:100%;height:100%;object-fit:cover}
 .photo-acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .photo-acts .small-btn{min-height:44px}
+/* 이번 주 내 프로필 칸: 사진 크게 (2026-11-17) */
+.pc-head.big{flex-direction:column;align-items:center;text-align:center;gap:6px;margin-top:10px}
+.pc-head.big b{font-size:16px;max-width:100%}
+.pc-head.big span{font-size:12.5px;color:var(--sub)}
+/* 내 프로필 화면: 활동 숫자 */
+.my-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0 4px}
+.my-stats div{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:16px;background:var(--card)}
+.my-stats b{font-size:22px}
+.my-stats span{font-size:12.5px;color:var(--sub);word-break:keep-all}

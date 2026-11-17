@@ -20,10 +20,9 @@ import {
 import { formatDate, formatDayLabel } from '../rules/date';
 import { frozenExpiry } from '../rules/expiry';
 import { eul, eun, withJosa } from '../rules/josa';
-import { recentSummary } from '../rules/recentSummary';
 import { shoppingGroups, shoppingView } from '../rules/shopping';
 import { dDayLabel, daysLeft } from '../rules/status';
-import type { DateKey, Item, Location, MealLog, Plan, Recipe, ShoppingItem } from '../rules/types';
+import type { DateKey, Item, Location, Plan, Recipe, ShoppingItem } from '../rules/types';
 import type { AiSlot } from '../rules/menuCheck';
 import { AI_DAILY_LIMIT, type AiSlotState } from '../state/aiMenu';
 import { RecipeSource, SideDishes, Tile, UseTag } from './parts';
@@ -33,8 +32,6 @@ const MEAL_CHOICES = Array.from({ length: MAX_MEALS_PER_WEEK - MIN_MEALS_PER_WEE
 
 interface Props {
   items: Item[];
-  /** 다 먹었어요·버렸어요 기록 (최근 7일 요약) */
-  logs: MealLog[];
   plan: Plan;
   /** 이번 주 플랜 (App에서 한 번만 짜서 홈의 오늘의 한 끼와 같이 쓴다). AI가 채운 칸 포함 */
   result: PlanResult & { slots: AiSlot[] };
@@ -79,7 +76,6 @@ interface Props {
 
 export function PlanView({
   items,
-  logs,
   plan,
   result,
   aiStates,
@@ -134,14 +130,10 @@ export function PlanView({
     <div className={`when ${slot.dayOffset === 0 ? 'today' : ''}`}>{formatDayLabel(slot.date, today)}</div>
   );
 
-  const week = recentSummary(logs, items, today);
-
   return (
     <>
       {/* 내 프로필 + 커뮤니티 (2026-11-09, 사용자 요청). 최근 7일 먹은·버린 재료 수는 프로필 칸에 남긴다 */}
       <ProfileCommunityCards
-        eaten={week.kind === 'summary' ? week.eaten : 0}
-        discarded={week.kind === 'summary' ? week.discarded : 0}
         onProfile={onProfile}
         onCommunity={onCommunity}
       />

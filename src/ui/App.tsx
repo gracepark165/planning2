@@ -31,6 +31,7 @@ import { CommunityView, RankingCard, type CommunityPage } from './CommunityView'
 import { startKakaoLogin } from '../community/client';
 import { refreshMe } from '../community/useCommunity';
 import { KakaoButton } from './parts';
+import { recentSummary } from '../rules/recentSummary';
 import { OpeningView } from './OpeningView';
 import { OrderView } from './OrderView';
 import { PlanView } from './PlanView';
@@ -305,7 +306,6 @@ export function App() {
     view = (
       <PlanView
         items={state.items}
-        logs={state.logs}
         plan={state.plan}
         result={planResult}
         aiStates={ai.states}
@@ -368,6 +368,10 @@ export function App() {
         start={communityPage}
         items={state.items}
         today={today}
+        week={(() => {
+          const w = recentSummary(state.logs, state.items, today);
+          return w.kind === 'summary' ? { eaten: w.eaten, discarded: w.discarded } : { eaten: 0, discarded: 0 };
+        })()}
         onBack={() => go(prevScreen)}
         onToast={(msg) => showToast(msg)}
       />

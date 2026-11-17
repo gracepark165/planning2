@@ -33,6 +33,8 @@ interface Props {
   start: CommunityPage;
   items: Item[];
   today: DateKey;
+  /** 최근 7일 먹은·버린 재료 수 (냉장고 기록, 내 프로필 화면에 보임) */
+  week: { eaten: number; discarded: number };
   onBack: () => void;
   onToast: (msg: string) => void;
 }
@@ -124,7 +126,7 @@ function PostCard({
   );
 }
 
-export function CommunityView({ start, items, today, onBack, onToast }: Props) {
+export function CommunityView({ start, items, today, week, onBack, onToast }: Props) {
   const me = useMe();
   const preview = me.conn === 'off';
   const [page, setPage] = useState<CommunityPage>(start);
@@ -333,6 +335,32 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
 
   const back = () => (page.view === 'feed' || page.view === start.view ? onBack() : setPage({ view: 'feed' }));
 
+  /** 내 프로필 화면의 활동 숫자: 냉장고(최근 7일) + 커뮤니티(이번 주, 로그인했을 때) */
+  const myStats = (
+    <section className="my-stats" aria-label="내 활동">
+      <div>
+        <b>{week.eaten}</b>
+        <span>최근 7일 먹은 재료</span>
+      </div>
+      <div>
+        <b>{week.discarded}</b>
+        <span>최근 7일 버린 재료</span>
+      </div>
+      {me.stats && (
+        <>
+          <div>
+            <b>{me.stats.weekPosts}</b>
+            <span>이번 주 쓴 글</span>
+          </div>
+          <div>
+            <b>{me.stats.weekLikes}</b>
+            <span>이번 주 받은 공감</span>
+          </div>
+        </>
+      )}
+    </section>
+  );
+
   const previewNote = preview && (
     <div className="notice community-note">
       <span>지금 보이는 건 예시 글이에요. 커뮤니티 서버를 연결하면 이웃 글이 보이고 글을 쓸 수 있어요.</span>
@@ -344,6 +372,7 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
       <>
         <BackButton onClick={back} />
         <h1>내 프로필</h1>
+        {myStats}
         {preview ? (
           <p className="lead">커뮤니티 서버를 연결하면 카카오로 로그인해서 프로필을 만들 수 있어요.</p>
         ) : (
@@ -363,12 +392,13 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
         <h1>내 프로필</h1>
         <p className="lead">커뮤니티 글에 이 이름과 사진(없으면 그림)이 보여요.</p>
         <div className="profile-preview">
-          <Avatar emoji={pAvatar} photo={shownPhoto} size={64} />
+          <Avatar emoji={pAvatar} photo={shownPhoto} size={96} />
           <div>
             <b>{pNick.trim() || '닉네임'}</b>
             <span>{pArea.trim() || '동네를 적으면 나눔 글에 보여요'}</span>
           </div>
         </div>
+        {myStats}
         <div className="eyebrow">사진</div>
         <input ref={avatarFileRef} type="file" accept="image/*" hidden onChange={(e) => void onAvatarFile(e.target.files?.[0])} />
         <div className="photo-acts">
@@ -396,11 +426,7 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
         <input type="text" value={pNick} maxLength={LIMITS.nick} onChange={(e) => setPNick(e.target.value)} aria-label="닉네임" />
         <div className="eyebrow">동네 (선택)</div>
         <input type="text" value={pArea} maxLength={LIMITS.area} placeholder="예: 망원동" onChange={(e) => setPArea(e.target.value)} aria-label="동네" />
-        {me.stats && (
-          <p className="note">
-            최근 7일 글 {me.stats.weekPosts}개 · 받은 공감 {me.stats.weekLikes}개 · 지금까지 글 {me.stats.totalPosts}개
-          </p>
-        )}
+        {me.stats && <p className="note">지금까지 쓴 글 {me.stats.totalPosts}개</p>}
         <div className="ctas">
           <button className="cta" onClick={saveMine}>
             저장할게요
@@ -628,14 +654,9 @@ export function CommunityView({ start, items, today, onBack, onToast }: Props) {
 
 /** 이번 주 화면 맨 위: 내 프로필 칸 + 커뮤니티 칸 (예전 "최근 7일 요약" 자리) */
 export function ProfileCommunityCards({
-  eaten,
-  discarded,
   onProfile,
   onCommunity,
 }: {
-  /** 최근 7일 먹은·버린 재료 수 (냉장고 기록) */
-  eaten: number;
-  discarded: number;
   onProfile: () => void;
   onCommunity: () => void;
 }) {
@@ -660,33 +681,20 @@ export function ProfileCommunityCards({
         <div className="eyebrow" style={{ marginTop: 0 }}>
           내 프로필
         </div>
+        {/* 칸에는 사진·이름만 크게. 먹은·버린 재료, 글·공감 수는 눌러서 들어가는 내 프로필 화면에 (2026-11-17, 사용자 요청) */}
         {canWrite(me) && me.profile ? (
-          <div className="pc-head">
-            <Avatar emoji={me.profile.avatar} photo={avatarUrl({ id: me.authorId, photoV: me.profile.photoV })} size={40} />
-            <div>
-              <b>{me.profile.nick}</b>
-              <span>{me.profile.area || '동네 미설정'}</span>
-            </div>
+          <div className="pc-head big">
+            <Avatar emoji={me.profile.avatar} photo={avatarUrl({ id: me.authorId, photoV: me.profile.photoV })} size={72} />
+            <b>{me.profile.nick}</b>
+            <span>{me.profile.area || '동네 미설정'}</span>
           </div>
         ) : (
-          <div className="pc-head">
-            <Avatar emoji="👀" size={40} />
-            <div>
-              <b>둘러보는 중</b>
-              <span>{me.auth?.configured ? '카카오로 로그인 ›' : '로그인 없이 체험해요'}</span>
-            </div>
+          <div className="pc-head big">
+            <Avatar emoji="👀" size={72} />
+            <b>둘러보는 중</b>
+            <span>{me.auth?.configured ? '카카오로 로그인 ›' : '로그인 없이 체험해요'}</span>
           </div>
         )}
-        <ul className="pc-stats">
-          <li>
-            최근 7일 먹은 재료 <b>{eaten}</b> · 버린 재료 <b>{discarded}</b>
-          </li>
-          {me.stats && (
-            <li>
-              이번 주 글 <b>{me.stats.weekPosts}</b> · 공감 <b>{me.stats.weekLikes}</b>
-            </li>
-          )}
-        </ul>
       </button>
       <button className="card duo-card community-card" onClick={onCommunity}>
         <div className="eyebrow" style={{ marginTop: 0 }}>
