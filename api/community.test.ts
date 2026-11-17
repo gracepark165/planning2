@@ -187,6 +187,33 @@ describe('커뮤니티 서버', () => {
   });
 });
 
+describe('답글 (2026-11-17)', () => {
+  it('댓글에 답글을 달면 parentId가 붙고, 답글에 단 답글도 맨 위 댓글로 붙는다', async () => {
+    const { call } = setup();
+    const { post: p } = await post(call, A);
+    await call({ action: 'comment', id: p.id, text: '맛있겠어요' }, B); // p0002
+    await call({ action: 'comment', id: p.id, text: '고마워요', parentId: 'p0002' }, A); // p0003
+    await call({ action: 'comment', id: p.id, text: '레시피 알려 주세요', parentId: 'p0003' }, B); // 답글의 답글 → p0002에
+    const d = (await call({ action: 'post', id: p.id }, A)) as { post: { comments: number }; comments: { id: string; text: string; parentId?: string }[] };
+    expect(d.comments.map((c) => [c.id, c.parentId])).toEqual([
+      ['p0002', undefined],
+      ['p0003', 'p0002'],
+      ['p0004', 'p0002'],
+    ]);
+    expect(d.post.comments).toBe(3); // 댓글 수에 답글도 셈
+  });
+
+  it('없는 댓글이나 다른 글의 댓글에는 답글을 못 단다', async () => {
+    const { call } = setup();
+    const { post: p1 } = await post(call, A);
+    const { post: p2 } = await post(call, A);
+    await call({ action: 'comment', id: p1.id, text: '첫 글 댓글' }, B); // p0003
+    expect(await call({ action: 'comment', id: p2.id, text: '답글', parentId: 'p0003' }, B)).toEqual({ ok: false, error: 'not-found' });
+    expect(await call({ action: 'comment', id: p1.id, text: '답글', parentId: 'nope' }, B)).toEqual({ ok: false, error: 'not-found' });
+    expect(await call({ action: 'comment', id: p1.id, text: '답글', parentId: 5 }, B)).toEqual({ ok: false, error: 'bad-request' });
+  });
+});
+
 describe('프로필 사진 (2026-11-17)', () => {
   const JPG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ==';
   const meOf = async (call: ReturnType<typeof setup>['call'], who: string) =>

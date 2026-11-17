@@ -61,7 +61,9 @@ export const community = {
   create: async (p: { topic: string; text: string; menu?: string; items?: string[]; photo?: string }) =>
     pick(await call({ action: 'create', ...p } as CommunityRequest), (d) => d.post as PostView),
   like: async (id: string) => pick(await call({ action: 'like', id }), (d) => (d.posts as PostView[])[0]),
-  comment: async (id: string, text: string) => pick(await call({ action: 'comment', id, text }), () => true),
+  /** parentId: 답글을 달 댓글 (없으면 그냥 댓글) */
+  comment: async (id: string, text: string, parentId?: string) =>
+    pick(await call({ action: 'comment', id, text, ...(parentId ? { parentId } : {}) }), () => true),
   status: async (id: string, status: string) => pick(await call({ action: 'status', id, status: status as ShareStatus }), () => true),
   remove: async (id: string) => pick(await call({ action: 'delete', id }), () => true),
   me: async () =>

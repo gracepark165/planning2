@@ -222,14 +222,24 @@ export function CommunityView({ start, items, today, week, onBack, onToast }: Pr
     if (page.view === 'post') void loadDetail(page.id);
   }, [page, loadDetail]);
 
+  /** 답글을 달 댓글 (2026-11-17). 없으면 그냥 댓글 */
+  const [replyTo, setReplyTo] = useState<{ id: string; nick: string } | null>(null);
+  const commentRef = useRef<HTMLInputElement>(null);
+  useEffect(() => setReplyTo(null), [detail?.post.id]);
+  const startReply = (c: CommentView) => {
+    if (!writable) return needLogin();
+    setReplyTo({ id: c.parentId ?? c.id, nick: c.author.nick });
+    commentRef.current?.focus();
+  };
   const sendComment = async () => {
     if (!detail || !comment.trim()) return;
     if (!writable) return needLogin();
     setSending(true);
-    const r = await community.comment(detail.post.id, comment.trim());
+    const r = await community.comment(detail.post.id, comment.trim(), replyTo?.id);
     setSending(false);
     if (!r.ok) return onToast(failureText(r.reason));
     setComment('');
+    setReplyTo(null);
     await loadDetail(detail.post.id);
   };
 
@@ -556,25 +566,45 @@ export function CommunityView({ start, items, today, week, onBack, onToast }: Pr
             <div className="eyebrow">댓글 {detail.comments.length}</div>
             {detail.comments.length === 0 && <p className="note">{preview ? '예시 글에는 댓글을 볼 수 없어요.' : '첫 댓글을 남겨 보세요.'}</p>}
             <ul className="comments">
-              {detail.comments.map((c) => (
-                <li key={c.id}>
-                  <Avatar emoji={c.author.avatar} photo={avatarUrl(c.author)} size={28} />
-                  <div>
-                    <b>
-                      {c.author.nick}
-                      {c.mine && <span className="tag">나</span>}
-                    </b>
-                    <span className="when">{timeAgo(c.createdAt, now)}</span>
-                    <p>{c.text}</p>
-                  </div>
-                </li>
-              ))}
+              {/* 댓글 아래에 그 댓글의 답글을 들여써서 (한 단계만) */}
+              {detail.comments
+                .filter((c) => !c.parentId)
+                .flatMap((c) => [c, ...detail.comments.filter((r) => r.parentId === c.id)])
+                .map((c) => (
+                  <li key={c.id} className={c.parentId ? 'reply' : ''}>
+                    <Avatar emoji={c.author.avatar} photo={avatarUrl(c.author)} size={c.parentId ? 24 : 28} />
+                    <div>
+                      <b>
+                        {c.author.nick}
+                        {c.mine && <span className="tag">나</span>}
+                      </b>
+                      <span className="when">{timeAgo(c.createdAt, now)}</span>
+                      <p>{c.text}</p>
+                      {!preview && (
+                        <button className="reply-btn" onClick={() => startReply(c)}>
+                          답글 달기
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
             </ul>
+            {replyTo && (
+              <div className="replying">
+                <span>
+                  <b>{replyTo.nick}</b>님 댓글에 답글을 남겨요
+                </span>
+                <button aria-label="답글 그만 쓰기" onClick={() => setReplyTo(null)}>
+                  ✕
+                </button>
+              </div>
+            )}
             <div className="name-input comment-input">
               <input type="text"
+                ref={commentRef}
                 value={comment}
                 maxLength={LIMITS.comment}
-                placeholder="따뜻한 댓글을 남겨 주세요"
+                placeholder={replyTo ? '답글을 남겨 주세요' : '따뜻한 댓글을 남겨 주세요'}
                 onChange={(e) => setComment(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && !e.nativeEvent.isComposing && void sendComment()}
                 aria-label="댓글"

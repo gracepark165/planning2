@@ -56,6 +56,8 @@ export interface CommentView {
   text: string;
   createdAt: number;
   mine: boolean;
+  /** 답글(대댓글)이면 달린 댓글의 id (2026-11-17). 한 단계만: 답글에 단 답글도 맨 위 댓글에 붙인다 */
+  parentId?: string;
 }
 
 export interface MyStats {
@@ -73,7 +75,7 @@ export type CommunityRequest =
   | { action: 'post'; id: string }
   | { action: 'create'; topic: Topic; text: string; menu?: string; items?: string[]; photo?: string }
   | { action: 'like'; id: string }
-  | { action: 'comment'; id: string; text: string }
+  | { action: 'comment'; id: string; text: string; parentId?: string }
   | { action: 'status'; id: string; status: ShareStatus }
   | { action: 'delete'; id: string }
   | { action: 'me' }
@@ -245,6 +247,7 @@ interface StoredComment {
   authorId: string;
   text: string;
   createdAt: number;
+  parentId?: string;
 }
 
 export interface Deps {
@@ -413,7 +416,14 @@ export async function handleCommunity(body: unknown, deps: Deps): Promise<{ stat
         ]);
         const cs = (rawComments ?? []).map((c) => parse<StoredComment>(c)).filter((c): c is StoredComment => !!c);
         const authors = await profilesOf(store, cs.map((c) => c.authorId));
-        const comments = cs.map((c) => ({ id: c.id, author: authors.get(c.authorId)!, text: c.text, createdAt: c.createdAt, mine: c.authorId === me }));
+        const comments = cs.map((c) => ({
+          id: c.id,
+          author: authors.get(c.authorId)!,
+          text: c.text,
+          createdAt: c.createdAt,
+          mine: c.authorId === me,
+          ...(c.parentId ? { parentId: c.parentId } : {}),
+        }));
         return { status: 200, body: { ok: true, post, comments } };
       }
       case 'create': {
@@ -465,7 +475,16 @@ export async function handleCommunity(body: unknown, deps: Deps): Promise<{ stat
         const text = str(b.text, LIMITS.comment, 1);
         await rateLimit(store, me, 'comment', t);
         await ensureProfile(store, me, session?.nick);
-        const c: StoredComment = { id: newId(), authorId: me, text, createdAt: t };
+        // 답글: 같은 글의 댓글에만. 답글에 단 답글은 그 답글이 달린 맨 위 댓글로 (한 단계만 들여쓰기)
+        let parentId: string | undefined;
+        if (b.parentId !== undefined && b.parentId !== null) {
+          if (typeof b.parentId !== 'string') throw new Fail('bad-request');
+          const [raw] = (await store.exec([['LRANGE', K.comments(p.id), 0, -1]])) as [string[]];
+          const parent = (raw ?? []).map((x) => parse<StoredComment>(x)).find((x) => x?.id === b.parentId);
+          if (!parent) throw new Fail('not-found');
+          parentId = parent.parentId ?? parent.id;
+        }
+        const c: StoredComment = { id: newId(), authorId: me, text, createdAt: t, ...(parentId ? { parentId } : {}) };
         await store.exec([['RPUSH', K.comments(p.id), JSON.stringify(c)]]);
         return { status: 200, body: { ok: true, done: true } };
       }

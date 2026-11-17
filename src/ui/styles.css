@@ -539,3 +539,10 @@ textarea.post-input:focus{border-color:var(--accent)}
 .my-stats div{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:16px;background:var(--card)}
 .my-stats b{font-size:22px}
 .my-stats span{font-size:12.5px;color:var(--sub);word-break:keep-all}
+/* 댓글 답글 (2026-11-17) */
+.comments li.reply{padding-left:38px;border-bottom:0;position:relative}
+.comments li.reply::before{content:'';position:absolute;left:14px;top:6px;width:12px;height:14px;border-left:2px solid var(--line);border-bottom:2px solid var(--line);border-bottom-left-radius:6px}
+.reply-btn{margin-top:4px;font-size:12.5px;font-weight:700;color:var(--sub);min-height:28px;padding:0}
+.replying{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding:8px 12px;border-radius:12px;background:var(--accent-bg);color:var(--accent);font-size:13.5px}
+.replying button{color:var(--accent);font-size:15px;min-width:32px;min-height:32px}
+.replying + .comment-input{margin-top:6px}
