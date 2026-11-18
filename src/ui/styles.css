@@ -1,22 +1,28 @@
-/* 프로토타입(reference/fridge-prototype.html) 스타일을 그대로 옮김 */
+/* 테마 "하늘 냉장고" (2026-11-18, 사용자 요청: 따뜻하고 귀여운 + 연하늘색).
+   Hallmark의 hum 테마 재료(종이 바탕·둥근 제목 글꼴·눌리는 카드 버튼)를 연하늘 색으로. 모든 색은 아래 변수로만 쓴다.
+   --edge: 눌리는 버튼·카드 아래 두께 / --sun: 버터 노랑 포인트 / --display: 제목 글꼴 */
 :root{
-  --bg:#ffffff; --card:#f4f6f8; --fg:#191f28; --sub:#6b7684; --line:#e5e8eb;
-  --accent:#3182f6; --accent-bg:#e8f3ff; --on-accent:#ffffff;
-  --red:#e5313f; --red-bg:#fdecee; --amber:#c76a00; --amber-bg:#fff2dd;
-  --green:#0a8f5f; --green-bg:#e3f6ee; --shadow:0 8px 24px rgba(25,31,40,.12);
-  --cta:#0f2a3d; --on-cta:#ffffff; --hero:#dcebff; --hero2:#f3f8ff; --white:#ffffff;
+  --bg:#eaf4fd; --card:#ffffff; --fg:#17324d; --sub:#4d667c; --line:#d3e6f5;
+  --accent:#1565ab; --accent-bg:#d9edfc; --on-accent:#ffffff;
+  --red:#d6334a; --red-bg:#fde8ec; --amber:#b25f00; --amber-bg:#fff1da;
+  --green:#0d8759; --green-bg:#e0f4ea; --shadow:0 8px 22px rgba(31,94,150,.14);
+  --cta:#1f78c8; --on-cta:#ffffff; --hero:#c9e5fb; --hero2:#f4faff; --white:#ffffff;
+  --edge:#cfe2f3; --cta-edge:#135a99; --sun:#ffd65a; --sun-bg:#fff4c9; --on-sun:#4a3500; --sun-edge:#d9a91f;
+  --display:"Jua","Noto Sans KR",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#17171c; --card:#202027; --fg:#f2f4f6; --sub:#9ea4ae; --line:#2e2f38;
-  --accent:#4d97ff; --accent-bg:#1b2b44; --on-accent:#0b1220;
-  --red:#ff6b77; --red-bg:#3a2024; --amber:#ffb454; --amber-bg:#3a2d17; --green:#4fd1a1; --green-bg:#16312a; --shadow:0 8px 24px rgba(0,0,0,.5);
-  --cta:#4d97ff; --on-cta:#0b1220; --hero:#1b2b44; --hero2:#17171c; --white:#2a2c36;
+  --bg:#0e1a28; --card:#162537; --fg:#e9f3fb; --sub:#93a9be; --line:#243a51;
+  --accent:#72bdf6; --accent-bg:#183652; --on-accent:#08131f;
+  --red:#ff7a8a; --red-bg:#3a1f28; --amber:#ffb85c; --amber-bg:#3a2c17; --green:#5fd6a8; --green-bg:#133227; --shadow:0 8px 24px rgba(0,0,0,.5);
+  --cta:#72bdf6; --on-cta:#08131f; --hero:#183652; --hero2:#0e1a28; --white:#1d2f44;
+  --edge:#0a1420; --cta-edge:#3d8cc8; --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --sun-edge:#b88a12;
   color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#17171c; --card:#202027; --fg:#f2f4f6; --sub:#9ea4ae; --line:#2e2f38;
-  --accent:#4d97ff; --accent-bg:#1b2b44; --on-accent:#0b1220;
-  --red:#ff6b77; --red-bg:#3a2024; --amber:#ffb454; --amber-bg:#3a2d17; --green:#4fd1a1; --green-bg:#16312a; --shadow:0 8px 24px rgba(0,0,0,.5);
-  --cta:#4d97ff; --on-cta:#0b1220; --hero:#1b2b44; --hero2:#17171c; --white:#2a2c36;
+  --bg:#0e1a28; --card:#162537; --fg:#e9f3fb; --sub:#93a9be; --line:#243a51;
+  --accent:#72bdf6; --accent-bg:#183652; --on-accent:#08131f;
+  --red:#ff7a8a; --red-bg:#3a1f28; --amber:#ffb85c; --amber-bg:#3a2c17; --green:#5fd6a8; --green-bg:#133227; --shadow:0 8px 24px rgba(0,0,0,.5);
+  --cta:#72bdf6; --on-cta:#08131f; --hero:#183652; --hero2:#0e1a28; --white:#1d2f44;
+  --edge:#0a1420; --cta-edge:#3d8cc8; --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --sun-edge:#b88a12;
   color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
@@ -546,3 +552,33 @@ textarea.post-input:focus{border-color:var(--accent)}
 .replying{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding:8px 12px;border-radius:12px;background:var(--accent-bg);color:var(--accent);font-size:13.5px}
 .replying button{color:var(--accent);font-size:15px;min-width:32px;min-height:32px}
 .replying + .comment-input{margin-top:6px}
+
+/* ── 테마 "하늘 냉장고" 부품 모양 (2026-11-18) ── */
+/* 제목은 둥근 한글 글꼴 주아 (한 굵기뿐이라 굵게 흉내 내지 않음) */
+h1,h2,h3,.hero h1,.opening h1,.rk-head h3,.post-menu,.my-stats b,.folder-name,.pc-head.big b{font-family:var(--display);font-weight:400;letter-spacing:0}
+h1{font-size:26px}
+.card h3{font-size:17px}
+/* 카드: 흰 종이가 하늘 바탕 위에 놓인 느낌 (아래 얇은 두께) */
+.card,.post,.duo-card{border-radius:24px;box-shadow:0 3px 0 var(--edge)}
+.hero{border-radius:30px;box-shadow:0 3px 0 var(--edge)}
+/* 버튼: 아래로 눌리는 도톰한 카드 버튼 */
+.cta{border-radius:18px;box-shadow:0 4px 0 var(--cta-edge);transition:transform .08s ease,box-shadow .08s ease}
+.cta:active:not(:disabled){transform:translateY(3px);box-shadow:0 1px 0 var(--cta-edge)}
+.cta.ghost{background:var(--card);color:var(--fg);box-shadow:0 4px 0 var(--edge)}
+.cta.ghost:active:not(:disabled){box-shadow:0 1px 0 var(--edge)}
+.cta:disabled{box-shadow:none;opacity:.55}
+.small-btn{border-radius:14px;box-shadow:0 2px 0 var(--edge);transition:transform .08s ease,box-shadow .08s ease}
+.small-btn:active:not(:disabled){transform:translateY(2px);box-shadow:none}
+.chip{background:var(--card);box-shadow:0 2px 0 var(--edge)}
+.chip.on{background:var(--accent);color:var(--on-accent);box-shadow:0 2px 0 var(--cta-edge)}
+.seg button{border-radius:14px;box-shadow:0 2px 0 var(--edge)}
+.seg button.on{box-shadow:0 2px 0 var(--accent)}
+.gi{border-radius:20px;box-shadow:0 3px 0 var(--edge)}
+.tile{border-radius:16px}
+.fab{background:var(--sun);color:var(--on-sun);box-shadow:0 4px 0 var(--sun-edge),var(--shadow)}
+.tabbar div{background:var(--card);border-radius:30px}
+.tab.on,.tab[aria-current="page"]{color:var(--accent)}
+.tag.fresh{background:var(--sun-bg);color:var(--on-sun)}
+/* 키보드로 움직일 때 지금 어디인지 바로 보이게 */
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:inherit}
+@media (prefers-reduced-motion: reduce){.cta,.small-btn{transition:none}}
