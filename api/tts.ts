@@ -36,8 +36,10 @@ export async function handleTts(request: Request, deps: TtsDeps): Promise<Respon
       body: JSON.stringify({ text, reference_id: voice, format: 'mp3', latency: 'normal' }),
     });
     if (!res.ok) {
-      console.error('Fish Audio 실패:', res.status);
-      return Response.json({ ok: false, error: 'tts-failed' }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+      // 이유를 알 수 있게 Fish가 돌려준 상태 번호와 짧은 설명만 알려 준다 (키는 담지 않는다)
+      const detail = (await res.text().catch(() => '')).slice(0, 200);
+      console.error('Fish Audio 실패:', res.status, detail);
+      return Response.json({ ok: false, error: 'tts-failed', upstream: res.status, detail }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
     }
     return new Response(await res.arrayBuffer(), {
       headers: { 'Content-Type': 'audio/mpeg', 'Cache-Control': 'public, max-age=86400, s-maxage=31536000' },
