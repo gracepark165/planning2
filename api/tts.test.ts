@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { handleTts, LINES } from './tts';
+import { DEFAULT_VOICE, handleTts, LINES } from './tts';
 
 const req = (q: string) => new Request(`https://x.test/api/tts${q}`);
-const env = { FISH_API_KEY: 'k', FISH_VOICE_ID: 'v' };
+const env = { FISH_API_KEY: 'k' };
 
 describe('/api/tts', () => {
   it('정해진 글만 읽는다 (모르는 line은 404, 호출 안 함)', async () => {
@@ -27,8 +27,13 @@ describe('/api/tts', () => {
     expect((init.headers as Record<string, string>).model).toBe('s1');
     const body = JSON.parse(init.body as string);
     expect(body.text).toBe(LINES.intro);
-    expect(body.reference_id).toBe('v');
+    expect(body.reference_id).toBe(DEFAULT_VOICE);
     expect(new Uint8Array(await res.arrayBuffer())).toHaveLength(3);
+  });
+  it('FISH_VOICE_ID가 있으면 그 목소리를 쓴다', async () => {
+    const f = vi.fn(async () => new Response(new Uint8Array([1])));
+    await handleTts(req('?line=intro'), { env: { ...env, FISH_VOICE_ID: 'other' }, fetch: f as never });
+    expect(JSON.parse((f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string).reference_id).toBe('other');
   });
   it('Fish Audio가 실패하면 502 (캐시 안 함)', async () => {
     const res = await handleTts(req('?line=intro'), { env, fetch: (async () => new Response('no', { status: 401 })) as never });
