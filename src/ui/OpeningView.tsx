@@ -83,7 +83,7 @@ function useIntroVoice() {
     audio.current?.pause();
     setState((s) => (s === 'off' ? s : 'idle'));
   };
-  // 오프닝이 열리면 소리를 미리 받아 두고, 글자가 나올 때 바로 읽는다.
+  // 오프닝이 열리자마자 소리를 받으며 바로 읽는다.
   // 브라우저는 사용자가 아무것도 안 만졌으면 소리를 막으므로, 막히면 화면을 처음 만지는(누르는·키 누르는) 순간 읽는다.
   useEffect(() => {
     get().load();
@@ -100,21 +100,17 @@ function useIntroVoice() {
       start();
     }
     events.forEach((e) => window.addEventListener(e, onGesture, true));
-    const t = setTimeout(() => {
-      if (started) return;
-      // 자동 재생 시도: 막히면 위의 첫 만짐 기다림이 그대로 남는다
-      get()
-        .play()
-        .then(() => {
-          started = true;
-          cleanup();
-          setState('playing');
-        })
-        .catch(() => setState((s) => (s === 'off' ? s : 'idle')));
-    }, TEXT_START * 1000);
+    // 열리자마자 바로 자동 재생을 시도한다 (막히면 위의 첫 만짐 기다림이 그대로 남는다)
+    get()
+      .play()
+      .then(() => {
+        started = true;
+        cleanup();
+        setState('playing');
+      })
+      .catch(() => setState((s) => (s === 'off' ? s : 'idle')));
     return () => {
       started = true;
-      clearTimeout(t);
       cleanup();
       audio.current?.pause();
     };
