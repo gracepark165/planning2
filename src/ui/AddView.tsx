@@ -157,6 +157,8 @@ const matches = (q: string) => {
 
 export function AddView({ items, today, onBack, onAdd }: Props) {
   const [picked, setPicked] = useState<Picked[]>([]);
+  /** 위에 뜨는 고른 재료 팝업을 펼쳤는지 (2026-11-20) */
+  const [popOpen, setPopOpen] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   /** 제품 사진 읽기: 읽는 중이면 true, 끝나면 안내 문구 */
@@ -405,43 +407,67 @@ export function AddView({ items, today, onBack, onAdd }: Props) {
         </>
       )}
 
-      {/* 고른 재료는 화면 아래에 붙어 있어서 스크롤하지 않아도 바로 보인다 (2026-11-20, 사용자 요청) */}
-      <div className="pick-tray">
-        {picked.length > 0 && (
-          <div className="pick-chips" role="list" aria-label={`고른 재료 ${picked.length}개`}>
-            {picked.map((p) => (
-              <span key={p.name} role="listitem" className="chip on picked-chip">
-                <button onClick={() => setEditing(p.name)} aria-label={`${p.name} 양 고치기`}>
-                  {p.name}
-                  {p.customKind && !p.product ? ' (직접)' : ''} · {p.qty ?? defaultQtyOf(p.name)}
-                  {p.expiresAt ? ` · ~${formatDate(p.expiresAt)}` : ''}
-                  {placeOf(p).isDefault ? '' : ` · ${placeOf(p).loc}`}
-                </button>
-                <button onClick={() => remove(p.name)} aria-label={`${p.name} 빼기`}>
-                  ✕
-                </button>
-              </span>
-            ))}
+      {/* 고른 재료 팝업 (2026-11-20, 사용자 요청): 화면 위에 떠서 스크롤하지 않아도 늘 보인다. 누르면 펼쳐져 칩이 보이고, 바로 담을 수 있다 */}
+      {picked.length > 0 && (
+        <>
+          <div className="pick-pop-space" aria-hidden="true" />
+          <div className={`pick-pop ${popOpen ? 'open' : ''}`} role="region" aria-label="고른 재료">
+            <div className="pick-pop-bar">
+              <button className="pick-pop-toggle" aria-expanded={popOpen} onClick={() => setPopOpen((o) => !o)}>
+                <span className="pick-pop-count">{picked.length}</span>
+                <span className="pick-pop-names">
+                  {picked.map((p) => p.name).join(', ')}
+                </span>
+                <span aria-hidden="true">{popOpen ? '▴' : '▾'}</span>
+              </button>
+              <button className="small-btn main" onClick={() => onAdd(
+              picked.map(({ name, customKind, qty, location, expiresAt }) => ({
+                name,
+                customKind,
+                qty: qty ?? defaultQtyOf(name),
+                ...(location ? { location } : {}),
+                ...(expiresAt ? { expiresAt } : {}),
+              })),
+            )}>
+                담기
+              </button>
+            </div>
+            {popOpen && (
+              <div className="pick-pop-body" role="list">
+                {picked.map((p) => (
+                  <span key={p.name} role="listitem" className="chip on picked-chip">
+                    <button onClick={() => setEditing(p.name)} aria-label={`${p.name} 양 고치기`}>
+                      {p.name}
+                      {p.customKind && !p.product ? ' (직접)' : ''} · {p.qty ?? defaultQtyOf(p.name)}
+                      {p.expiresAt ? ` · ~${formatDate(p.expiresAt)}` : ''}
+                      {placeOf(p).isDefault ? '' : ` · ${placeOf(p).loc}`}
+                    </button>
+                    <button onClick={() => remove(p.name)} aria-label={`${p.name} 빼기`}>
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-        <div className="ctas">
-          <button className="cta ghost" onClick={onBack}>
-            나중에 할게요
-          </button>
-          <button className="cta" disabled={!picked.length} onClick={() =>
-              onAdd(
-                picked.map(({ name, customKind, qty, location, expiresAt }) => ({
-                  name,
-                  customKind,
-                  qty: qty ?? defaultQtyOf(name),
-                  ...(location ? { location } : {}),
-                  ...(expiresAt ? { expiresAt } : {}),
-                })),
-              )
-            }>
-            {picked.length ? `${picked.length}개 담기` : '재료를 골라 주세요'}
-          </button>
-        </div>
+        </>
+      )}
+
+      <div className="ctas">
+        <button className="cta ghost" onClick={onBack}>
+          나중에 할게요
+        </button>
+        <button className="cta" disabled={!picked.length} onClick={() => onAdd(
+              picked.map(({ name, customKind, qty, location, expiresAt }) => ({
+                name,
+                customKind,
+                qty: qty ?? defaultQtyOf(name),
+                ...(location ? { location } : {}),
+                ...(expiresAt ? { expiresAt } : {}),
+              })),
+            )}>
+          {picked.length ? `${picked.length}개 담기` : '재료를 골라 주세요'}
+        </button>
       </div>
     </>
   );

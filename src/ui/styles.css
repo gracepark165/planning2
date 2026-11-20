@@ -12,7 +12,7 @@
   --cta:#2388e4; --on-cta:#ffffff; --cta-press:#1d78cc; --hero:#dcedfb; --hero2:#f4faff; --white:#ffffff;
   --sun:#ffd65a; --sun-bg:#fff4c9; --on-sun:#4a3500; --sun-ink:#4a3500;
   --lav-bg:#ebe7fb; --mint-bg:#dff3e8;
-  --sky-1:#cfe8ff; --sky-2:#b4d8fb; --sky-3:#eaf2fc; --sky-4:#e4d8fb; --glow-sky:rgba(140,200,255,.55); --glow-lilac:rgba(196,168,255,.62); --glass:rgba(255,255,255,.66); --glass-line:rgba(255,255,255,.9);
+  --sky-1:#cfe8ff; --sky-2:#b4d8fb; --sky-3:#eaf2fc; --sky-4:#e4d8fb; --pop-bg:rgba(255,255,255,.93); --glow-sky:rgba(140,200,255,.55); --glow-lilac:rgba(196,168,255,.62); --glass:rgba(255,255,255,.66); --glass-line:rgba(255,255,255,.9);
   --cta-1:#4aa8f3; --cta-2:#2388e4; --grad-hero:linear-gradient(150deg,#d4eaff 0%,#bcdcfc 55%,#e3d6fb 130%);
   --scrim:rgba(10,24,40,.5); --scrim-soft:rgba(10,24,40,.35);
   --kakao:#fee500; --kakao-ink:#191919; --spark:#ffc93c; --shine:rgba(255,255,255,.85); --floor:rgba(20,48,74,.16);
@@ -25,7 +25,7 @@
   --red:#ff7a8a; --red-bg:#3a1f28; --amber:#ffb85c; --amber-bg:#3a2c17; --green:#5fd6a8; --green-bg:#133227;
   --cta:#72bdf6; --on-cta:#08131f; --cta-press:#9dd3fa; --hero:#17344f; --hero2:#0d1a29; --white:#1d2f44;
   --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --sun-ink:#ffd65a; --lav-bg:#27243f; --mint-bg:#133227;
-  --sky-1:#10233a; --sky-2:#0b1a2c; --sky-3:#142a45; --sky-4:#241f3d; --glow-sky:rgba(60,120,200,.28); --glow-lilac:rgba(150,110,235,.2); --glass:rgba(24,44,70,.62); --glass-line:rgba(114,189,246,.22); --cta-1:#8ccbfa; --cta-2:#4f9fe0; --grad-hero:linear-gradient(150deg,#17344f 0%,#10263f 60%,#2a2347 130%);
+  --sky-1:#10233a; --sky-2:#0b1a2c; --sky-3:#142a45; --sky-4:#241f3d; --pop-bg:rgba(20,37,58,.95); --glow-sky:rgba(60,120,200,.28); --glow-lilac:rgba(150,110,235,.2); --glass:rgba(24,44,70,.62); --glass-line:rgba(114,189,246,.22); --cta-1:#8ccbfa; --cta-2:#4f9fe0; --grad-hero:linear-gradient(150deg,#17344f 0%,#10263f 60%,#2a2347 130%);
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0d1a29; --card:#14253a; --fg:#e8f2fb; --sub:#9db3c8; --line:#22384f; --line-2:#33506c;
@@ -33,7 +33,7 @@
   --red:#ff7a8a; --red-bg:#3a1f28; --amber:#ffb85c; --amber-bg:#3a2c17; --green:#5fd6a8; --green-bg:#133227;
   --cta:#72bdf6; --on-cta:#08131f; --cta-press:#9dd3fa; --hero:#17344f; --hero2:#0d1a29; --white:#1d2f44;
   --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --sun-ink:#ffd65a; --lav-bg:#27243f; --mint-bg:#133227;
-  --sky-1:#10233a; --sky-2:#0b1a2c; --sky-3:#142a45; --sky-4:#241f3d; --glow-sky:rgba(60,120,200,.28); --glow-lilac:rgba(150,110,235,.2); --glass:rgba(24,44,70,.62); --glass-line:rgba(114,189,246,.22); --cta-1:#8ccbfa; --cta-2:#4f9fe0; --grad-hero:linear-gradient(150deg,#17344f 0%,#10263f 60%,#2a2347 130%);
+  --sky-1:#10233a; --sky-2:#0b1a2c; --sky-3:#142a45; --sky-4:#241f3d; --pop-bg:rgba(20,37,58,.95); --glow-sky:rgba(60,120,200,.28); --glow-lilac:rgba(150,110,235,.2); --glass:rgba(24,44,70,.62); --glass-line:rgba(114,189,246,.22); --cta-1:#8ccbfa; --cta-2:#4f9fe0; --grad-hero:linear-gradient(150deg,#17344f 0%,#10263f 60%,#2a2347 130%);
   color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);
@@ -704,12 +704,17 @@ body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer
 :root[data-theme="dark"] body::before,:root[data-theme="dark"] body::after{opacity:.5}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) body::before,:root:not([data-theme="light"]) body::after{opacity:.5}}
 
-/* 고른 재료 바 (2026-11-20): 재료 추가 화면에서 고른 재료와 담기 버튼이 늘 화면 아래(탭 위)에 붙어 있다 */
-.pick-tray{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;margin-top:16px;padding:8px 10px 10px;border-radius:20px;background:var(--glass);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
-.pick-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
-.pick-chips .chip{flex:none;white-space:nowrap}
-.pick-tray .ctas .cta{margin-top:0;min-height:48px}
-
+/* 고른 재료 팝업 (2026-11-20): 재료 추가 화면에서 고른 재료가 화면 위에 떠 있다 (고정이라 스크롤해도 보임) */
+.pick-pop-space{height:60px}
+.pick-pop{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:40;width:calc(100% - 24px);max-width:456px;border-radius:22px;background:var(--pop-bg);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(18px) saturate(1.2);backdrop-filter:blur(18px) saturate(1.2);animation:popDown .22s ease-out}
+.pick-pop-bar{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px}
+.pick-pop-toggle{flex:1;min-width:0;display:flex;align-items:center;gap:10px;min-height:44px;text-align:left;font-weight:700;font-size:14px}
+.pick-pop-count{flex:none;min-width:30px;height:30px;padding:0 8px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--cta-1),var(--cta-2));color:var(--on-cta);font-size:14px}
+.pick-pop-names{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.pick-pop .small-btn.main{flex:none;min-width:64px}
+.pick-pop-body{display:flex;flex-wrap:wrap;gap:6px;padding:2px 12px 12px;max-height:40vh;overflow-y:auto}
+@keyframes popDown{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}
+@media (prefers-reduced-motion: reduce){.pick-pop{animation:none}}
 /* 소비기한·유통기한 슬라이더 (2026-11-20) */
 .date-slider{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
 .date-slider .ds-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
