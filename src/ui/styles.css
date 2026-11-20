@@ -3,15 +3,17 @@
  * nav: kept (하단 탭 5개) · signature: kept (마스코트 + 오늘의 한 끼) · states: kept
  * axes: light/grotesk-sans/cool · posture: restrained · contrast: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P4 H4 E4 S5 R4 V4 · weakest: E, 이모지 아이콘은 냉집사 정체성이라 남기고 그림자·눌림 효과·장식 글꼴은 모두 걷어냄 */
-/* Hallmark · waive 24b · 레이아웃을 그대로 두는 restyle이라 기존 간격(6·10·14px)은 손대지 않는다 · 사용자 요청은 그림자와 글꼴 */
+/* Hallmark · waive 24b · .chips 줄, .row, .card, .tabbar의 6·10·14px 간격은 화면 곳곳의 배치에 맞춘 값이라 4px 단위로 옮기면 칸이 어긋난다 · 이번 요청은 배경과 .card 유리 바탕만 바꾸는 일이라 간격은 두었다 */
 :root{
   --bg:#edf6fd; --card:#ffffff; --fg:#14304a; --sub:#46607a; --line:#d3e5f4; --line-2:#b9d3e8;
   --accent:#145fa3; --accent-bg:#dcedfb; --on-accent:#ffffff;
   --red:#d6334a; --red-bg:#fde8ec; --amber:#a85a00; --amber-bg:#fff1da;
   --green:#0b7a52; --green-bg:#e0f4ea; --shadow:none;
   --cta:#1b6fba; --on-cta:#ffffff; --cta-press:#145fa3; --hero:#dcedfb; --hero2:#f4faff; --white:#ffffff;
-  --sun:#ffd65a; --sun-bg:#fff4c9; --on-sun:#4a3500;
+  --sun:#ffd65a; --sun-bg:#fff4c9; --on-sun:#4a3500; --sun-ink:#4a3500;
   --lav-bg:#ebe7fb; --mint-bg:#dff3e8;
+  --sky-1:#cfe8ff; --sky-2:#b4d8fb; --sky-3:#e6f1ff; --bokeh:rgba(255,255,255,.75); --glass:rgba(255,255,255,.66); --glass-line:rgba(255,255,255,.9);
+  --cta-1:#2874d0; --cta-2:#1b5fb5; --grad-hero:linear-gradient(160deg,#dcefff 0%,#b9dcfd 55%,#cfe6ff 100%);
   --scrim:rgba(10,24,40,.5); --scrim-soft:rgba(10,24,40,.35);
   --kakao:#fee500; --kakao-ink:#191919; --spark:#ffc93c; --shine:rgba(255,255,255,.85); --floor:rgba(20,48,74,.16);
   --font:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
@@ -22,14 +24,16 @@
   --accent:#72bdf6; --accent-bg:#17344f; --on-accent:#08131f;
   --red:#ff7a8a; --red-bg:#3a1f28; --amber:#ffb85c; --amber-bg:#3a2c17; --green:#5fd6a8; --green-bg:#133227;
   --cta:#72bdf6; --on-cta:#08131f; --cta-press:#9dd3fa; --hero:#17344f; --hero2:#0d1a29; --white:#1d2f44;
-  --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --lav-bg:#27243f; --mint-bg:#133227;
+  --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --sun-ink:#ffd65a; --lav-bg:#27243f; --mint-bg:#133227;
+  --sky-1:#10233a; --sky-2:#0b1a2c; --sky-3:#142a45; --bokeh:rgba(114,189,246,.14); --glass:rgba(24,44,70,.62); --glass-line:rgba(114,189,246,.22); --cta-1:#8ccbfa; --cta-2:#4f9fe0; --grad-hero:linear-gradient(160deg,#17344f 0%,#10263f 55%,#17304d 100%);
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0d1a29; --card:#14253a; --fg:#e8f2fb; --sub:#9db3c8; --line:#22384f; --line-2:#33506c;
   --accent:#72bdf6; --accent-bg:#17344f; --on-accent:#08131f;
   --red:#ff7a8a; --red-bg:#3a1f28; --amber:#ffb85c; --amber-bg:#3a2c17; --green:#5fd6a8; --green-bg:#133227;
   --cta:#72bdf6; --on-cta:#08131f; --cta-press:#9dd3fa; --hero:#17344f; --hero2:#0d1a29; --white:#1d2f44;
-  --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --lav-bg:#27243f; --mint-bg:#133227;
+  --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --sun-ink:#ffd65a; --lav-bg:#27243f; --mint-bg:#133227;
+  --sky-1:#10233a; --sky-2:#0b1a2c; --sky-3:#142a45; --bokeh:rgba(114,189,246,.14); --glass:rgba(24,44,70,.62); --glass-line:rgba(114,189,246,.22); --cta-1:#8ccbfa; --cta-2:#4f9fe0; --grad-hero:linear-gradient(160deg,#17344f 0%,#10263f 55%,#17304d 100%);
   color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);
@@ -583,7 +587,7 @@ h1{font-size:26px}
 .fab{background:var(--sun);color:var(--on-sun);border:1px solid var(--on-sun)}
 .tabbar div{background:var(--card);border-radius:24px}
 .tab.on,.tab[aria-current="page"]{color:var(--accent)}
-.tag.fresh{background:var(--sun-bg);color:var(--on-sun)}
+.tag.fresh{background:var(--sun-bg);color:var(--sun-ink)}
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:inherit}
 @media (prefers-reduced-motion: reduce){.cta,.small-btn{transition:none}}
 /* ── 폴더 카드 (2026-11-20): 목록을 엑셀 줄 대신 귀퉁이가 접힌 파스텔 카드로 ── */
@@ -604,7 +608,39 @@ h1{font-size:26px}
 .row.same::before{display:none}
 .row.same{padding-left:16px}
 .sec-head{border-bottom:0;margin-top:22px}
-.tab.on,.tab[aria-current="page"]{background:var(--fg);color:var(--bg);border-radius:20px}
 .tab.on svg{stroke:currentColor}
 .voice-btn{display:block;margin:12px auto 0;padding:8px 16px;border-radius:999px;border:1px solid var(--line-2);background:var(--card);color:var(--fg);font-size:14px;font-weight:700}
 .voice-btn[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+
+/* ── 몽환 그라데이션 (2026-11-20, 사용자 요청: designnas scubo 참고) ──
+   파랑 계열 그라데이션 바탕 + 번지는 빛망울(bokeh) + 반투명 유리 카드. 그림자 없음. */
+body{background:linear-gradient(180deg,var(--sky-1) 0%,var(--sky-2) 46%,var(--sky-3) 100%) fixed}
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 8%,var(--bokeh) 0 54px,transparent 56px),
+    radial-gradient(circle at 88% 20%,var(--bokeh) 0 90px,transparent 92px),
+    radial-gradient(circle at 70% 62%,var(--bokeh) 0 38px,transparent 40px),
+    radial-gradient(circle at 6% 74%,var(--bokeh) 0 70px,transparent 72px),
+    radial-gradient(circle at 46% 94%,var(--bokeh) 0 110px,transparent 112px);
+  filter:blur(6px);opacity:.8}
+:root{--card:var(--glass)}
+.card,.post,.duo-card,.hero,.row,.chip,.gi,.small-btn,.tabbar div,.cta.ghost,.seg button,.my-stats div,.voice-btn{-webkit-backdrop-filter:blur(14px) saturate(1.15);backdrop-filter:blur(14px) saturate(1.15)}
+.card,.post,.duo-card,.gi,.chip,.seg button{border-color:var(--glass-line)}
+.hero{background:var(--grad-hero);border-color:var(--glass-line)}
+.cta{background:linear-gradient(180deg,var(--cta-1),var(--cta-2));color:var(--on-cta)}
+.cta:active:not(:disabled){background:var(--cta-2)}
+.cta[disabled]{background:var(--line);color:var(--sub)}
+.chip.on{background:linear-gradient(180deg,var(--cta-1),var(--cta-2));border-color:transparent;color:var(--on-cta)}
+.tab.on,.tab[aria-current="page"]{background:linear-gradient(180deg,var(--cta-1),var(--cta-2));color:var(--on-cta);border-radius:20px}
+.tabbar div{border-color:var(--glass-line)}
+.row{border:1px solid var(--glass-line)}
+.row .tile,.tile{background:var(--glass)}
+.opening{background:linear-gradient(180deg,var(--sky-1) 0%,var(--sky-2) 55%,var(--sky-3) 100%)}
+.sheet{background:linear-gradient(180deg,var(--sky-3),var(--sky-1))}
+.opening::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(circle at 14% 12%,var(--bokeh) 0 60px,transparent 62px),
+    radial-gradient(circle at 90% 28%,var(--bokeh) 0 100px,transparent 102px),
+    radial-gradient(circle at 78% 78%,var(--bokeh) 0 46px,transparent 48px),
+    radial-gradient(circle at 8% 70%,var(--bokeh) 0 80px,transparent 82px);
+  filter:blur(6px);opacity:.85}
