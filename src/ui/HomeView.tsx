@@ -198,7 +198,7 @@ export function HomeView({
         className={`urgent-card item-card ${calm ? 'calm' : ''} ${i.addedOn === today ? 'new' : ''}`}
         onClick={() => onOpen(i.id)}
       >
-        <span className="uc-dday">{buried ? `${daysSinceEntered(i, today)}일째` : dDayLabel(daysLeft(i, today))}</span>
+        {!calm && <span className="uc-dday">{buried ? `${daysSinceEntered(i, today)}일째` : dDayLabel(daysLeft(i, today))}</span>}
         <span className="uc-tile">
           <Tile name={i.name} core={i.core} kind={i.kind} />
         </span>
@@ -212,6 +212,7 @@ export function HomeView({
             {i.addedOn === today && <span className="tag fresh">새로</span>}
           </span>
         )}
+        {calm && <span className="uc-dday-sm">{buried ? `${daysSinceEntered(i, today)}일째` : dDayLabel(daysLeft(i, today))}</span>}
         <FreshBar item={i} today={today} />
       </button>
     );
