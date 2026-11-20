@@ -52,23 +52,30 @@ const SPARKLES: { x: number; y: number; s: number; d: number }[] = [
   { x: 18, y: -4, s: 12, d: 2.0 },
 ];
 
-/** 소개 글 읽어 주기 (2026-11-20, 사용자 요청): Fish Audio 아기 목소리, 서버 함수 /api/tts (키·목소리는 Vercel 환경 변수) */
+/** 소개 글 읽어 주기 (2026-11-20, 사용자 요청): Fish Audio 어린이 목소리, 서버 함수 /api/tts (키는 Vercel 환경 변수) */
 function useIntroVoice() {
   const audio = useRef<HTMLAudioElement | null>(null);
-  const [state, setState] = useState<'idle' | 'playing' | 'off'>('idle');
-  const play = () => {
+  const [state, setState] = useState<'idle' | 'loading' | 'playing' | 'off'>('idle');
+  // v: 목소리를 바꿨을 때 브라우저·CDN 캐시를 피하려고 올린다
+  const get = () => {
     if (!audio.current) {
-      const a = new Audio('/api/tts?line=intro&v=2')  // v: 목소리를 바꿨을 때 브라우저·CDN 캐시를 피하려고 올린다;
+      const a = new Audio('/api/tts?line=intro&v=2');
+      a.preload = 'auto'; // 열자마자 미리 받아 두어 누르는 순간 바로 나오게
       a.onended = () => setState('idle');
       a.onerror = () => setState('off'); // 서버에 키가 없으면 버튼을 숨긴다
       audio.current = a;
     }
-    audio.current.currentTime = 0;
-    return audio.current.play().then(
+    return audio.current;
+  };
+  const play = () => {
+    const a = get();
+    a.currentTime = 0;
+    setState((s) => (s === 'off' ? s : 'loading'));
+    return a.play().then(
       () => setState('playing'),
-      () => {
+      (e) => {
         setState((s) => (s === 'off' ? s : 'idle'));
-        throw new Error('blocked');
+        throw e;
       },
     );
   };
@@ -76,27 +83,37 @@ function useIntroVoice() {
     audio.current?.pause();
     setState((s) => (s === 'off' ? s : 'idle'));
   };
-  // 글자가 나올 때 바로 읽는다. 브라우저는 처음엔 소리를 막는 경우가 많아서, 막히면 화면을 처음 만지는(누르는·키 누르는) 순간 읽는다
+  // 오프닝이 열리면 소리를 미리 받아 두고, 글자가 나올 때 바로 읽는다.
+  // 브라우저는 사용자가 아무것도 안 만졌으면 소리를 막으므로, 막히면 화면을 처음 만지는(누르는·키 누르는) 순간 읽는다.
   useEffect(() => {
+    get().load();
     const events = ['pointerdown', 'touchend', 'keydown'] as const;
-    let done = false;
-    const onGesture = () => {
-      if (done) return;
-      done = true;
+    let started = false;
+    const cleanup = () => events.forEach((e) => window.removeEventListener(e, onGesture, true));
+    const start = () => {
+      if (started) return;
+      started = true;
       cleanup();
       play().catch(() => {});
     };
-    const cleanup = () => events.forEach((e) => window.removeEventListener(e, onGesture, true));
+    function onGesture() {
+      start();
+    }
+    events.forEach((e) => window.addEventListener(e, onGesture, true));
     const t = setTimeout(() => {
-      if (done) return;
-      done = true;
-      play().catch(() => {
-        done = false; // 막힘 → 첫 만짐을 기다린다
-        events.forEach((e) => window.addEventListener(e, onGesture, true));
-      });
+      if (started) return;
+      // 자동 재생 시도: 막히면 위의 첫 만짐 기다림이 그대로 남는다
+      get()
+        .play()
+        .then(() => {
+          started = true;
+          cleanup();
+          setState('playing');
+        })
+        .catch(() => setState((s) => (s === 'off' ? s : 'idle')));
     }, TEXT_START * 1000);
     return () => {
-      done = true;
+      started = true;
       clearTimeout(t);
       cleanup();
       audio.current?.pause();
@@ -154,13 +171,14 @@ export function OpeningView({ onKakao, onGuest }: { onKakao: () => void; onGuest
         <button
           className="voice-btn"
           aria-pressed={voice.state === 'playing'}
+          disabled={voice.state === 'loading'}
           onClick={(e) => {
             e.stopPropagation();
             if (voice.state === 'playing') voice.stop();
             else voice.play().catch(() => {});
           }}
         >
-          {voice.state === 'playing' ? '🔊 듣는 중 · 누르면 멈춰요' : '🔈 목소리로 듣기'}
+          {voice.state === 'playing' ? '🔊 듣는 중 · 누르면 멈춰요' : voice.state === 'loading' ? '🔈 불러오는 중…' : '🔈 목소리로 듣기'}
         </button>
       )}
       {/* 시작 방법 (2026-11-16): 카카오로 시작(내 냉장고, 커뮤니티 글쓰기) / 로그인 없이 예시 냉장고로 둘러보기 */}
