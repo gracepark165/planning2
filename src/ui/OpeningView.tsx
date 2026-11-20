@@ -58,23 +58,47 @@ function useIntroVoice() {
   const [state, setState] = useState<'idle' | 'playing' | 'off'>('idle');
   const play = () => {
     if (!audio.current) {
-      const a = new Audio('/api/tts?line=intro');
+      const a = new Audio('/api/tts?line=intro&v=2')  // v: 목소리를 바꿨을 때 브라우저·CDN 캐시를 피하려고 올린다;
       a.onended = () => setState('idle');
       a.onerror = () => setState('off'); // 서버에 키가 없으면 버튼을 숨긴다
       audio.current = a;
     }
     audio.current.currentTime = 0;
-    audio.current.play().then(() => setState('playing'), () => setState((s) => (s === 'off' ? s : 'idle')));
+    return audio.current.play().then(
+      () => setState('playing'),
+      () => {
+        setState((s) => (s === 'off' ? s : 'idle'));
+        throw new Error('blocked');
+      },
+    );
   };
   const stop = () => {
     audio.current?.pause();
     setState((s) => (s === 'off' ? s : 'idle'));
   };
-  // 브라우저가 막지 않으면 글자가 나올 때 바로 읽는다. 막히면 버튼을 눌러 듣는다
+  // 글자가 나올 때 바로 읽는다. 브라우저는 처음엔 소리를 막는 경우가 많아서, 막히면 화면을 처음 만지는(누르는·키 누르는) 순간 읽는다
   useEffect(() => {
-    const t = setTimeout(play, TEXT_START * 1000);
+    const events = ['pointerdown', 'touchend', 'keydown'] as const;
+    let done = false;
+    const onGesture = () => {
+      if (done) return;
+      done = true;
+      cleanup();
+      play().catch(() => {});
+    };
+    const cleanup = () => events.forEach((e) => window.removeEventListener(e, onGesture, true));
+    const t = setTimeout(() => {
+      if (done) return;
+      done = true;
+      play().catch(() => {
+        done = false; // 막힘 → 첫 만짐을 기다린다
+        events.forEach((e) => window.addEventListener(e, onGesture, true));
+      });
+    }, TEXT_START * 1000);
     return () => {
+      done = true;
       clearTimeout(t);
+      cleanup();
       audio.current?.pause();
     };
   }, []);
@@ -133,7 +157,7 @@ export function OpeningView({ onKakao, onGuest }: { onKakao: () => void; onGuest
           onClick={(e) => {
             e.stopPropagation();
             if (voice.state === 'playing') voice.stop();
-            else voice.play();
+            else voice.play().catch(() => {});
           }}
         >
           {voice.state === 'playing' ? '🔊 듣는 중 · 누르면 멈춰요' : '🔈 목소리로 듣기'}

@@ -2,15 +2,15 @@
 //
 // Fish Audio(https://fish.audio)로 정해진 소개 글만 읽어 mp3로 돌려준다. 키는 Vercel 환경 변수에만 있다.
 //   FISH_API_KEY    (필수) Fish Audio 대시보드 → API Keys
-//   FISH_VOICE_ID   (선택) 목소리 모델 ID. 없으면 아래 DEFAULT_VOICE("Gaby Perez의 명랑한 어린이")를 쓴다
+//   FISH_VOICE_ID   (선택) 목소리 모델 ID. 없으면 아래 DEFAULT_VOICE(fish.audio 목소리 d58ebc8e…)를 쓴다
 //   FISH_MODEL      (선택) 기본 s2.1-pro-free(무료). 계정에서 쓰는 모델 이름이 다르면 바꾼다 (s1 등)
 //
 // 사용자가 보낸 글은 읽지 않는다. 아래 LINES에 있는 글만 읽으므로 남이 이 주소로 마음대로 음성을 만들 수 없고,
 // 응답에 긴 캐시를 걸어 Vercel이 한 번 만든 소리를 다시 쓴다 (Fish 사용량을 거의 쓰지 않음).
 // 이 파일은 다른 파일을 import하지 않는다 (api/read.ts와 같은 방식). 글을 바꾸면 src/ui/OpeningView.tsx의 글과 맞춘다.
 
-/** fish.audio 목소리 "명랑한 어린이" (Gaby Perez). 모델 ID는 공개된 값이라 코드에 둔다. 바꾸려면 환경 변수 FISH_VOICE_ID */
-export const DEFAULT_VOICE = 'bfc6cdc40a6340c085111c3882aaa951';
+/** fish.audio 목소리 (2026-11-20 사용자가 고름). 모델 ID는 공개된 값이라 코드에 둔다. 바꾸려면 환경 변수 FISH_VOICE_ID */
+export const DEFAULT_VOICE = 'd58ebc8e84ee49ed96b08e3dc8051bbc';
 
 /** 크레딧 없이 쓸 수 있는 무료 모델 (Fish가 402 응답으로 알려 준 이름). 유료 모델을 쓰려면 환경 변수 FISH_MODEL (s2-pro 등) */
 export const DEFAULT_MODEL = 's2.1-pro-free';
