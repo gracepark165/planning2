@@ -11,6 +11,7 @@
   --green:#0b7a52; --green-bg:#e0f4ea; --shadow:none;
   --cta:#1b6fba; --on-cta:#ffffff; --cta-press:#145fa3; --hero:#dcedfb; --hero2:#f4faff; --white:#ffffff;
   --sun:#ffd65a; --sun-bg:#fff4c9; --on-sun:#4a3500;
+  --lav-bg:#ebe7fb; --mint-bg:#dff3e8;
   --scrim:rgba(10,24,40,.5); --scrim-soft:rgba(10,24,40,.35);
   --kakao:#fee500; --kakao-ink:#191919; --spark:#ffc93c; --shine:rgba(255,255,255,.85); --floor:rgba(20,48,74,.16);
   --font:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
@@ -21,14 +22,14 @@
   --accent:#72bdf6; --accent-bg:#17344f; --on-accent:#08131f;
   --red:#ff7a8a; --red-bg:#3a1f28; --amber:#ffb85c; --amber-bg:#3a2c17; --green:#5fd6a8; --green-bg:#133227;
   --cta:#72bdf6; --on-cta:#08131f; --cta-press:#9dd3fa; --hero:#17344f; --hero2:#0d1a29; --white:#1d2f44;
-  --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00;
+  --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --lav-bg:#27243f; --mint-bg:#133227;
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0d1a29; --card:#14253a; --fg:#e8f2fb; --sub:#9db3c8; --line:#22384f; --line-2:#33506c;
   --accent:#72bdf6; --accent-bg:#17344f; --on-accent:#08131f;
   --red:#ff7a8a; --red-bg:#3a1f28; --amber:#ffb85c; --amber-bg:#3a2c17; --green:#5fd6a8; --green-bg:#133227;
   --cta:#72bdf6; --on-cta:#08131f; --cta-press:#9dd3fa; --hero:#17344f; --hero2:#0d1a29; --white:#1d2f44;
-  --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00;
+  --sun:#ffd65a; --sun-bg:#3a3214; --on-sun:#2a1f00; --lav-bg:#27243f; --mint-bg:#133227;
   color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--font);
@@ -585,3 +586,23 @@ h1{font-size:26px}
 .tag.fresh{background:var(--sun-bg);color:var(--on-sun)}
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px;border-radius:inherit}
 @media (prefers-reduced-motion: reduce){.cta,.small-btn{transition:none}}
+/* ── 폴더 카드 (2026-11-20): 목록을 엑셀 줄 대신 귀퉁이가 접힌 파스텔 카드로 ── */
+.row{--notch:26px;margin:10px 0;padding:14px 16px;border-bottom:0;border-radius:18px;background:var(--card);
+  clip-path:polygon(0 0,calc(100% - var(--notch)) 0,100% var(--notch),100% 100%,0 100%)}
+.st-soon>.row,.st-soon .same-group>.row.stack{background:var(--red-bg)}
+.st-buried>.row,.st-buried .same-group>.row.stack{background:var(--amber-bg)}
+.st-soon .row .dday,.st-buried .row .dday{background:var(--card);padding:4px 12px;border-radius:999px;margin-top:8px}
+.row .dday{font-size:15px}
+.row.cat .dday{background:var(--card);padding:4px 12px;border-radius:999px;margin-top:8px}
+.cat-group:nth-of-type(4n+1)>.row.cat{background:var(--accent-bg)}
+.cat-group:nth-of-type(4n+2)>.row.cat{background:var(--mint-bg)}
+.cat-group:nth-of-type(4n+3)>.row.cat{background:var(--sun-bg)}
+.cat-group:nth-of-type(4n+4)>.row.cat{background:var(--lav-bg)}
+.row .tile{background:var(--card)}
+.cat-body{margin:-2px 0 6px 14px}
+.cat-body .row,.same-group .row.same{--notch:0px;background:var(--card);border:1px solid var(--line);clip-path:none;border-radius:14px;margin:6px 0}
+.row.same::before{display:none}
+.row.same{padding-left:16px}
+.sec-head{border-bottom:0;margin-top:22px}
+.tab.on,.tab[aria-current="page"]{background:var(--fg);color:var(--bg);border-radius:20px}
+.tab.on svg{stroke:currentColor}

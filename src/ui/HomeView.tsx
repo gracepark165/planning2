@@ -386,7 +386,7 @@ export function HomeView({
           folderGrid
         ) : groups.length ? (
           groups.map((g) => (
-            <section key={g.state} aria-label={STATE_META[g.state].label}>
+            <section key={g.state} className={`st-${g.state}`} aria-label={STATE_META[g.state].label}>
               {sectioned && (
                 <div className={`sec-head s-${g.state}`}>
                   <span>
