@@ -49,7 +49,7 @@ Vercel → planning2 → **Settings → Environment Variables**에서 Production
 |---|---|
 | `FISH_API_KEY` | Fish Audio → API Keys |
 | `FISH_VOICE_ID` | (선택) 다른 목소리를 쓰고 싶을 때만. 기본은 "Gaby Perez의 명랑한 어린이"(`bfc6cdc40a6340c085111c3882aaa951`) |
-| `FISH_MODEL` | (선택) 기본 `s2-pro`. 계정에서 쓰는 모델 이름이 다르면 바꿔요 (`s1` 등) |
+| `FISH_MODEL` | (선택) 기본 무료 모델 `s2.1-pro-free`. 계정에서 쓰는 모델 이름이 다르면 바꿔요 (`s1` 등) |
 
 `/api/tts`는 코드에 적힌 소개 글만 읽고 결과를 오래 캐시해서, 한 번 만든 소리를 다시 쓰고 남이 마음대로 음성을 만들 수 없어요. 소개 글을 바꾸면 `api/tts.ts`와 `src/ui/OpeningView.tsx`의 글을 같이 고쳐요. 브라우저는 소리를 자동 재생하지 못하게 막을 때가 많아서, 그럴 땐 **🔈 목소리로 듣기** 버튼을 눌러 들어요.
 
