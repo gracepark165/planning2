@@ -9,11 +9,11 @@
   --accent:#145fa3; --accent-bg:#dcedfb; --on-accent:#ffffff;
   --red:#d6334a; --red-bg:#fde8ec; --amber:#a85a00; --amber-bg:#fff1da;
   --green:#0b7a52; --green-bg:#e0f4ea; --shadow:none;
-  --cta:#1b6fba; --on-cta:#ffffff; --cta-press:#145fa3; --hero:#dcedfb; --hero2:#f4faff; --white:#ffffff;
+  --cta:#2388e4; --on-cta:#ffffff; --cta-press:#1d78cc; --hero:#dcedfb; --hero2:#f4faff; --white:#ffffff;
   --sun:#ffd65a; --sun-bg:#fff4c9; --on-sun:#4a3500; --sun-ink:#4a3500;
   --lav-bg:#ebe7fb; --mint-bg:#dff3e8;
   --sky-1:#cfe8ff; --sky-2:#b4d8fb; --sky-3:#eaf2fc; --sky-4:#e4d8fb; --glow-sky:rgba(140,200,255,.55); --glow-lilac:rgba(196,168,255,.62); --glass:rgba(255,255,255,.66); --glass-line:rgba(255,255,255,.9);
-  --cta-1:#2874d0; --cta-2:#1b5fb5; --grad-hero:linear-gradient(150deg,#d4eaff 0%,#bcdcfc 55%,#e3d6fb 130%);
+  --cta-1:#4aa8f3; --cta-2:#2388e4; --grad-hero:linear-gradient(150deg,#d4eaff 0%,#bcdcfc 55%,#e3d6fb 130%);
   --scrim:rgba(10,24,40,.5); --scrim-soft:rgba(10,24,40,.35);
   --kakao:#fee500; --kakao-ink:#191919; --spark:#ffc93c; --shine:rgba(255,255,255,.85); --floor:rgba(20,48,74,.16);
   --font:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
