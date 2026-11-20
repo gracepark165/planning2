@@ -351,9 +351,9 @@ export function HomeView({
         ))}
       </div>
       <div className="filter-row">
-        <div className="chips" style={{ marginTop: 8 }}>
+        <div className="chips filter-track" role="radiogroup" aria-label="상태">
           {STATE_FILTERS.map((f) => (
-            <button key={f} className={`chip ${filter === f ? 'on' : ''}`} onClick={() => setFilter(f)}>
+            <button key={f} role="radio" aria-checked={filter === f} className={`chip ${filter === f ? 'on' : ''}`} onClick={() => setFilter(f)}>
               {filterLabel(f)}
             </button>
           ))}
