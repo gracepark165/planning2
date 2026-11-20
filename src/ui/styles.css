@@ -606,3 +606,5 @@ h1{font-size:26px}
 .sec-head{border-bottom:0;margin-top:22px}
 .tab.on,.tab[aria-current="page"]{background:var(--fg);color:var(--bg);border-radius:20px}
 .tab.on svg{stroke:currentColor}
+.voice-btn{display:block;margin:12px auto 0;padding:8px 16px;border-radius:999px;border:1px solid var(--line-2);background:var(--card);color:var(--fg);font-size:14px;font-weight:700}
+.voice-btn[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}

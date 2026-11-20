@@ -3,7 +3,7 @@
 // 모션(2026-11-04, 사용자 요청): 냉장고가 위에서 떨어져 착지 → 반짝임 → 글자가 한 자씩 생겨남 → 시작하기.
 // 화면을 한 번 누르면 글자·버튼을 바로 다 보여준다. 움직임 줄이기 설정이면 처음부터 다 보인다.
 
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { KakaoButton } from './parts';
 
 const TITLE = '안녕하세요, 저는 냉집사예요!';
@@ -52,8 +52,38 @@ const SPARKLES: { x: number; y: number; s: number; d: number }[] = [
   { x: 18, y: -4, s: 12, d: 2.0 },
 ];
 
+/** 소개 글 읽어 주기 (2026-11-20, 사용자 요청): Fish Audio 아기 목소리, 서버 함수 /api/tts (키·목소리는 Vercel 환경 변수) */
+function useIntroVoice() {
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const [state, setState] = useState<'idle' | 'playing' | 'off'>('idle');
+  const play = () => {
+    if (!audio.current) {
+      const a = new Audio('/api/tts?line=intro');
+      a.onended = () => setState('idle');
+      a.onerror = () => setState('off'); // 서버에 키가 없으면 버튼을 숨긴다
+      audio.current = a;
+    }
+    audio.current.currentTime = 0;
+    audio.current.play().then(() => setState('playing'), () => setState((s) => (s === 'off' ? s : 'idle')));
+  };
+  const stop = () => {
+    audio.current?.pause();
+    setState((s) => (s === 'off' ? s : 'idle'));
+  };
+  // 브라우저가 막지 않으면 글자가 나올 때 바로 읽는다. 막히면 버튼을 눌러 듣는다
+  useEffect(() => {
+    const t = setTimeout(play, TEXT_START * 1000);
+    return () => {
+      clearTimeout(t);
+      audio.current?.pause();
+    };
+  }, []);
+  return { state, play, stop };
+}
+
 export function OpeningView({ onKakao, onGuest }: { onKakao: () => void; onGuest: () => void }) {
   const [skip, setSkip] = useState(false);
+  const voice = useIntroVoice();
 
   const titleEnd = TEXT_START + TITLE_STEP * len(TITLE);
   const lineStarts: number[] = [];
@@ -96,6 +126,19 @@ export function OpeningView({ onKakao, onGuest }: { onKakao: () => void; onGuest
           </p>
         ))}
       </div>
+      {voice.state !== 'off' && (
+        <button
+          className="voice-btn"
+          aria-pressed={voice.state === 'playing'}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (voice.state === 'playing') voice.stop();
+            else voice.play();
+          }}
+        >
+          {voice.state === 'playing' ? '🔊 듣는 중 · 누르면 멈춰요' : '🔈 목소리로 듣기'}
+        </button>
+      )}
       {/* 시작 방법 (2026-11-16): 카카오로 시작(내 냉장고, 커뮤니티 글쓰기) / 로그인 없이 예시 냉장고로 둘러보기 */}
       <div className="opening-cta" style={{ animationDelay: `${ctaDelay.toFixed(2)}s` }}>
         <KakaoButton onClick={onKakao} label="카카오로 시작하기" />

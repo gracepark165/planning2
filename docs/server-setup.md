@@ -41,6 +41,18 @@ Vercel → planning2 → **Settings → Environment Variables**에서 Production
 | `AUTH_SECRET` | 3단계에서 만든 값 |
 | `KAKAO_CLIENT_SECRET` | (클라이언트 시크릿을 쓸 때만) |
 
+### 오프닝 목소리 (선택, Fish Audio)
+
+오프닝의 소개 글을 목소리로 읽어 주려면 [fish.audio](https://fish.audio)에서 API 키를 만들고, 마음에 드는 목소리(예: 아기 남자아이 목소리)를 골라 주소 끝의 긴 글자(모델 ID)를 복사해 아래 둘을 더 넣어요. 안 넣으면 목소리 버튼은 보이지 않아요.
+
+| 이름 | 값 |
+|---|---|
+| `FISH_API_KEY` | Fish Audio → API Keys |
+| `FISH_VOICE_ID` | 고른 목소리의 모델 ID |
+| `FISH_MODEL` | (선택) 기본 `s2-pro`. 계정에서 쓰는 모델 이름이 다르면 바꿔요 (`s1` 등) |
+
+`/api/tts`는 코드에 적힌 소개 글만 읽고 결과를 오래 캐시해서, 한 번 만든 소리를 다시 쓰고 남이 마음대로 음성을 만들 수 없어요. 소개 글을 바꾸면 `api/tts.ts`와 `src/ui/OpeningView.tsx`의 글을 같이 고쳐요. 브라우저는 소리를 자동 재생하지 못하게 막을 때가 많아서, 그럴 땐 **🔈 목소리로 듣기** 버튼을 눌러 들어요.
+
 그다음 **Deployments → 최신 배포 → Redeploy**. 환경 변수는 다시 배포해야 적용돼요.
 
 ## 5. 확인

@@ -16,7 +16,7 @@ function apiInDev(): Plugin {
         // 커뮤니티(/api/community)는 POST(글)·GET(사진) 둘 다. 저장소 키가 없으면 메모리 저장소 (껐다 켜면 사라짐)
         const path = req.url?.split('?')[0];
         // 카카오 로그인(/api/auth)도 GET(시작·돌아옴)·POST(me·logout). 카카오 키가 없으면 시험 로그인
-        const community = path === '/api/community' || path === '/api/auth';
+        const community = path === '/api/community' || path === '/api/auth' || path === '/api/tts';
         if (!community && (req.method !== 'POST' || !['/api/read', '/api/menu', '/api/ingredients'].includes(path ?? ''))) return next();
         try {
           const chunks: Buffer[] = [];
