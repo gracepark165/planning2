@@ -5,7 +5,7 @@ import { SUBSTITUTES, findCatalog, findKind } from '../data';
 import { boughtAs } from '../rules/shopping';
 import { makeSampleInventory } from '../data/sampleInventory';
 import { addDays } from '../rules/date';
-import { autoExpiresAt, defaultLocation, kindShelfDays, relocate, setEntered, shiftExpiry } from '../rules/expiry';
+import { autoExpiresAt, defaultLocation, kindShelfDays, relocate, setEntered, setExpiryDate, setSellBy, shiftExpiry } from '../rules/expiry';
 import { findItem, portionQty } from '../rules/plan';
 import { mostUrgentSoon, stateOf } from '../rules/status';
 import { portionOf, stepDown, stepUp } from '../rules/portion';
@@ -44,6 +44,9 @@ export type Action =
   /** today가 있으면 넣은 날(addedOn)을 남긴다 (되돌리기로 다시 넣을 때는 없음) */
   | { type: 'addItems'; items: Item[]; today?: DateKey }
   | { type: 'shiftExpiry'; id: string; delta: number }
+  /** 재료 시트의 슬라이더: 소비기한·유통기한을 날짜로 고친다 */
+  | { type: 'setExpiry'; id: string; date: DateKey }
+  | { type: 'setSellBy'; id: string; date: DateKey }
   | { type: 'setRemaining'; id: string; remaining: Remaining }
   | { type: 'finishItem'; id: string; action: MealLog['action']; today: DateKey; at: string }
   /** 버렸어요 다음에 고른 이유 (B-4). 기록은 재료 id + 시각으로 찾는다 */
@@ -289,6 +292,10 @@ export function reducer(state: AppState, action: Action): AppState {
     }
     case 'shiftExpiry':
       return updateAndRemember(state, action.id, (i) => shiftExpiry(i, action.delta));
+    case 'setExpiry':
+      return updateAndRemember(state, action.id, (i) => setExpiryDate(i, action.date));
+    case 'setSellBy':
+      return updateItem(state, action.id, (i) => setSellBy(i, action.date));
     case 'setRemaining':
       return updateItem(state, action.id, (i) => ({ ...i, remaining: action.remaining }));
     case 'finishItem': {

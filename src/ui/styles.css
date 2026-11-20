@@ -709,3 +709,24 @@ body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer
 .pick-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
 .pick-chips .chip{flex:none;white-space:nowrap}
 .pick-tray .ctas .cta{margin-top:0;min-height:48px}
+
+/* 소비기한·유통기한 슬라이더 (2026-11-20) */
+.date-slider{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.date-slider .ds-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.date-slider .ds-head span{font-size:13px;font-weight:700;color:var(--accent)}
+.date-slider.sub .ds-head span{color:var(--sub)}
+.date-slider .ds-head b{font-size:17px}
+.date-slider .ds-hint{margin-top:2px;font-size:12px;color:var(--sub)}
+.date-slider input[type=range]{width:100%;height:36px;margin:6px 0 0;background:transparent;-webkit-appearance:none;appearance:none;touch-action:pan-y}
+.date-slider input[type=range]::-webkit-slider-runnable-track{height:8px;border-radius:999px;background:linear-gradient(90deg,var(--cta-1),var(--accent-bg))}
+.date-slider input[type=range]::-moz-range-track{height:8px;border-radius:999px;background:linear-gradient(90deg,var(--cta-1),var(--accent-bg))}
+.date-slider.sub input[type=range]::-webkit-slider-runnable-track{background:var(--line-2)}
+.date-slider.sub input[type=range]::-moz-range-track{background:var(--line-2)}
+.date-slider input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;margin-top:-11px;border-radius:50%;background:var(--card);border:3px solid var(--cta-2)}
+.date-slider input[type=range]::-moz-range-thumb{width:24px;height:24px;border-radius:50%;background:var(--card);border:3px solid var(--cta-2)}
+.basis>.date-slider{display:block}
+.basis .date-slider .ds-head b{font-size:16px;font-weight:700;text-align:right}
+.basis .date-slider .ds-head span{flex:none}
+.date-slider input[type=range]:focus-visible{outline:none}
+.date-slider input[type=range]:focus-visible::-webkit-slider-thumb{outline:3px solid var(--accent);outline-offset:2px}
+.date-slider input[type=range]:focus-visible::-moz-range-thumb{outline:3px solid var(--accent);outline-offset:2px}

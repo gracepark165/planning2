@@ -420,7 +420,8 @@ export function App() {
           item={sheetItem}
           today={today}
           onClose={closeSheet}
-          onShift={(delta) => dispatch({ type: 'shiftExpiry', id: sheetItem.id, delta })}
+          onExpiry={(date) => dispatch({ type: 'setExpiry', id: sheetItem.id, date })}
+          onSellBy={(date) => dispatch({ type: 'setSellBy', id: sheetItem.id, date })}
           onRemaining={(remaining) => dispatch({ type: 'setRemaining', id: sheetItem.id, remaining })}
           onFinish={(action) => {
             const at = new Date().toISOString();

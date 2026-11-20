@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { findCatalog } from '../data';
 import { ENTERED_CHOICES, STATE_META } from '../rules/constants';
-import { addDays, daysBetween } from '../rules/date';
+import { addDays, daysBetween, formatDate } from '../rules/date';
 import { emojiOf, imageOf } from '../rules/emoji';
 import { findItem } from '../rules/plan';
 import { dDayLabel, daysLeft, stateOf } from '../rules/status';
@@ -143,5 +143,52 @@ export function KakaoButton({ onClick, label = '카카오로 로그인' }: { onC
       </svg>
       {label}
     </button>
+  );
+}
+
+/**
+ * 날짜를 옆으로 밀어서 고르는 슬라이더 (2026-11-20, 사용자 요청: ±1일 버튼 대신).
+ * 입고일부터 넉넉히(소비기한보다 60일 뒤까지) 하루씩. 키보드 화살표로도 하루씩 움직인다.
+ */
+export function DateSlider({
+  label,
+  hint,
+  value,
+  min,
+  today,
+  tone,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: DateKey;
+  min: DateKey;
+  today: DateKey;
+  tone?: 'sub';
+  onChange: (date: DateKey) => void;
+}) {
+  const span = Math.max(120, daysBetween(min, value) + 60);
+  const offset = Math.max(0, Math.min(span, daysBetween(min, value)));
+  const left = daysBetween(today, value);
+  return (
+    <div className={`date-slider ${tone ?? ''}`}>
+      <div className="ds-head">
+        <span>{label}</span>
+        <b>
+          {formatDate(value)} · {dDayLabel(left)}
+        </b>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={span}
+        step={1}
+        value={offset}
+        aria-label={`${label} 고르기`}
+        aria-valuetext={`${formatDate(value)}, ${dDayLabel(left)}`}
+        onChange={(e) => onChange(addDays(min, Number(e.target.value)))}
+      />
+      <div className="ds-hint">{hint}</div>
+    </div>
   );
 }

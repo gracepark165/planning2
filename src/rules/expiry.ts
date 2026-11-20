@@ -46,6 +46,26 @@ export function shiftExpiry(item: Item, delta: number): Item {
   return { ...item, expiresAt, expiryBasis: 'user' };
 }
 
+/** 소비기한을 날짜로 바로 고치기 (슬라이더, 2026-11-20). 근거는 'user'. 입고일보다 앞으로는 가지 않는다. */
+export function setExpiryDate(item: Item, date: DateKey): Item {
+  const expiresAt = daysBetween(item.enteredAt, date) < 0 ? item.enteredAt : date;
+  if (expiresAt === item.expiresAt) return item;
+  return { ...item, expiresAt, expiryBasis: 'user' };
+}
+
+/** 유통기한. 따로 고치지 않았으면 소비기한과 같다고 본다. */
+export function sellByOf(item: Item): DateKey {
+  return item.sellBy ?? item.expiresAt;
+}
+
+/** 유통기한 고치기. 소비기한과 같아지면 따로 저장하지 않는다. 상태 계산에는 쓰이지 않는다. */
+export function setSellBy(item: Item, date: DateKey): Item {
+  const sellBy = daysBetween(item.enteredAt, date) < 0 ? item.enteredAt : date;
+  if (sellBy === sellByOf(item)) return item;
+  const { sellBy: _old, ...rest } = item;
+  return sellBy === item.expiresAt ? rest : { ...rest, sellBy };
+}
+
 /**
  * 입고일 바꾸기 (V4-2). 기간으로 정한 소비기한(기간표·비슷한 종류·지난번 값)은 기간을 그대로 두고 같이 옮긴다.
  * 주문 화면에 적힌 값·직접 고친 값·예시 재료는 소비기한을 그대로 둔다.

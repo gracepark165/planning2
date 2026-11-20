@@ -7,6 +7,9 @@ import {
   expiryBasisText,
   refreshAutoExpiry,
   shelfDaysFor,
+  sellByOf,
+  setExpiryDate,
+  setSellBy,
   shiftExpiry,
   setEntered,
   basisNote,
@@ -106,6 +109,26 @@ describe('소비기한 ±1일', () => {
   it('입고일보다 앞으로는 가지 않는다', () => {
     const sameDay = { ...base, expiresAt: base.enteredAt };
     expect(shiftExpiry(sameDay, -1)).toBe(sameDay);
+  });
+});
+
+describe('소비기한·유통기한 날짜로 고치기 (슬라이더)', () => {
+  it('소비기한을 날짜로 고치면 근거가 "직접 고친 값"이 되고 입고일보다 앞으로는 못 간다', () => {
+    const moved = setExpiryDate(base, '2026-11-20');
+    expect(moved.expiresAt).toBe('2026-11-20');
+    expect(moved.expiryBasis).toBe('user');
+    expect(setExpiryDate(base, '2020-01-01').expiresAt).toBe(base.enteredAt);
+    expect(setExpiryDate(base, base.expiresAt)).toBe(base);
+  });
+  it('유통기한은 따로 고치지 않으면 소비기한과 같고, 고쳐도 소비기한·근거는 그대로다', () => {
+    expect(sellByOf(base)).toBe(base.expiresAt);
+    const s = setSellBy(base, '2026-11-01');
+    expect(s.sellBy).toBe('2026-11-01');
+    expect(sellByOf(s)).toBe('2026-11-01');
+    expect(s.expiresAt).toBe(base.expiresAt);
+    expect(s.expiryBasis).toBe(base.expiryBasis);
+    // 소비기한과 같은 날로 돌리면 따로 저장하지 않는다
+    expect('sellBy' in setSellBy(s, base.expiresAt)).toBe(false);
   });
 });
 

@@ -55,6 +55,8 @@ export interface Item {
   addedOn?: DateKey;
   /** 냉동으로 옮기기 전 소비기한·근거. 냉동에서 꺼내면 이 값으로 돌아간다 (2026-11-04) */
   beforeFreeze?: { expiresAt: DateKey; expiryBasis: ExpiryBasis };
+  /** 유통기한 (포장에 적힌 판매 기한, 2026-11-20). 참고로 같이 보여주고 직접 고칠 수 있다. 상태 계산은 소비기한(expiresAt)만 쓴다. 없으면 소비기한과 같다고 본다. */
+  sellBy?: DateKey;
 }
 
 export interface MealLog {

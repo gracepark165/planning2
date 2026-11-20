@@ -4,17 +4,19 @@ import { useEffect } from 'react';
 import { findCatalog } from '../data';
 import { COUNT_MAX, COUNT_MIN, LOCATIONS, REMAINING_LEVELS } from '../rules/constants';
 import { formatDate } from '../rules/date';
-import { basisNote, enteredText, expiryBasisText } from '../rules/expiry';
+import { basisNote, enteredText, expiryBasisText, sellByOf } from '../rules/expiry';
 import { dDayLabel, daysLeft, daysSinceEntered, stateOf } from '../rules/status';
 import type { DateKey, Item, Location, Remaining } from '../rules/types';
 import { portionOf } from '../rules/portion';
-import { EnteredPicker, StateBadge } from './parts';
+import { DateSlider, EnteredPicker, StateBadge } from './parts';
 
 interface Props {
   item: Item;
   today: DateKey;
   onClose: () => void;
-  onShift: (delta: number) => void;
+  /** 소비기한·유통기한 슬라이더 (2026-11-20) */
+  onExpiry: (date: DateKey) => void;
+  onSellBy: (date: DateKey) => void;
   onRemaining: (r: Remaining) => void;
   onFinish: (action: 'eat' | 'discard') => void;
   onLocation: (l: Location) => void;
@@ -26,7 +28,7 @@ interface Props {
   onPortion: (portion: 'level' | 'whole') => void;
 }
 
-export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish, onLocation, onCount, onRemove, onEntered, onPortion }: Props) {
+export function ItemSheet({ item, today, onClose, onExpiry, onSellBy, onRemaining, onFinish, onLocation, onCount, onRemove, onEntered, onPortion }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -73,15 +75,23 @@ export function ItemSheet({ item, today, onClose, onShift, onRemaining, onFinish
               재료 사전에 없는 재료예요. 고친 기한·보관 위치는 기억해 두었다가 다음에 같은 재료를 넣을 때 써요.
             </div>
           )}
-          <div className="acts">
-            <span style={{ alignSelf: 'center' }}>기한 고치기</span>
-            <button className="small-btn alt" onClick={() => onShift(-1)}>
-              −1일
-            </button>
-            <button className="small-btn alt" onClick={() => onShift(1)}>
-              +1일
-            </button>
-          </div>
+          <DateSlider
+            label="소비기한"
+            hint="먹어도 되는 기한 · 얼른 먹어야 할 재료를 정하는 기준"
+            value={item.expiresAt}
+            min={item.enteredAt}
+            today={today}
+            onChange={onExpiry}
+          />
+          <DateSlider
+            label="유통기한"
+            hint="포장에 적힌 판매 기한 · 참고용"
+            value={sellByOf(item)}
+            min={item.enteredAt}
+            today={today}
+            tone="sub"
+            onChange={onSellBy}
+          />
         </div>
 
         <div className="eyebrow" style={{ marginTop: 14 }}>
