@@ -781,3 +781,10 @@ body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer
 .chip-sep{flex:none;width:1px;height:20px;margin:0 6px;align-self:center;background:var(--line-2)}
 .view-switch{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--glass-line);background:var(--glass);color:var(--sub);font-size:16px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
 .view-switch:active{background:var(--accent-bg)}
+
+/* 재료 추가 떠 있는 버튼 (2026-11-20, 사용자 요청): 노란 알약 대신 과일 바구니 그림 + "재료 추가" */
+.fab{display:flex;align-items:center;gap:8px;padding:6px 20px 6px 10px;background:var(--pop-bg);color:var(--fg);border:1px solid var(--glass-line);font-size:16px;font-weight:800;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.fab-icon{width:40px;height:40px;object-fit:contain;flex:none}
+.fab:active{background:var(--accent-bg)}
+.fab{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.fab-space{height:calc(72px + env(safe-area-inset-bottom,0px))}
