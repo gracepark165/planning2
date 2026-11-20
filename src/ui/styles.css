@@ -703,3 +703,9 @@ body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer
 @media (prefers-reduced-motion: reduce){body::after,.opening::after{animation:none;opacity:.7}}
 :root[data-theme="dark"] body::before,:root[data-theme="dark"] body::after{opacity:.5}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) body::before,:root:not([data-theme="light"]) body::after{opacity:.5}}
+
+/* 고른 재료 바 (2026-11-20): 재료 추가 화면에서 고른 재료와 담기 버튼이 늘 화면 아래(탭 위)에 붙어 있다 */
+.pick-tray{position:sticky;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:6;margin-top:16px;padding:8px 10px 10px;border-radius:20px;background:var(--glass);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px)}
+.pick-chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
+.pick-chips .chip{flex:none;white-space:nowrap}
+.pick-tray .ctas .cta{margin-top:0;min-height:48px}

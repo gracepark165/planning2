@@ -405,12 +405,12 @@ export function AddView({ items, today, onBack, onAdd }: Props) {
         </>
       )}
 
-      {picked.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div className="eyebrow">고른 재료 {picked.length}개</div>
-          <div className="chips" style={{ padding: 0, flexWrap: 'wrap' }}>
+      {/* 고른 재료는 화면 아래에 붙어 있어서 스크롤하지 않아도 바로 보인다 (2026-11-20, 사용자 요청) */}
+      <div className="pick-tray">
+        {picked.length > 0 && (
+          <div className="pick-chips" role="list" aria-label={`고른 재료 ${picked.length}개`}>
             {picked.map((p) => (
-              <span key={p.name} className="chip on picked-chip">
+              <span key={p.name} role="listitem" className="chip on picked-chip">
                 <button onClick={() => setEditing(p.name)} aria-label={`${p.name} 양 고치기`}>
                   {p.name}
                   {p.customKind && !p.product ? ' (직접)' : ''} · {p.qty ?? defaultQtyOf(p.name)}
@@ -423,26 +423,25 @@ export function AddView({ items, today, onBack, onAdd }: Props) {
               </span>
             ))}
           </div>
+        )}
+        <div className="ctas">
+          <button className="cta ghost" onClick={onBack}>
+            나중에 할게요
+          </button>
+          <button className="cta" disabled={!picked.length} onClick={() =>
+              onAdd(
+                picked.map(({ name, customKind, qty, location, expiresAt }) => ({
+                  name,
+                  customKind,
+                  qty: qty ?? defaultQtyOf(name),
+                  ...(location ? { location } : {}),
+                  ...(expiresAt ? { expiresAt } : {}),
+                })),
+              )
+            }>
+            {picked.length ? `${picked.length}개 담기` : '재료를 골라 주세요'}
+          </button>
         </div>
-      )}
-
-      <div className="ctas">
-        <button className="cta ghost" onClick={onBack}>
-          나중에 할게요
-        </button>
-        <button className="cta" disabled={!picked.length} onClick={() =>
-            onAdd(
-              picked.map(({ name, customKind, qty, location, expiresAt }) => ({
-                name,
-                customKind,
-                qty: qty ?? defaultQtyOf(name),
-                ...(location ? { location } : {}),
-                ...(expiresAt ? { expiresAt } : {}),
-              })),
-            )
-          }>
-          {picked.length ? `${picked.length}개 담기` : '재료를 골라 주세요'}
-        </button>
       </div>
     </>
   );
