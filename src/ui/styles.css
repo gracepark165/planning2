@@ -661,3 +661,45 @@ body{background:
 .small-btn.alt{background:var(--glass);color:var(--sub);font-weight:600}
 .small-btn:active:not(:disabled){transform:scale(.98)}
 @media (prefers-reduced-motion: reduce){.seg button,.filter-track .chip,.cta,.small-btn{transition:none}.cta:active:not(:disabled),.small-btn:active:not(:disabled){transform:none}}
+
+/* ── 반짝이·작은 물방울 (2026-11-20, 사용자 요청: scubo 참고) ──
+   아주 작은 별 반짝이와 물방울 알갱이를 바탕에 흩뿌린다. 별 한 무리는 천천히 깜빡인다. */
+body::before,.opening::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.9;
+  background:
+    radial-gradient(circle closest-side at 50% 50%,rgba(255,255,255,.2) 0,rgba(200,222,255,.3) 62%,rgba(255,255,255,.85) 90%,transparent 100%) no-repeat 44% 22%/13px 13px,
+    radial-gradient(circle closest-side at 50% 50%,rgba(255,255,255,.2) 0,rgba(200,222,255,.3) 62%,rgba(255,255,255,.85) 90%,transparent 100%) no-repeat 53% 86%/11px 11px,
+    radial-gradient(circle closest-side at 50% 50%,rgba(255,255,255,.2) 0,rgba(200,222,255,.3) 62%,rgba(255,255,255,.85) 90%,transparent 100%) no-repeat 9% 12%/18px 18px,
+    radial-gradient(circle closest-side at 50% 50%,rgba(255,255,255,.2) 0,rgba(200,222,255,.3) 62%,rgba(255,255,255,.85) 90%,transparent 100%) no-repeat 71% 15%/16px 16px,
+    radial-gradient(circle closest-side at 50% 50%,rgba(255,255,255,.2) 0,rgba(200,222,255,.3) 62%,rgba(255,255,255,.85) 90%,transparent 100%) no-repeat 49% 77%/10px 10px,
+    radial-gradient(circle closest-side at 50% 50%,rgba(255,255,255,.2) 0,rgba(200,222,255,.3) 62%,rgba(255,255,255,.85) 90%,transparent 100%) no-repeat 10% 67%/23px 23px,
+    radial-gradient(circle closest-side at 50% 50%,rgba(255,255,255,.2) 0,rgba(200,222,255,.3) 62%,rgba(255,255,255,.85) 90%,transparent 100%) no-repeat 30% 7%/19px 19px,
+    radial-gradient(circle closest-side at 50% 50%,rgba(255,255,255,.2) 0,rgba(200,222,255,.3) 62%,rgba(255,255,255,.85) 90%,transparent 100%) no-repeat 14% 58%/11px 11px,
+    radial-gradient(circle closest-side at 50% 50%,rgba(255,255,255,.2) 0,rgba(200,222,255,.3) 62%,rgba(255,255,255,.85) 90%,transparent 100%) no-repeat 56% 11%/13px 13px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 83% 83%/12px 12px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 77% 10%/16px 16px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 76% 77%/10px 10px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 53% 9%/9px 9px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 31% 8%/11px 11px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 74% 20%/13px 13px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 40% 56%/9px 9px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 21% 72%/16px 16px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 18% 76%/9px 9px}
+body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 75% 10%/14px 14px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 82% 29%/12px 12px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 66% 90%/14px 14px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 71% 57%/11px 11px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 43% 62%/8px 8px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 77% 61%/8px 8px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 49% 41%/15px 15px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 34% 26%/13px 13px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 92% 34%/9px 9px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 13% 76%/12px 12px,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23fff' d='M12 0C13 7 17 11 24 12C17 13 13 17 12 24C11 17 7 13 0 12C7 11 11 7 12 0Z'/%3E%3C/svg%3E") no-repeat 41% 70%/9px 9px;
+  animation:twinkleFx 3.6s ease-in-out infinite alternate}
+.opening::before,.opening::after{position:absolute}
+@keyframes twinkleFx{from{opacity:.2}to{opacity:1}}
+@media (prefers-reduced-motion: reduce){body::after,.opening::after{animation:none;opacity:.7}}
+:root[data-theme="dark"] body::before,:root[data-theme="dark"] body::after{opacity:.5}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) body::before,:root:not([data-theme="light"]) body::after{opacity:.5}}
