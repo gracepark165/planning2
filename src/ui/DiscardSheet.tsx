@@ -8,9 +8,11 @@ interface Props {
   onPick: (reason: string) => void;
   /** 건너뛰기·바깥 누르기·Esc (이유 없음) */
   onSkip: () => void;
+  /** 밀어서 버린 경우: 잘못 밀었을 때 되돌리기 */
+  onUndo?: () => void;
 }
 
-export function DiscardSheet({ name, onPick, onSkip }: Props) {
+export function DiscardSheet({ name, onPick, onSkip, onUndo }: Props) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onSkip();
     window.addEventListener('keydown', onKey);
@@ -38,6 +40,11 @@ export function DiscardSheet({ name, onPick, onSkip }: Props) {
         <button className="note reason-skip" onClick={onSkip}>
           건너뛰기
         </button>
+        {onUndo && (
+          <button className="note reason-skip" onClick={onUndo}>
+            잘못 밀었어요 · 되돌리기
+          </button>
+        )}
       </div>
     </div>
   );

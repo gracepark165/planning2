@@ -735,3 +735,49 @@ body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer
 .date-slider input[type=range]:focus-visible{outline:none}
 .date-slider input[type=range]:focus-visible::-webkit-slider-thumb{outline:3px solid var(--accent);outline-offset:2px}
 .date-slider input[type=range]:focus-visible::-moz-range-thumb{outline:3px solid var(--accent);outline-offset:2px}
+
+/* ── 홈 재료 목록 다듬기 (2026-11-20): 급한 재료 카드 띠 · 신선도 막대 · 밀어서 처리 · 필터 한 줄 ── */
+/* 줄: 큰 파스텔 카드 대신 얇은 두 줄짜리 유리 줄 */
+.row{--notch:0px;clip-path:none;border-radius:16px;padding:10px 12px;margin:0;gap:12px;background:var(--glass);border:1px solid var(--glass-line)}
+.st-soon>.row,.st-buried>.row,.st-soon .same-group>.row.stack,.st-buried .same-group>.row.stack{background:var(--glass)}
+.row .tile,.row .food-img{width:44px;height:44px}
+.row .nm{font-size:15px}
+.row .meta{margin-top:0;font-size:12.5px}
+.st-soon .row .dday,.st-buried .row .dday,.row.cat .dday{background:none;padding:0;margin:0}
+.row .dday{font-size:15px;font-weight:800}
+.fresh-bar{display:block;height:5px;margin-top:6px;border-radius:999px;background:var(--line)}
+.fresh-bar i{display:block;height:100%;width:calc(var(--r) * 100%);border-radius:inherit;background:linear-gradient(90deg,#ff8a7a 0%,#b9a4f2 45%,#6ec0ff 100%);background-size:calc(100% / var(--r)) 100%}
+.cat-body{margin:4px 0 8px 10px}
+.cat-body .row,.same-group .row.same{border-radius:14px;margin:4px 0}
+.swipe+.swipe,.swipe+.same-group,.same-group+.swipe,.cat-group+.cat-group,.swipe+.cat-group,.cat-group+.swipe{margin-top:8px}
+.row.cat,.row.stack{margin:8px 0 0}
+/* 밀어서 처리 */
+.swipe{position:relative;border-radius:16px;overflow:hidden;margin-top:8px}
+.swipe-bg{position:absolute;inset:0;display:flex;align-items:center;font-weight:800;font-size:14px;padding:0 18px;opacity:0}
+.swipe-bg.eat{background:var(--green-bg);color:var(--green);justify-content:flex-start}
+.swipe-bg.discard{background:var(--red-bg);color:var(--red);justify-content:flex-end}
+.swipe.to-eat .swipe-bg.eat,.swipe.to-discard .swipe-bg.discard{opacity:1}
+.swipe .swipe-row{position:relative;touch-action:pan-y;transition:transform .2s ease;user-select:none;-webkit-user-select:none}
+.swipe .swipe-row.dragging{transition:none}
+.swipe-hint{margin:6px 2px 0;font-size:12.5px;color:var(--sub)}
+@media (prefers-reduced-motion: reduce){.swipe .swipe-row{transition:none}}
+/* 급한 재료 카드 띠 */
+.urgent-strip{margin-top:4px}
+.urgent-strip .sec-head{margin-top:14px}
+.urgent-strip .sec-head small{font-size:12px;font-weight:500;color:var(--sub)}
+.urgent-track{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding:6px 2px 10px;margin:0 -2px;scrollbar-width:none}
+.urgent-track::-webkit-scrollbar{display:none}
+.urgent-card{position:relative;flex:none;width:148px;scroll-snap-align:start;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px;border-radius:20px;background:linear-gradient(160deg,var(--red-bg),var(--glass) 75%);border:1px solid var(--glass-line);text-align:left}
+.uc-dday{font-size:30px;font-weight:800;line-height:1;color:var(--red);letter-spacing:-.02em}
+.uc-tile{margin:8px 0 4px}
+.uc-tile .tile,.uc-tile .food-img{width:52px;height:52px}
+.uc-name{font-size:15px;font-weight:800;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uc-meta{font-size:12px;color:var(--sub);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.urgent-card .fresh-bar{align-self:stretch;margin-top:8px}
+/* 필터 한 줄 */
+.filter-row{display:flex;align-items:center;gap:8px;margin-top:16px}
+.filter-row .filter-track{flex:1;min-width:0;margin-top:0;padding:4px;overflow-x:auto}
+.filter-track .chip{flex:none}
+.chip-sep{flex:none;width:1px;height:20px;margin:0 6px;align-self:center;background:var(--line-2)}
+.view-switch{flex:none;width:40px;height:40px;border-radius:50%;border:1px solid var(--glass-line);background:var(--glass);color:var(--sub);font-size:16px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.view-switch:active{background:var(--accent-bg)}

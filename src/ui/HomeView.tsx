@@ -14,7 +14,7 @@ import { CATEGORIES, categoryMeta, categoryOfItem } from '../data';
 import type { DateKey, Item, ItemState, Location } from '../rules/types';
 import { formatDate } from '../rules/date';
 import { nextFabHidden } from './fabScroll';
-import { FoodIcon, Tile } from './parts';
+import { FoodIcon, FreshBar, SwipeRow, Tile, swipeHintDone } from './parts';
 import { findCatalog } from '../data';
 
 type LocFilter = '전체' | Location;
@@ -31,12 +31,13 @@ const loadView = (): ViewMode => {
 type StateFilter = '전체' | ItemState;
 
 const STATE_FILTERS: StateFilter[] = ['전체', 'soon', 'buried', 'ok'];
-const filterLabel = (f: StateFilter) => (f === '전체' ? f : STATE_META[f].label);
 
 interface Props {
   items: Item[];
   today: DateKey;
   onOpen: (id: string) => void;
+  /** 줄을 밀어서 처리 (2026-11-20): 오른쪽 → 다 먹었어요, 왼쪽 ← 버렸어요 */
+  onSwipeFinish: (item: Item, action: 'eat' | 'discard') => void;
   onAdd: () => void;
   onReset: () => void;
   onClear: () => void;
@@ -64,6 +65,7 @@ export function HomeView({
   items,
   today,
   onOpen,
+  onSwipeFinish,
   onAdd,
   onReset,
   onClear,
@@ -142,6 +144,7 @@ export function HomeView({
   }, []);
 
   const { title, lead } = homeHeadline(countByState(items, today));
+  const stateCount = (f: ItemState) => items.filter((i) => (loc === '전체' || i.location === loc) && stateOf(i, today) === f).length;
   const locCount = (l: LocFilter) => (l === '전체' ? items.length : items.filter((i) => i.location === l).length);
   // 상태 필터칩을 고르면 그 상태 재료만 먼저 거른다 (같은 이름 재료를 다른 구역에서 끌어오지 않게)
   const groups = groupForHome(
@@ -157,10 +160,11 @@ export function HomeView({
     // 오른쪽 큰 글씨는 "왜 이 구역에 있는지": 잊혀지는 중이면 들어온 지 며칠째, 아니면 남은 기한
     const buried = st === 'buried';
     return (
-      <button
+      <SwipeRow
         key={i.id}
         className={`row ${same ? 'same' : ''} ${i.addedOn === today ? 'new' : ''}`}
-        onClick={() => onOpen(i.id)}
+        onOpen={() => onOpen(i.id)}
+        onSwipe={(action) => onSwipeFinish(i, action)}
       >
         <Tile name={i.name} core={i.core} kind={i.kind} />
         <div className="main">
@@ -174,12 +178,13 @@ export function HomeView({
             {buried && ` · ${dday}`}
             {i.remaining !== '넉넉해요' && ` · 남은 양 ${i.remaining}`}
           </div>
+          <FreshBar item={i} today={today} />
         </div>
         {/* 상태는 구역 제목·필터칩이 알려주므로 배지 대신 이유를 크게 */}
         <span className={`dday ${st === 'soon' ? 'hot' : buried ? 'bur' : ''}`}>
           {buried ? `${daysSinceEntered(i, today)}일째` : dday}
         </span>
-      </button>
+      </SwipeRow>
     );
   };
 
@@ -246,6 +251,37 @@ export function HomeView({
         </div>
       );
     });
+
+  // 급한 재료 카드 띠 (2026-11-20, 사용자 요청): 오늘 내일 해요 재료만 맨 위에서 옆으로 밀어 보는 큰 카드. 아래 목록에서는 뺀다.
+  // 상태 필터로 한 상태만 볼 때는 띠 없이 아래 목록이 그 재료를 보여준다.
+  const soonItems = groups.find((g) => g.state === 'soon')?.items ?? [];
+  const showStrip = sectioned && soonItems.length > 0 && items.length > 0;
+  const urgentStrip = showStrip && (
+    <section className="urgent-strip" aria-label={STATE_META.soon.label}>
+      <div className="sec-head s-soon">
+        <span>
+          {STATE_META.soon.icon} {STATE_META.soon.label} <b>{soonItems.length}</b>
+        </span>
+        {soonItems.length > 1 && <small>옆으로 밀어 보세요</small>}
+      </div>
+      <div className="urgent-track">
+        {soonItems.map((i) => (
+          <button key={i.id} className="urgent-card" onClick={() => onOpen(i.id)}>
+            <span className="uc-dday">{dDayLabel(daysLeft(i, today))}</span>
+            <span className="uc-tile">
+              <Tile name={i.name} core={i.core} kind={i.kind} />
+            </span>
+            <span className="uc-name">{i.name}</span>
+            <span className="uc-meta">
+              {i.qty} · {i.location}
+            </span>
+            <FreshBar item={i} today={today} />
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+  const listGroups = showStrip ? groups.filter((g) => g.state !== 'soon') : groups;
 
   // 폴더 보기: 걸러진 재료를 급한 순서 그대로 분류별 네모 폴더에 담는다 (폴더끼리도 가장 급한 재료 순)
   const folders = groupByCategory(groups.flatMap((g) => g.items), today, categoryOfItem, CATEGORIES.map((c) => c.id));
@@ -343,30 +379,36 @@ export function HomeView({
       </div>
       {todayCard}
 
-      <div className="seg" style={{ marginTop: 16 }}>
-        {(['전체', ...LOCATIONS] as LocFilter[]).map((l) => (
-          <button key={l} className={loc === l ? 'on' : ''} onClick={() => setLoc(l)}>
-            {l} {locCount(l)}
-          </button>
-        ))}
-      </div>
+      {/* 필터 한 줄 (2026-11-20): 상태와 위치를 칩 한 줄로, 보기 전환은 오른쪽 끝에 작게. 같은 칩을 다시 누르면 풀린다 */}
       <div className="filter-row">
-        <div className="chips filter-track" role="radiogroup" aria-label="상태">
-          {STATE_FILTERS.map((f) => (
-            <button key={f} role="radio" aria-checked={filter === f} className={`chip ${filter === f ? 'on' : ''}`} onClick={() => setFilter(f)}>
-              {filterLabel(f)}
+        <div className="chips filter-track" role="group" aria-label="걸러 보기">
+          <button className={`chip ${loc === '전체' && filter === '전체' ? 'on' : ''}`} onClick={() => { setLoc('전체'); setFilter('전체'); }}>
+            전체 {items.length}
+          </button>
+          {STATE_FILTERS.filter((f): f is ItemState => f !== '전체').map((f) => (
+            <button key={f} className={`chip ${filter === f ? 'on' : ''}`} aria-pressed={filter === f} onClick={() => setFilter(filter === f ? '전체' : f)}>
+              {STATE_META[f].icon} {STATE_META[f].label} {stateCount(f)}
+            </button>
+          ))}
+          <span className="chip-sep" aria-hidden="true" />
+          {LOCATIONS.map((l) => (
+            <button key={l} className={`chip ${loc === l ? 'on' : ''}`} aria-pressed={loc === l} onClick={() => setLoc(loc === l ? '전체' : l)}>
+              {l} {locCount(l)}
             </button>
           ))}
         </div>
-        <div className="view-toggle" role="radiogroup" aria-label="재료 보기">
-          <button role="radio" aria-checked={view === 'list'} className={view === 'list' ? 'on' : ''} onClick={() => setView('list')} aria-label="목록으로 보기">
-            ☰
-          </button>
-          <button role="radio" aria-checked={view === 'folder'} className={view === 'folder' ? 'on' : ''} onClick={() => setView('folder')} aria-label="폴더로 보기">
-            ▦
-          </button>
-        </div>
+        <button
+          className="view-switch"
+          onClick={() => setView(view === 'list' ? 'folder' : 'list')}
+          aria-label={view === 'list' ? '폴더로 보기' : '목록으로 보기'}
+        >
+          {view === 'list' ? '▦' : '☰'}
+        </button>
       </div>
+      {view === 'list' && items.length > 0 && !swipeHintDone() && (
+        <p className="swipe-hint">옆으로 밀면 빨리 처리해요: → 다 먹었어요, ← 버렸어요</p>
+      )}
+      {view === 'list' && urgentStrip}
 
       <div>
         {!items.length ? (
@@ -384,8 +426,8 @@ export function HomeView({
           </div>
         ) : groups.length && view === 'folder' ? (
           folderGrid
-        ) : groups.length ? (
-          groups.map((g) => (
+        ) : listGroups.length ? (
+          listGroups.map((g) => (
             <section key={g.state} className={`st-${g.state}`} aria-label={STATE_META[g.state].label}>
               {sectioned && (
                 <div className={`sec-head s-${g.state}`}>
@@ -397,7 +439,7 @@ export function HomeView({
               {g.state === 'ok' ? byCategory(g.items) : listOf(g.items)}
             </section>
           ))
-        ) : (
+        ) : view === 'list' && showStrip ? null : (
           <p className="lead" style={{ padding: '32px 0', textAlign: 'center' }}>
             이 상태의 재료가 없어요
           </p>

@@ -1,6 +1,6 @@
 // 여러 화면에서 같이 쓰는 작은 조각들
 
-import { useState } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { findCatalog } from '../data';
 import { ENTERED_CHOICES, STATE_META } from '../rules/constants';
 import { addDays, daysBetween, formatDate } from '../rules/date';
@@ -189,6 +189,116 @@ export function DateSlider({
         onChange={(e) => onChange(addDays(min, Number(e.target.value)))}
       />
       <div className="ds-hint">{hint}</div>
+    </div>
+  );
+}
+
+/**
+ * 신선도 막대 (2026-11-20): 입고일부터 소비기한까지 중 남은 몫만큼 채운 얇은 막대.
+ * 줄어들수록 하늘색 → 연보라 → 산호색으로 바뀌어 급함이 한눈에 보인다.
+ */
+export function FreshBar({ item, today }: { item: Pick<Item, 'enteredAt' | 'expiresAt'>; today: DateKey }) {
+  const total = Math.max(1, daysBetween(item.enteredAt, item.expiresAt));
+  const ratio = Math.max(0.06, Math.min(1, daysLeft(item, today) / total));
+  return (
+    <span className="fresh-bar" aria-hidden="true">
+      <i style={{ '--r': ratio } as React.CSSProperties} />
+    </span>
+  );
+}
+
+const SWIPE_COMMIT = 88; // 이만큼 밀면 처리
+const SWIPE_MAX = 132;
+const SWIPE_HINT_KEY = 'fridge-swipe-hint-done';
+
+/** 밀어서 처리 안내를 이미 봤는지(한 번이라도 밀어 봤는지) */
+export function swipeHintDone(): boolean {
+  try {
+    return localStorage.getItem(SWIPE_HINT_KEY) === '1';
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * 줄을 옆으로 밀어 처리 (2026-11-20, 사용자 요청): 오른쪽 → 다 먹었어요, 왼쪽 ← 버렸어요.
+ * 누르면 그대로 시트가 열린다(밀기를 못 쓰는 사람도 같은 일을 시트에서 할 수 있다). 세로 스크롤은 막지 않는다.
+ */
+export function SwipeRow({
+  className,
+  onOpen,
+  onSwipe,
+  children,
+}: {
+  className: string;
+  onOpen: () => void;
+  onSwipe: (action: 'eat' | 'discard') => void;
+  children: ReactNode;
+}) {
+  const [dx, setDx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const start = useRef<{ x: number; y: number; id: number } | null>(null);
+  const moved = useRef(false);
+
+  const reset = () => {
+    start.current = null;
+    setDragging(false);
+    setDx(0);
+  };
+  return (
+    <div className={`swipe ${dx > 0 ? 'to-eat' : dx < 0 ? 'to-discard' : ''}`}>
+      <div className="swipe-bg eat" aria-hidden="true">
+        ✓ 다 먹었어요
+      </div>
+      <div className="swipe-bg discard" aria-hidden="true">
+        버렸어요 🗑
+      </div>
+      <button
+        className={`${className} swipe-row ${dragging ? 'dragging' : ''}`}
+        style={{ transform: dx ? `translateX(${dx}px)` : undefined }}
+        onPointerDown={(e) => {
+          start.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+          moved.current = false;
+        }}
+        onPointerMove={(e) => {
+          const st = start.current;
+          if (!st || st.id !== e.pointerId) return;
+          const mx = e.clientX - st.x;
+          const my = e.clientY - st.y;
+          if (!dragging) {
+            if (Math.abs(mx) < 10 || Math.abs(mx) < Math.abs(my) * 1.5) return;
+            setDragging(true);
+            moved.current = true;
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }
+          setDx(Math.max(-SWIPE_MAX, Math.min(SWIPE_MAX, mx)));
+        }}
+        onPointerUp={() => {
+          if (!dragging) return start.current && (start.current = null);
+          const done = Math.abs(dx) >= SWIPE_COMMIT ? (dx > 0 ? 'eat' : 'discard') : null;
+          reset();
+          if (done) {
+            try {
+              localStorage.setItem(SWIPE_HINT_KEY, '1');
+            } catch {
+              // 저장 못 해도 처리는 된다
+            }
+            onSwipe(done);
+          }
+        }}
+        onPointerCancel={reset}
+        onClickCapture={(e) => {
+          // 밀고 난 뒤에 따라오는 클릭은 시트를 열지 않는다
+          if (moved.current) {
+            moved.current = false;
+            e.stopPropagation();
+            e.preventDefault();
+          }
+        }}
+        onClick={onOpen}
+      >
+        {children}
+      </button>
     </div>
   );
 }

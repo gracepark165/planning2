@@ -49,6 +49,8 @@ export type Action =
   | { type: 'setSellBy'; id: string; date: DateKey }
   | { type: 'setRemaining'; id: string; remaining: Remaining }
   | { type: 'finishItem'; id: string; action: MealLog['action']; today: DateKey; at: string }
+  /** 밀어서 처리를 되돌린다 (2026-11-20): 재료를 다시 넣고 그때 남긴 기록을 지운다 */
+  | { type: 'undoFinish'; item: Item; at: string }
   /** 버렸어요 다음에 고른 이유 (B-4). 기록은 재료 id + 시각으로 찾는다 */
   | { type: 'setDiscardReason'; itemId: string; at: string; reason: string }
   | { type: 'reset'; today: DateKey }
@@ -305,6 +307,14 @@ export function reducer(state: AppState, action: Action): AppState {
         ...state,
         items: state.items.filter((i) => i.id !== action.id),
         logs: [...state.logs, logOf(item, action.action, action.today, action.at)],
+      };
+    }
+    case 'undoFinish': {
+      if (state.items.some((i) => i.id === action.item.id)) return state;
+      return {
+        ...state,
+        items: [...state.items, action.item],
+        logs: state.logs.filter((l) => !(l.itemId === action.item.id && l.at === action.at)),
       };
     }
     case 'setDiscardReason': {

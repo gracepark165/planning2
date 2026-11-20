@@ -7,7 +7,7 @@ import { fitPin, makePlan, mealsForNewPin, slotUsing, todayMeal } from '../rules
 import { stateOf } from '../rules/status';
 import { missingToBuy } from '../rules/shopping';
 import { eul, eun, ro, withJosa } from '../rules/josa';
-import type { DateKey, PinnedMeal, Recipe } from '../rules/types';
+import type { DateKey, Item, PinnedMeal, Recipe } from '../rules/types';
 import { loadState, saveState } from '../state/persist';
 import { withMyFoods } from '../state/myFoods';
 import {
@@ -60,7 +60,7 @@ export function App() {
   const [installBack, setInstallBack] = useState<Screen>('home');
   const [sheetId, setSheetId] = useState<string | null>(null);
   /** 버렸어요 다음에 이유를 물을 기록 (B-4) */
-  const [discardAsk, setDiscardAsk] = useState<{ itemId: string; at: string; name: string } | null>(null);
+  const [discardAsk, setDiscardAsk] = useState<{ itemId: string; at: string; name: string; undoItem?: Item } | null>(null);
   /** 사야 할 재료가 있는 메뉴를 확정할 때 "준비됐어요?" (V4-6-5) */
   const [buyAsk, setBuyAsk] = useState<{ recipe: Recipe; missing: string[] } | null>(null);
   const cancelBuyAsk = useCallback(() => setBuyAsk(null), []);
@@ -251,6 +251,17 @@ export function App() {
         items={state.items}
         today={today}
         onOpen={setSheetId}
+        onSwipeFinish={(item, action) => {
+          const at = new Date().toISOString();
+          dispatch({ type: 'finishItem', id: item.id, action, today, at });
+          // 버렸어요는 이유를 한 번 묻고(되돌리기도 거기서), 다 먹었어요는 바로 되돌릴 수 있게 알린다
+          if (action === 'discard') setDiscardAsk({ itemId: item.id, at, name: item.name, undoItem: item });
+          else
+            showToast(`${withJosa(item.name, eul)} 다 먹은 걸로 기록했어요`, {
+              label: '되돌리기',
+              run: () => dispatch({ type: 'undoFinish', item, at }),
+            });
+        }}
         onAdd={() => go('add')}
         todayCard={
           <TodayCard
@@ -484,6 +495,15 @@ export function App() {
             showToast(`${withJosa(discardAsk.name, eul)} 버린 걸로 기록했어요`);
           }}
           onSkip={skipDiscardReason}
+          onUndo={
+            discardAsk.undoItem
+              ? () => {
+                  dispatch({ type: 'undoFinish', item: discardAsk.undoItem!, at: discardAsk.at });
+                  setDiscardAsk(null);
+                  showToast(`${withJosa(discardAsk.name, eul)} 냉장고로 되돌렸어요`);
+                }
+              : undefined
+          }
         />
       )}
       {toast && (
