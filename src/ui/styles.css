@@ -788,3 +788,11 @@ body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer
 .fab:active{background:var(--accent-bg)}
 .fab{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .fab-space{height:calc(72px + env(safe-area-inset-bottom,0px))}
+
+/* 분류를 열면 큰 카드가 옆으로 (2026-11-20, 사용자 요청: 세로 줄이 엑셀 같다) */
+.cat-track{margin:6px -2px 4px}
+.urgent-card.calm{background:linear-gradient(160deg,var(--accent-bg),var(--glass) 75%)}
+.urgent-card.calm .uc-dday{color:var(--accent)}
+.uc-tags{display:flex;gap:4px;margin-top:2px}
+.uc-tags .tag{font-size:11px}
+.row.cat.open{border-radius:16px}

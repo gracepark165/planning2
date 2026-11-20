@@ -121,7 +121,7 @@ export function HomeView({
     setOpenCats((s) => new Set([...s, ...fresh.map((i) => categoryOfItem(i))]));
     setOpenClusters((s) => new Set([...s, ...fresh.map((i) => i.name)]));
     const t = window.setTimeout(() => {
-      document.querySelector('.row.new')?.scrollIntoView({ block: 'center' });
+      document.querySelector('.row.new, .item-card.new')?.scrollIntoView({ block: 'center', inline: 'center' });
       onRevealed();
     }, 50);
     return () => window.clearTimeout(t);
@@ -188,6 +188,35 @@ export function HomeView({
     );
   };
 
+  // 재료 카드 (2026-11-20, 사용자 요청): 급한 재료 띠와 분류를 열었을 때 같은 큰 카드로 보여 옆으로 넘겨 본다
+  const itemCard = (i: Item, calm = false) => {
+    const st = stateOf(i, today);
+    const buried = st === 'buried';
+    return (
+      <button
+        key={i.id}
+        className={`urgent-card item-card ${calm ? 'calm' : ''} ${i.addedOn === today ? 'new' : ''}`}
+        onClick={() => onOpen(i.id)}
+      >
+        <span className="uc-dday">{buried ? `${daysSinceEntered(i, today)}일째` : dDayLabel(daysLeft(i, today))}</span>
+        <span className="uc-tile">
+          <Tile name={i.name} core={i.core} kind={i.kind} />
+        </span>
+        <span className="uc-name">{i.name}</span>
+        <span className="uc-meta">
+          {i.qty} · {i.location}
+        </span>
+        {(i.sample || i.addedOn === today) && (
+          <span className="uc-tags">
+            {i.sample && <span className="tag sample">예시</span>}
+            {i.addedOn === today && <span className="tag fresh">새로</span>}
+          </span>
+        )}
+        <FreshBar item={i} today={today} />
+      </button>
+    );
+  };
+
   // 이름이 같은 재료 여러 개: 한 줄로 접고(아이콘 두 겹 테두리), 누르면 하나씩 펼친다
   const cluster = (c: Item[]) => {
     if (c.length === 1) return row(c[0]);
@@ -247,7 +276,7 @@ export function HomeView({
               {open ? '▴' : '▾'}
             </span>
           </button>
-          {open && <div className="cat-body">{listOf(g.items)}</div>}
+          {open && <div className="urgent-track cat-track">{g.items.map((i) => itemCard(i, true))}</div>}
         </div>
       );
     });
@@ -265,19 +294,7 @@ export function HomeView({
         {soonItems.length > 1 && <small>옆으로 밀어 보세요</small>}
       </div>
       <div className="urgent-track">
-        {soonItems.map((i) => (
-          <button key={i.id} className="urgent-card" onClick={() => onOpen(i.id)}>
-            <span className="uc-dday">{dDayLabel(daysLeft(i, today))}</span>
-            <span className="uc-tile">
-              <Tile name={i.name} core={i.core} kind={i.kind} />
-            </span>
-            <span className="uc-name">{i.name}</span>
-            <span className="uc-meta">
-              {i.qty} · {i.location}
-            </span>
-            <FreshBar item={i} today={today} />
-          </button>
-        ))}
+        {soonItems.map((i) => itemCard(i))}
       </div>
     </section>
   );
