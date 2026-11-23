@@ -116,8 +116,8 @@ const FALLBACK_KIND = 'deli';
  * 용량은 ml·g·개로(같은 제품 여러 개면 곱함), 포장 소비기한은 오늘 이후일 때만 쓴다.
  * 냉장고에 넣지 않는 종류(생수·음료, 실온 레토르트)는 빼고 skipped로 돌려준다.
  */
-export function productToPicks(ai: OrderAiResult, today: DateKey, lookup: Lookup): { picks: ProductPick[]; skipped: string[] } {
-  const items = Array.isArray(ai.items) ? ai.items.slice(0, 10) : [];
+export function productToPicks(ai: OrderAiResult, today: DateKey, lookup: Lookup, max = 10): { picks: ProductPick[]; skipped: string[] } {
+  const items = Array.isArray(ai.items) ? ai.items.slice(0, max) : [];
   const picks: ProductPick[] = [];
   const skipped: string[] = [];
   for (const it of items) {

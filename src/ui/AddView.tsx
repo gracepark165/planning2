@@ -10,7 +10,7 @@ import { LOCATIONS } from '../rules/constants';
 import { defaultLocation, kindShelfDays, shelfDaysFor } from '../rules/expiry';
 import { QTY_UNITS, joinQty, qtyStep, splitQty, switchUnit, toBasicUnit } from '../rules/qty';
 import type { DateKey, FoodCategory, Item, Location } from '../rules/types';
-import { AI_FAILURE_TEXT, readProductImage } from '../ai/client';
+import { AI_FAILURE_TEXT, readFridgeImage, readProductImage } from '../ai/client';
 import { productToPicks } from '../ai/convert';
 import { formatDate } from '../rules/date';
 import { eul } from '../rules/josa';
@@ -162,7 +162,7 @@ export function AddView({ items, today, onBack, onAdd }: Props) {
   const [open, setOpen] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   /** 제품 사진 읽기: 읽는 중이면 true, 끝나면 안내 문구 */
-  const [photoReading, setPhotoReading] = useState(false);
+  const [photoReading, setPhotoReading] = useState<'product' | 'fridge' | null>(null);
   const [photoNote, setPhotoNote] = useState<{ text: string; ok: boolean } | null>(null);
   const photoRound = useRef(0);
   const [custom, setCustom] = useState('');
@@ -204,20 +204,23 @@ export function AddView({ items, today, onBack, onAdd }: Props) {
     setQuery('');
   };
 
-  /** 제품 사진 → AI가 읽은 재료를 고른 재료로 담고 첫 재료의 양 고치기 칸을 연다 */
-  const readPhoto = async (file: File) => {
+  /**
+   * 제품 사진·냉장고 사진 → AI가 읽은 재료를 고른 재료로 담고 첫 재료의 양 고치기 칸을 연다.
+   * 냉장고 사진(2026-11-23)은 재료가 많아 30개까지, 시연용 예시 사진이면 미리 적어 둔 결과.
+   */
+  const readPhoto = async (file: File, mode: 'product' | 'fridge') => {
     const my = ++photoRound.current;
-    setPhotoReading(true);
+    setPhotoReading(mode);
     setPhotoNote(null);
-    const res = await readProductImage(file, today);
+    const res = mode === 'fridge' ? await readFridgeImage(file, today) : await readProductImage(file, today);
     if (my !== photoRound.current) return;
-    setPhotoReading(false);
+    setPhotoReading(null);
     if (!res.ok) {
       const why = res.reason === 'no-key' || res.reason === 'ai-credit' || res.reason === 'ai-failed' ? '' : `${AI_FAILURE_TEXT[res.reason]}. `;
       setPhotoNote({ text: `${why}사진을 읽지 못했어요. 아래에서 직접 골라 주세요.`, ok: false });
       return;
     }
-    const { picks, skipped } = productToPicks(res.data, today, findCatalog);
+    const { picks, skipped } = productToPicks(res.data, today, findCatalog, mode === 'fridge' ? 30 : 10);
     if (!picks.length) {
       setPhotoNote({
         text: skipped.length
@@ -240,7 +243,9 @@ export function AddView({ items, today, onBack, onAdd }: Props) {
     const dated = picks.filter((p) => p.expiresAt);
     setPhotoNote({
       text:
-        (picks.length > 1
+        (mode === 'fridge'
+          ? `냉장고에서 재료 ${picks.length}개를 찾았어요: ${picks.map((p) => p.name).join(', ')}.`
+          : picks.length > 1
           ? `사진에서 ${picks.map((p) => p.name).join(', ')} ${picks.length}개를 담았어요.`
           : `사진에서 ${picks[0].name}${eul(picks[0].name)} 담았어요.`) +
         ' 양과 보관 위치를 확인해 주세요.' +
@@ -305,22 +310,39 @@ export function AddView({ items, today, onBack, onAdd }: Props) {
       </h1>
       <p className="lead">분류를 누르고 고르기만 하세요. 소비기한은 자동으로 정해둘게요.</p>
 
-      <label className={`sample-btn photo-btn ${photoReading ? 'busy' : ''}`}>
-        📷 제품 사진으로 넣기
-        <small>{photoReading ? '사진을 읽고 있어요…' : '포장을 찍어 올리면 재료와 소비기한을 읽어 담아요'}</small>
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          hidden
-          disabled={photoReading}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            e.target.value = ''; // 같은 사진을 다시 골라도 동작하게
-            if (f) void readPhoto(f);
-          }}
-        />
-      </label>
+      <div className="photo-btns">
+        <label className={`sample-btn photo-btn ${photoReading === 'fridge' ? 'busy' : ''}`}>
+          🧊 냉장고 사진으로 넣기
+          <small>{photoReading === 'fridge' ? '냉장고 속 재료를 찾고 있어요…' : '냉장고 안을 찍어 올리면 보이는 재료를 한 번에 담아요'}</small>
+          <input
+            type="file"
+            accept="image/*"
+            hidden
+            disabled={!!photoReading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = ''; // 같은 사진을 다시 골라도 동작하게
+              if (f) void readPhoto(f, 'fridge');
+            }}
+          />
+        </label>
+        <label className={`sample-btn photo-btn ${photoReading === 'product' ? 'busy' : ''}`}>
+          📷 제품 사진으로 넣기
+          <small>{photoReading === 'product' ? '사진을 읽고 있어요…' : '포장을 찍어 올리면 재료와 소비기한을 읽어 담아요'}</small>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            hidden
+            disabled={!!photoReading}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = ''; // 같은 사진을 다시 골라도 동작하게
+              if (f) void readPhoto(f, 'product');
+            }}
+          />
+        </label>
+      </div>
       {photoNote && (
         <p className={`note photo-note ${photoNote.ok ? 'ok' : ''}`} role="status">
           {photoNote.text}

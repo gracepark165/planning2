@@ -13,6 +13,7 @@ import type {
 } from '../../api/read';
 import { CATALOG } from '../data';
 import { kindListOf, vocabularyOf } from './convert';
+import { DEMO_DELAY_MS, DEMO_FRIDGE_RESULT, dHashOf, isDemoFridge } from './fridgeDemo';
 
 export type AiFailure = ReadErrorCode | 'offline';
 export type AiResult<T> = { ok: true; data: T } | { ok: false; reason: AiFailure };
@@ -70,7 +71,7 @@ const MAX_RATIO = 2;
 const MAX_PIECES = 4;
 const OVERLAP = 0.06;
 
-async function loadImage(file: File): Promise<CanvasImageSource & { width: number; height: number }> {
+export async function loadImage(file: File): Promise<CanvasImageSource & { width: number; height: number }> {
   if ('createImageBitmap' in window) {
     try {
       return await createImageBitmap(file);
@@ -130,6 +131,54 @@ export async function readOrderImage(file: File, today: string, extraNames: stri
     return { ok: false, reason: 'bad-request' };
   }
   return post<OrderAiResult>({ images, mediaType: 'image/jpeg', today }, 'order', extraNames);
+}
+
+/** 사진의 밝기 지문 (dHash, 시연용 예시 사진 알아보기) + 가로/세로 비율 */
+export async function imageHash(file: File): Promise<{ hash: string; ratio: number }> {
+  const img = await loadImage(file);
+  // 72×64로 줄인 뒤 8×8 칸씩 평균 → 9×8 밝기 격자 (바로 9×8로 줄이면 크기마다 값이 흔들림)
+  const canvas = document.createElement('canvas');
+  canvas.width = 72;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, 72, 64);
+  const px = ctx.getImageData(0, 0, 72, 64).data;
+  const gray: number[] = [];
+  for (let gy = 0; gy < 8; gy++)
+    for (let gx = 0; gx < 9; gx++) {
+      let sum = 0;
+      for (let y = gy * 8; y < gy * 8 + 8; y++)
+        for (let x = gx * 8; x < gx * 8 + 8; x++) {
+          const i = (y * 72 + x) * 4;
+          sum += px[i] * 0.299 + px[i + 1] * 0.587 + px[i + 2] * 0.114;
+        }
+      gray.push(sum / 64);
+    }
+  return { hash: dHashOf(gray), ratio: img.width / img.height };
+}
+
+/**
+ * 냉장고 안 사진 (2026-11-23): 보이는 식재료를 한 번에 읽는다.
+ * 시연용 예시 냉장고 사진이면 AI를 부르지 않고 미리 적어 둔 결과를 돌려준다 (fridgeDemo.ts).
+ */
+export async function readFridgeImage(file: File, today: string, extraNames: string[] = []): Promise<AiResult<OrderAiResult>> {
+  try {
+    const { hash, ratio } = await imageHash(file);
+    if (isDemoFridge(hash, ratio)) {
+      await new Promise((r) => setTimeout(r, DEMO_DELAY_MS));
+      return { ok: true, data: DEMO_FRIDGE_RESULT };
+    }
+  } catch {
+    // 지문을 못 구하면 그냥 AI로
+  }
+  let images: string[];
+  try {
+    images = await prepareImage(file);
+  } catch {
+    return { ok: false, reason: 'bad-request' };
+  }
+  return post<OrderAiResult>({ images, mediaType: 'image/jpeg', today, source: 'fridge' }, 'order', extraNames);
 }
 
 /** 제품(포장) 사진 (2026-11-09, 재료 추가 화면): 주문 화면 읽기와 같은 결과 모양, 안내만 다르다 */

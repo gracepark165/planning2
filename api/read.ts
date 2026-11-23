@@ -78,7 +78,7 @@ export type ReadErrorCode =
 
 export type ReadRequest =
   /** product: 주문 화면이 아니라 식재료 제품(포장)을 찍은 사진 (2026-11-09, 재료 추가 화면) */
-  | { kind: 'order'; images: string[]; mediaType: string; vocabulary: string[]; kinds: string[]; today: string; product?: boolean }
+  | { kind: 'order'; images: string[]; mediaType: string; vocabulary: string[]; kinds: string[]; today: string; product?: boolean; fridge?: boolean }
   | { kind: 'video'; url: string; vocabulary: string[] }
   | { kind: 'text'; lines: string[]; vocabulary: string[]; kinds: string[] }
   | ({ kind: 'menu' } & MenuRequest)
@@ -348,6 +348,16 @@ const productPrompt = (req: { today: string; vocabulary: string[]; kinds: string
   '식재료가 아니거나 무엇인지 알아볼 수 없으면 items를 빈 배열로 둬요.\n' +
   `${UNIT_HINT}\n${vocabText(req.vocabulary)}${kindText(req.kinds)}`;
 
+/** 냉장고 안 사진 안내 (2026-11-23): 재료 추가 화면에서 냉장고를 열고 찍은 사진 */
+const fridgePrompt = (req: { today: string; vocabulary: string[]; kinds: string[] }) =>
+  `냉장고 안을 찍은 사진이에요. 주문 화면이 아니에요. 오늘은 ${req.today}예요.\n` +
+  '사진에 보이는 식재료를 종류마다 한 줄씩 알려 주세요 (선반·문 칸·서랍 모두). retailer는 "모름", orderDate는 빈 문자열로 둬요.\n' +
+  '- name: 재료 이름. 아래 사전에 있는 이름이면 그 이름으로 맞춰요. 밀폐 용기 안의 음식도 알아볼 수 있으면 넣어요.\n' +
+  '- product: 사진에서 본 모습을 짧게 (예: "오이 피클 병", "연어 (밀폐 용기)").\n' +
+  '- count: 보이는 개수 (모르면 1). 소비기한은 보이지 않으면 빈 문자열.\n' +
+  '- 음료·술(주스, 맥주, 와인, 생수)은 빼요. 알아볼 수 없는 것은 빼요.\n' +
+  `${UNIT_HINT}\n${vocabText(req.vocabulary)}${kindText(req.kinds)}`;
+
 const VIDEO_TOOL: Tool = {
   name: 'report_recipe',
   description: '영상 제목·설명란에서 읽은 메뉴와 재료를 보고한다.',
@@ -437,6 +447,7 @@ export function parseRequest(body: unknown): ReadRequest | ReadErrorCode {
         kinds,
         today: b.today,
         ...(b.source === 'product' ? { product: true } : {}),
+        ...(b.source === 'fridge' ? { fridge: true } : {}),
       };
     case 'video':
       if (!isStr(b.url, LIMITS.urlChars)) return 'bad-request';
@@ -597,7 +608,7 @@ export async function handleRead(body: unknown, deps: Deps): Promise<{ status: n
           ...req.images.map(
             (data): Content => ({ type: 'image', source: { type: 'base64', media_type: req.mediaType, data } }),
           ),
-          text(req.product ? productPrompt(req) : orderPrompt(req)),
+          text(req.fridge ? fridgePrompt(req) : req.product ? productPrompt(req) : orderPrompt(req)),
         ],
         orderTool(kindIdsOf(req.kinds)),
       );
