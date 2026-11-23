@@ -29,7 +29,7 @@ describe('냉장고 사진 시연', () => {
     expect(picks).toHaveLength(DEMO_FRIDGE_RESULT.items.length);
     expect(picks.find((p) => p.name === '계란')?.qty).toBe('10개');
     expect(picks.find((p) => p.name === '우유')?.qty).toBe('1800ml');
-    expect(picks.find((p) => p.name === '양상추')?.customKind).toBe('leafVeg');
+    expect(picks.find((p) => p.name === '양상추')?.customKind).toBeUndefined(); // 2026-11-23 사전에 넣음
     expect(picks.every((p) => p.category)).toBe(true);
   });
 });
