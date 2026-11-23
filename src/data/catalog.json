@@ -137,6 +137,8 @@
     { "name": "어묵", "image": "fish-cake", "emoji": "🍢", "core": "", "shelfDays": 7, "location": "냉장", "group": "etc", "defaultQty": "1봉", "category": "tofuSide", "kind": "fishCake" },
     { "name": "게맛살", "image": "crab-stick", "emoji": "🦀", "core": "", "shelfDays": 7, "location": "냉장", "group": "etc", "defaultQty": "1봉", "category": "tofuSide", "kind": "fishCake" },
     { "name": "김치", "image": "kimchi", "emoji": "🥬", "core": "", "shelfDays": 30, "location": "냉장", "group": "etc", "defaultQty": "1통", "category": "tofuSide", "kind": "kimchi", "portion": "level" },
+    { "name": "피클", "aliases": ["오이피클"], "image": "pickle", "emoji": "🥒", "core": "", "shelfDays": 60, "location": "냉장", "group": "etc", "defaultQty": "1개", "category": "tofuSide", "kind": "kimchi" },
+    { "name": "올리브", "aliases": ["그린올리브", "블랙올리브", "올리브 절임"], "image": "olive", "emoji": "🫒", "core": "", "shelfDays": 21, "location": "냉장", "group": "etc", "defaultQty": "1개", "category": "tofuSide", "kind": "kimchi" },
     { "name": "단무지", "image": "pickled-radish", "emoji": "🫙", "core": "", "shelfDays": 30, "location": "냉장", "group": "etc", "defaultQty": "1봉", "category": "tofuSide", "kind": "kimchi" },
     { "name": "소면", "image": "somen", "emoji": "🍜", "core": "", "shelfDays": 180, "location": "실온", "group": "grain", "defaultQty": "1봉", "category": "cannedNoodle", "kind": "grain" },
     { "name": "쌀", "image": "rice", "emoji": "🍚", "core": "", "shelfDays": 180, "location": "실온", "group": "grain", "defaultQty": "1포", "category": "cannedNoodle", "kind": "grain" },
