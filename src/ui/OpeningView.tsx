@@ -52,91 +52,117 @@ const SPARKLES: { x: number; y: number; s: number; d: number }[] = [
   { x: 18, y: -4, s: 12, d: 2.0 },
 ];
 
+/** 소리가 나가기 시작한 뒤 목소리가 시작하기까지 비워 두는 시간(초): 스피커·블루투스가 깨어나는 동안 첫 음이 잘리지 않게 */
+const VOICE_LEAD = 0.4;
+
 /**
  * 소개 글 읽어 주기 (2026-11-20, 사용자 요청): 어린이 목소리.
- * 2026-11-24: "안녕하세요" 앞에서 소리가 끊기던 것을 고쳤다.
- *  - 소리 파일(`public/intro-voice.mp3`)은 앞뒤 군더더기를 다듬어 미리 만들어 둔 것이다 (없으면 서버 /api/tts로).
- *  - 파일을 다 받은 뒤에 재생을 시작한다 (받는 중에 틀면 첫 음이 끊긴다).
- *  - 한 번 시작한 소리는 처음으로 되돌려 다시 틀지 않는다 (자동 재생과 첫 터치가 겹치면 처음부터 다시 시작해 끊기던 문제).
+ * 2026-11-24 끊김 수정 (사용자: 첫 재생에서 계속 끊김):
+ *  - 소리를 미리 풀어서(디코딩) 메모리에 올려 두고 Web Audio로 튼다. <audio>로 mp3를 스트리밍하면 첫 재생 때 디코더가 데워지며 첫 음이 끊긴다.
+ *  - 소리가 나가기 시작한 뒤 0.4초 뒤에 목소리를 시작한다 (기기가 깨어나는 순간의 잘림을 비워 둔 시간이 흡수).
+ *  - 한 번 시작한 소리는 처음으로 되돌려 다시 틀지 않는다 (자동 재생과 첫 터치가 겹쳐도 한 번만).
+ *  - 소리 파일은 `public/intro-voice.mp3` (없으면 서버 /api/tts).
  */
 function useIntroVoice() {
-  const audio = useRef<HTMLAudioElement | null>(null);
+  const ctxRef = useRef<AudioContext | null>(null);
+  const bufRef = useRef<AudioBuffer | null>(null);
+  const srcRef = useRef<AudioBufferSourceNode | null>(null);
   /** 재생을 시작했는지 (끝나거나 멈추기 전까지 다시 시작하지 않는다) */
   const started = useRef(false);
-  /** 소리 파일을 다 받기 전에 사용자가 만졌으면, 다 받는 대로 바로 튼다 */
+  /** 소리를 다 풀기 전에 사용자가 만졌으면, 다 풀리는 대로 바로 튼다 */
   const wanted = useRef(false);
   const [state, setState] = useState<'idle' | 'loading' | 'playing' | 'off'>('loading');
 
-  const begin = () => {
-    const a = audio.current;
-    if (!a || started.current) return Promise.resolve();
+  const begin = async () => {
+    const ctx = ctxRef.current;
+    const buf = bufRef.current;
+    if (!ctx || !buf || started.current) return;
     started.current = true;
-    return a.play().then(
-      () => setState('playing'),
-      () => {
-        started.current = false; // 브라우저가 막았다 → 첫 터치를 기다린다
+    try {
+      // 브라우저가 소리를 막았으면 resume이 끝나지 않으므로 잠깐만 기다려 본다
+      if (ctx.state !== 'running') await Promise.race([ctx.resume(), new Promise((r) => setTimeout(r, 250))]);
+      if (ctx.state !== 'running') {
+        started.current = false; // 막힘 → 첫 터치를 기다린다
         setState('idle');
-      },
-    );
-  };
-  /** 버튼: 듣는 중이면 멈추고, 아니면 처음부터 */
-  const play = () => {
-    const a = audio.current;
-    if (!a) return Promise.resolve();
-    a.currentTime = 0;
-    started.current = false;
-    return begin();
+        return;
+      }
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.onended = () => {
+        if (srcRef.current !== src) return;
+        srcRef.current = null;
+        started.current = false;
+        setState('idle');
+      };
+      src.start(ctx.currentTime + VOICE_LEAD);
+      srcRef.current = src;
+      setState('playing');
+    } catch {
+      started.current = false;
+      setState('idle');
+    }
   };
   const stop = () => {
-    audio.current?.pause();
+    const src = srcRef.current;
+    srcRef.current = null;
     started.current = false;
+    try {
+      src?.stop();
+    } catch {
+      // 이미 끝났다
+    }
     setState((s) => (s === 'off' ? s : 'idle'));
+  };
+  /** 버튼: 처음부터 다시 */
+  const play = () => {
+    stop();
+    return begin();
   };
 
   useEffect(() => {
     let dead = false;
-    let url: string | undefined;
     const events = ['pointerdown', 'touchend', 'keydown'] as const;
     const onGesture = () => {
       events.forEach((e) => window.removeEventListener(e, onGesture, true));
-      if (audio.current) void begin();
+      if (bufRef.current) void begin();
       else wanted.current = true;
     };
     events.forEach((e) => window.addEventListener(e, onGesture, true));
 
-    const load = async (src: string) => {
+    const fetchBytes = async (src: string) => {
       const res = await fetch(src);
       if (!res.ok || !(res.headers.get('content-type') ?? '').includes('audio')) throw new Error('no audio');
-      return URL.createObjectURL(await res.blob());
+      return res.arrayBuffer();
     };
     (async () => {
       try {
+        const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (!AC) throw new Error('no web audio');
         // 다듬어 둔 파일 → 없으면 서버가 만든 소리
-        url = await load('/intro-voice.mp3?v=3').catch(() => load('/api/tts?line=intro&v=2'));
+        const bytes = await fetchBytes('/intro-voice.mp3?v=3').catch(() => fetchBytes('/api/tts?line=intro&v=2'));
         if (dead) return;
-        const a = new Audio(url);
-        a.preload = 'auto';
-        a.onended = () => {
-          started.current = false;
-          setState('idle');
-        };
-        a.onerror = () => setState('off');
-        audio.current = a;
-        // 다 받은 뒤에 시작 (그전에 만졌으면 그 만짐으로, 아니면 자동 재생을 시도)
-        if (a.readyState < 4) await new Promise<void>((r) => a.addEventListener('canplaythrough', () => r(), { once: true }));
+        const ctx = new AC();
+        ctxRef.current = ctx;
+        bufRef.current = await ctx.decodeAudioData(bytes);
         if (dead) return;
-        await begin();
+        await begin(); // 풀리자마자 자동 재생 시도. 막히면 첫 터치에서
         if (started.current) events.forEach((e) => window.removeEventListener(e, onGesture, true));
-        else if (!wanted.current) setState('idle');
+        else if (wanted.current) await begin();
+        else setState('idle');
       } catch {
-        if (!dead) setState('off'); // 소리 파일도 서버도 없으면 버튼을 숨긴다
+        if (!dead) setState('off'); // 소리를 못 풀면 버튼을 숨긴다
       }
     })();
     return () => {
       dead = true;
       events.forEach((e) => window.removeEventListener(e, onGesture, true));
-      audio.current?.pause();
-      if (url) URL.revokeObjectURL(url);
+      try {
+        srcRef.current?.stop();
+      } catch {
+        // 이미 끝났다
+      }
+      void ctxRef.current?.close().catch(() => {});
     };
   }, []);
   return { state, play, stop };
