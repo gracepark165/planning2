@@ -53,6 +53,12 @@ Vercel → planning2 → **Settings → Environment Variables**에서 Production
 
 `/api/tts`는 코드에 적힌 소개 글만 읽고 결과를 오래 캐시해서, 한 번 만든 소리를 다시 쓰고 남이 마음대로 음성을 만들 수 없어요. 소개 글을 바꾸면 `api/tts.ts`와 `src/ui/OpeningView.tsx`의 글을 같이 고쳐요. 브라우저는 소리를 자동 재생하지 못하게 막을 때가 많아서, 그럴 땐 **🔈 목소리로 듣기** 버튼을 눌러 들어요.
 
+오프닝은 서버에서 매번 만든 소리 대신 **다듬어 둔 파일 `public/intro-voice.mp3`**를 먼저 써요(끊김 없이 바로 나와요). 소개 글이나 목소리를 바꾸면 `/api/tts?line=intro`로 새 소리(`raw.mp3`)를 받아 아래처럼 다듬고 `public/intro-voice.mp3`를 바꿔요.
+
+```bash
+ffmpeg -i raw.mp3 -af "highpass=f=70,silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.01,afade=t=in:d=0.03,loudnorm=I=-16:TP=-1.5:LRA=9,areverse,silenceremove=start_periods=1:start_threshold=-50dB:start_silence=0.02,afade=t=in:d=0.12,areverse" -ar 44100 -ac 1 -c:a libmp3lame -q:a 2 public/intro-voice.mp3
+```
+
 그다음 **Deployments → 최신 배포 → Redeploy**. 환경 변수는 다시 배포해야 적용돼요.
 
 ## 5. 확인
