@@ -40,17 +40,18 @@ export function refreshAutoExpiry(item: Item, entry: CatalogEntry | undefined): 
 
 /** 소비기한 ±일. 고친 값은 근거가 'user'가 되어 항상 우선한다. 입고일보다 앞으로는 가지 않는다. */
 export function shiftExpiry(item: Item, delta: number): Item {
-  let expiresAt = addDays(item.expiresAt, delta);
-  if (daysBetween(item.enteredAt, expiresAt) < 0) expiresAt = item.enteredAt;
-  if (expiresAt === item.expiresAt) return item;
-  return { ...item, expiresAt, expiryBasis: 'user' };
+  return setExpiryDate(item, addDays(item.expiresAt, delta));
 }
 
 /** 소비기한을 날짜로 바로 고치기 (슬라이더, 2026-11-20). 근거는 'user'. 입고일보다 앞으로는 가지 않는다. */
 export function setExpiryDate(item: Item, date: DateKey): Item {
-  const expiresAt = daysBetween(item.enteredAt, date) < 0 ? item.enteredAt : date;
+  // 2026-11-26 사용자 요청: 소비기한과 유통기한은 따로 움직이고, 소비기한은 유통기한보다 앞으로 못 간다.
+  // 유통기한은 지금 값으로 고정해 둔다 (예전엔 따로 안 고친 유통기한이 소비기한을 따라 움직였음)
+  const sellBy = sellByOf(item);
+  let expiresAt = daysBetween(item.enteredAt, date) < 0 ? item.enteredAt : date;
+  if (daysBetween(sellBy, expiresAt) < 0) expiresAt = sellBy;
   if (expiresAt === item.expiresAt) return item;
-  return { ...item, expiresAt, expiryBasis: 'user' };
+  return { ...item, expiresAt, expiryBasis: 'user', sellBy };
 }
 
 /** 유통기한. 따로 고치지 않았으면 소비기한과 같다고 본다. */
@@ -60,11 +61,13 @@ export function sellByOf(item: Item): DateKey {
 
 /** 유통기한 고치기. 소비기한과 같아지면 따로 저장하지 않는다. 상태 계산에는 쓰이지 않는다. */
 export function setSellBy(item: Item, date: DateKey): Item {
-  const sellBy = daysBetween(item.enteredAt, date) < 0 ? item.enteredAt : date;
-  if (sellBy === sellByOf(item)) return item;
-  const { sellBy: _old, ...rest } = item;
-  return sellBy === item.expiresAt ? rest : { ...rest, sellBy };
+  // 유통기한은 입고일 ~ 소비기한 사이 (소비기한보다 늦을 수 없다). 고친 값은 따로 저장해 소비기한을 따라가지 않는다
+  let sellBy = daysBetween(item.enteredAt, date) < 0 ? item.enteredAt : date;
+  if (daysBetween(item.expiresAt, sellBy) > 0) sellBy = item.expiresAt;
+  if (sellBy === item.sellBy || (item.sellBy === undefined && sellBy === item.expiresAt)) return item;
+  return { ...item, sellBy };
 }
+
 
 /**
  * 입고일 바꾸기 (V4-2). 기간으로 정한 소비기한(기간표·비슷한 종류·지난번 값)은 기간을 그대로 두고 같이 옮긴다.

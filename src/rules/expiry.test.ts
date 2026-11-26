@@ -102,33 +102,40 @@ describe('소비기한 ±1일', () => {
     expect(plus.expiresAt).toBe('2026-11-04');
     expect(plus.expiryBasis).toBe('user');
     expect(expiryBasisText(plus)).toBe('직접 고친 값');
-    expect(shiftExpiry(base, -1).expiresAt).toBe('2026-11-02');
     expect(base.expiresAt).toBe('2026-11-03'); // 원래 값은 그대로
+    const early = { ...base, sellBy: '2026-11-01' };
+    expect(shiftExpiry(early, -1).expiresAt).toBe('2026-11-02');
   });
 
-  it('입고일보다 앞으로는 가지 않는다', () => {
+  it('입고일·유통기한보다 앞으로는 가지 않는다', () => {
     const sameDay = { ...base, expiresAt: base.enteredAt };
     expect(shiftExpiry(sameDay, -1)).toBe(sameDay);
+    expect(shiftExpiry(base, -1)).toBe(base); // 유통기한(= 소비기한)보다 앞
   });
 });
 
-describe('소비기한·유통기한 날짜로 고치기 (슬라이더)', () => {
-  it('소비기한을 날짜로 고치면 근거가 "직접 고친 값"이 되고 입고일보다 앞으로는 못 간다', () => {
+describe('소비기한·유통기한 날짜로 고치기 (슬라이더, 2026-11-26: 따로 움직임)', () => {
+  it('소비기한을 늦추면 유통기한은 그 자리에 남는다', () => {
     const moved = setExpiryDate(base, '2026-11-20');
     expect(moved.expiresAt).toBe('2026-11-20');
     expect(moved.expiryBasis).toBe('user');
-    expect(setExpiryDate(base, '2020-01-01').expiresAt).toBe(base.enteredAt);
+    expect(sellByOf(moved)).toBe(base.expiresAt);
     expect(setExpiryDate(base, base.expiresAt)).toBe(base);
   });
-  it('유통기한은 따로 고치지 않으면 소비기한과 같고, 고쳐도 소비기한·근거는 그대로다', () => {
+  it('소비기한은 유통기한보다 앞으로 못 간다 (입고일보다도)', () => {
+    const s = setSellBy(base, '2026-11-01');
+    expect(setExpiryDate(s, '2026-10-01').expiresAt).toBe('2026-11-01');
+    expect(setExpiryDate({ ...base, sellBy: base.enteredAt }, '2020-01-01').expiresAt).toBe(base.enteredAt);
+  });
+  it('유통기한을 고쳐도 소비기한·근거는 그대로, 소비기한보다 뒤로는 못 간다', () => {
     expect(sellByOf(base)).toBe(base.expiresAt);
     const s = setSellBy(base, '2026-11-01');
     expect(s.sellBy).toBe('2026-11-01');
-    expect(sellByOf(s)).toBe('2026-11-01');
     expect(s.expiresAt).toBe(base.expiresAt);
     expect(s.expiryBasis).toBe(base.expiryBasis);
-    // 소비기한과 같은 날로 돌리면 따로 저장하지 않는다
-    expect('sellBy' in setSellBy(s, base.expiresAt)).toBe(false);
+    expect(sellByOf(setSellBy(s, '2026-12-31'))).toBe(base.expiresAt);
+    // 유통기한을 고친 뒤 소비기한을 늦춰도 유통기한은 따라가지 않는다
+    expect(sellByOf(setExpiryDate(s, '2026-11-10'))).toBe('2026-11-01');
   });
 });
 

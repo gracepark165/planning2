@@ -157,12 +157,18 @@ export function DateSlider({
   min,
   today,
   tone,
+  low,
+  high,
   onChange,
 }: {
   label: string;
   hint: string;
   value: DateKey;
   min: DateKey;
+  /** 이보다 앞으로는 못 감 (소비기한 ≥ 유통기한) */
+  low?: DateKey;
+  /** 이보다 뒤로는 못 감 */
+  high?: DateKey;
   today: DateKey;
   tone?: 'sub';
   onChange: (date: DateKey) => void;
@@ -186,7 +192,12 @@ export function DateSlider({
         value={offset}
         aria-label={`${label} 고르기`}
         aria-valuetext={`${formatDate(value)}, ${dDayLabel(left)}`}
-        onChange={(e) => onChange(addDays(min, Number(e.target.value)))}
+        onChange={(e) => {
+          let d = addDays(min, Number(e.target.value));
+          if (low && daysBetween(low, d) < 0) d = low;
+          if (high && daysBetween(d, high) < 0) d = high;
+          if (d !== value) onChange(d);
+        }}
       />
       <div className="ds-hint">{hint}</div>
     </div>

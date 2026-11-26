@@ -77,9 +77,10 @@ export function ItemSheet({ item, today, onClose, onExpiry, onSellBy, onRemainin
           )}
           <DateSlider
             label="소비기한"
-            hint="먹어도 되는 기한 · 얼른 먹어야 할 재료를 정하는 기준"
+            hint="먹어도 되는 기한 · 얼른 먹어야 할 재료를 정하는 기준 · 유통기한보다 앞당길 수 없어요"
             value={item.expiresAt}
             min={item.enteredAt}
+            low={sellByOf(item)}
             today={today}
             onChange={onExpiry}
           />
@@ -88,6 +89,7 @@ export function ItemSheet({ item, today, onClose, onExpiry, onSellBy, onRemainin
             hint="포장에 적힌 판매 기한 · 참고용"
             value={sellByOf(item)}
             min={item.enteredAt}
+            high={item.expiresAt}
             today={today}
             tone="sub"
             onChange={onSellBy}
