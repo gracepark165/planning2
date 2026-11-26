@@ -77,10 +77,9 @@ export function ItemSheet({ item, today, onClose, onExpiry, onSellBy, onRemainin
           )}
           <DateSlider
             label="소비기한"
-            hint="먹어도 되는 기한 · 얼른 먹어야 할 재료를 정하는 기준 · 유통기한보다 앞당길 수 없어요"
+            hint="먹어도 되는 기한 · 얼른 먹어야 할 재료를 정하는 기준 · 유통기한보다 앞당기면 유통기한도 같이 당겨져요"
             value={item.expiresAt}
             min={item.enteredAt}
-            low={sellByOf(item)}
             today={today}
             onChange={onExpiry}
           />

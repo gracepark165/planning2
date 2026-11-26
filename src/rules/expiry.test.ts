@@ -107,10 +107,12 @@ describe('소비기한 ±1일', () => {
     expect(shiftExpiry(early, -1).expiresAt).toBe('2026-11-02');
   });
 
-  it('입고일·유통기한보다 앞으로는 가지 않는다', () => {
+  it('입고일보다 앞으로는 가지 않고, 유통기한보다 앞으로 가면 유통기한도 같이 당겨진다', () => {
     const sameDay = { ...base, expiresAt: base.enteredAt };
     expect(shiftExpiry(sameDay, -1)).toBe(sameDay);
-    expect(shiftExpiry(base, -1)).toBe(base); // 유통기한(= 소비기한)보다 앞
+    const minus = shiftExpiry(base, -1);
+    expect(minus.expiresAt).toBe('2026-11-02');
+    expect(sellByOf(minus)).toBe('2026-11-02');
   });
 });
 
@@ -122,10 +124,13 @@ describe('소비기한·유통기한 날짜로 고치기 (슬라이더, 2026-11-
     expect(sellByOf(moved)).toBe(base.expiresAt);
     expect(setExpiryDate(base, base.expiresAt)).toBe(base);
   });
-  it('소비기한은 유통기한보다 앞으로 못 간다 (입고일보다도)', () => {
+  it('소비기한은 유통기한보다 앞으로도 움직이고, 그때 유통기한이 같이 당겨진다 (입고일보다 앞은 안 됨)', () => {
     const s = setSellBy(base, '2026-11-01');
-    expect(setExpiryDate(s, '2026-10-01').expiresAt).toBe('2026-11-01');
-    expect(setExpiryDate({ ...base, sellBy: base.enteredAt }, '2020-01-01').expiresAt).toBe(base.enteredAt);
+    const early = setExpiryDate(s, '2026-10-31');
+    expect(early.expiresAt).toBe('2026-10-31');
+    expect(sellByOf(early)).toBe('2026-10-31');
+    expect(sellByOf(setExpiryDate(s, '2026-11-02'))).toBe('2026-11-01'); // 유통기한보다 뒤면 유통기한은 그대로
+    expect(setExpiryDate(base, '2020-01-01').expiresAt).toBe(base.enteredAt);
   });
   it('유통기한을 고쳐도 소비기한·근거는 그대로, 소비기한보다 뒤로는 못 간다', () => {
     expect(sellByOf(base)).toBe(base.expiresAt);

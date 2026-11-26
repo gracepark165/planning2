@@ -45,12 +45,13 @@ export function shiftExpiry(item: Item, delta: number): Item {
 
 /** 소비기한을 날짜로 바로 고치기 (슬라이더, 2026-11-20). 근거는 'user'. 입고일보다 앞으로는 가지 않는다. */
 export function setExpiryDate(item: Item, date: DateKey): Item {
-  // 2026-11-26 사용자 요청: 소비기한과 유통기한은 따로 움직이고, 소비기한은 유통기한보다 앞으로 못 간다.
-  // 유통기한은 지금 값으로 고정해 둔다 (예전엔 따로 안 고친 유통기한이 소비기한을 따라 움직였음)
-  const sellBy = sellByOf(item);
-  let expiresAt = daysBetween(item.enteredAt, date) < 0 ? item.enteredAt : date;
-  if (daysBetween(sellBy, expiresAt) < 0) expiresAt = sellBy;
+  // 2026-11-26 사용자 요청: 소비기한과 유통기한은 따로 움직인다. 유통기한은 지금 값으로 고정해 둔다
+  // (예전엔 따로 안 고친 유통기한이 소비기한을 따라 움직였음).
+  // 2026-11-26 다시: 소비기한은 늘 움직이고, 유통기한보다 앞으로 가면 유통기한을 같이 앞당긴다 (소비기한 < 유통기한은 없게)
+  const expiresAt = daysBetween(item.enteredAt, date) < 0 ? item.enteredAt : date;
   if (expiresAt === item.expiresAt) return item;
+  const before = sellByOf(item);
+  const sellBy = daysBetween(before, expiresAt) < 0 ? expiresAt : before;
   return { ...item, expiresAt, expiryBasis: 'user', sellBy };
 }
 
