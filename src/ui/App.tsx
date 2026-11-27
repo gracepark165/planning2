@@ -33,6 +33,7 @@ import { refreshMe } from '../community/useCommunity';
 import { KakaoButton } from './parts';
 import { recentSummary } from '../rules/recentSummary';
 import { OpeningView } from './OpeningView';
+import { DemoVideoButton, DemoVideoModal } from './DemoVideo';
 import { OrderView } from './OrderView';
 import { PlanView } from './PlanView';
 import { TodayCard } from './TodayCard';
@@ -60,6 +61,7 @@ export function App() {
   const [installBack, setInstallBack] = useState<Screen>('home');
   const [sheetId, setSheetId] = useState<string | null>(null);
   /** 버렸어요 다음에 이유를 물을 기록 (B-4) */
+  const [demoOpen, setDemoOpen] = useState(false);
   const [discardAsk, setDiscardAsk] = useState<{ itemId: string; at: string; name: string; undoItem?: Item } | null>(null);
   /** 사야 할 재료가 있는 메뉴를 확정할 때 "준비됐어요?" (V4-6-5) */
   const [buyAsk, setBuyAsk] = useState<{ recipe: Recipe; missing: string[] } | null>(null);
@@ -292,6 +294,7 @@ export function App() {
               <div className="guest-bar">
                 <span>👀 예시 냉장고로 둘러보는 중이에요. 내 재료로 쓰려면</span>
                 <KakaoButton onClick={startKakaoLogin} label="카카오로 시작하기" />
+                <DemoVideoButton onClick={() => setDemoOpen(true)} />
               </div>
             )}
             <RankingCard onOpen={(id) => openCommunity({ view: 'post', id })} onAll={() => openCommunity({ view: 'feed' })} />
@@ -486,6 +489,7 @@ export function App() {
           onCancel={cancelBuyAsk}
         />
       )}
+      {demoOpen && <DemoVideoModal onClose={() => setDemoOpen(false)} />}
       {discardAsk && (
         <DiscardSheet
           name={discardAsk.name}

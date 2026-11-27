@@ -5,6 +5,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { KakaoButton } from './parts';
+import { DemoVideoButton, DemoVideoModal } from './DemoVideo';
 
 const TITLE = '안녕하세요, 저는 냉집사예요!';
 const LINES = [
@@ -171,6 +172,7 @@ function useIntroVoice() {
 export function OpeningView({ onKakao, onGuest }: { onKakao: () => void; onGuest: () => void }) {
   const [skip, setSkip] = useState(false);
   const voice = useIntroVoice();
+  const [demoOpen, setDemoOpen] = useState(false);
 
   const titleEnd = TEXT_START + TITLE_STEP * len(TITLE);
   const lineStarts: number[] = [];
@@ -233,7 +235,10 @@ export function OpeningView({ onKakao, onGuest }: { onKakao: () => void; onGuest
         <button className="cta ghost" onClick={onGuest}>
           로그인 없이 둘러보기
         </button>
+        {/* 시연영상 (2026-11-27): 로그인이 내키지 않는 사람이 먼저 볼 수 있게 */}
+        <DemoVideoButton onClick={() => setDemoOpen(true)} />
       </div>
+      {demoOpen && <DemoVideoModal onClose={() => setDemoOpen(false)} />}
     </div>
   );
 }

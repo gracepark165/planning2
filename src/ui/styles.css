@@ -805,3 +805,18 @@ body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer
 .urgent-card.calm .fresh-bar{margin-top:8px}
 .photo-btns{display:grid;gap:8px;margin-bottom:12px}
 .photo-btns .photo-btn{margin:0}
+
+/* 시연영상 (2026-11-27) */
+.demo-link{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:48px;margin-top:10px;padding:10px 16px;border-radius:16px;border:1px dashed var(--line-2);background:transparent;color:var(--accent);font-size:15px;font-weight:800}
+.demo-link small{font-weight:500;font-size:12px;color:var(--sub)}
+.demo-link:active{background:var(--accent-bg)}
+.demo-play{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(180deg,var(--cta-1),var(--cta-2));color:var(--on-cta);font-size:11px;padding-left:2px}
+.guest-bar .demo-link{margin-top:8px}
+.demo-bg{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--scrim)}
+.demo-modal{width:100%;max-width:420px;max-height:100%;display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:24px;background:var(--pop-bg);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px)}
+.demo-head{display:flex;align-items:center;justify-content:space-between;padding:0 4px}
+.demo-head b{font-size:16px}
+.demo-x{width:40px;height:40px;border-radius:50%;font-size:16px;color:var(--sub)}
+.demo-x:active{background:var(--accent-bg)}
+.demo-video{width:100%;max-height:calc(100dvh - 190px);object-fit:contain;border-radius:18px;background:#0b1624}
+.demo-note{margin:0;padding:0 4px 2px;font-size:12.5px;color:var(--sub);line-height:1.5}
