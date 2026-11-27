@@ -12,6 +12,16 @@ describe('/api/tts', () => {
     expect(f).not.toHaveBeenCalled();
     expect((await handleTts(req('?line=toString'), { env, fetch: f as never })).status).toBe(404);
   });
+  it('시연영상 대본 줄(demo01~demo13)도 정해진 글로 읽는다', async () => {
+    const f = vi.fn(async () => new Response(new Uint8Array([1])));
+    for (let n = 1; n <= 13; n++) {
+      const line = `demo${String(n).padStart(2, '0')}`;
+      expect(LINES[line], line).toBeTruthy();
+      const res = await handleTts(req(`?line=${line}`), { env, fetch: f as never });
+      expect(res.status).toBe(200);
+    }
+    expect(JSON.parse((f.mock.calls[0] as unknown as [string, RequestInit])[1].body as string).text).toBe(LINES.demo01);
+  });
   it('키가 없으면 503', async () => {
     const res = await handleTts(req('?line=intro'), { env: {}, fetch: vi.fn() as never });
     expect(res.status).toBe(503);
