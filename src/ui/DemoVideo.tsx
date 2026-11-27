@@ -10,7 +10,7 @@ export function DemoVideoButton({ onClick, className = '' }: { onClick: () => vo
       <span className="demo-play" aria-hidden="true">
         ▶
       </span>
-      시연영상 보기 <small>약 2분 · 로그인 없이</small>
+      시연영상 보기 <small>약 1분 30초 · 로그인 없이</small>
     </button>
   );
 }
@@ -42,7 +42,7 @@ export function DemoVideoModal({ onClose }: { onClose: () => void }) {
           playsInline
           preload="metadata"
         />
-        <p className="demo-note">재료 담기 → 영수증 올리기 → 쇼츠 확인 → 커뮤니티 글쓰기. 시연용 화면과 예시 데이터예요. (소리 없음)</p>
+        <p className="demo-note">냉장고 사진으로 재료 넣기 → 쇼츠 영상 확인 → 커뮤니티 글쓰기. 시연용 화면과 예시 데이터예요. 전체 화면으로 보면 더 잘 보여요. (소리 없음)</p>
       </div>
     </div>
   );

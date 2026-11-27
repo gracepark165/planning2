@@ -820,3 +820,7 @@ body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer
 .demo-x:active{background:var(--accent-bg)}
 .demo-video{width:100%;max-height:calc(100dvh - 190px);object-fit:contain;border-radius:18px;background:#0b1624}
 .demo-note{margin:0;padding:0 4px 2px;font-size:12.5px;color:var(--sub);line-height:1.5}
+
+/* 시연영상이 가로 영상(16:9)이라 창을 넓게 */
+.demo-modal{max-width:min(960px,100%)}
+.demo-video{aspect-ratio:16/9;max-height:calc(100dvh - 200px)}
