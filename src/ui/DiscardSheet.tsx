@@ -41,8 +41,8 @@ export function DiscardSheet({ name, onPick, onSkip, onUndo }: Props) {
           건너뛰기
         </button>
         {onUndo && (
-          <button className="note reason-skip" onClick={onUndo}>
-            잘못 밀었어요 · 되돌리기
+          <button className="small-btn alt undo-swipe" onClick={onUndo}>
+            ↶ 잘못 밀었어요 · 되돌리기
           </button>
         )}
       </div>

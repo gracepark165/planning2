@@ -92,6 +92,8 @@ export function videoHeadline(rows: readonly VideoRow[]): string {
 export interface VideoChoices {
   subs: Record<string, 'sub' | 'buy'>;
   skipBuy: string[];
+  /** 장보기 체크를 사용자가 직접 바꾼 재료 (true = 담기, false = 빼기). 없으면 기본값 */
+  buy?: Record<string, boolean>;
 }
 
 /**

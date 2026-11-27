@@ -1,6 +1,6 @@
 // 재료 행을 누르면 뜨는 하단 시트: 기준 표시, 소비기한 ±1일, 남은 양, 다 먹었어요/버렸어요
 
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { findCatalog } from '../data';
 import { COUNT_MAX, COUNT_MIN, LOCATIONS, REMAINING_LEVELS } from '../rules/constants';
 import { formatDate } from '../rules/date';
@@ -29,6 +29,16 @@ interface Props {
 }
 
 export function ItemSheet({ item, today, onClose, onExpiry, onSellBy, onRemaining, onFinish, onLocation, onCount, onRemove, onEntered, onPortion }: Props) {
+  const [showSellBy, setShowSellBy] = useState(false);
+  /** 날짜를 고친 뒤 잠깐 보여 주는 "저장했어요" 안내 (고친 날짜 포함) */
+  const [savedNote, setSavedNote] = useState<string | null>(null);
+  const savedTimer = useRef<number | undefined>(undefined);
+  const flashSaved = (d: string) => {
+    setSavedNote(formatDate(d as DateKey));
+    window.clearTimeout(savedTimer.current);
+    savedTimer.current = window.setTimeout(() => setSavedNote(null), 2200);
+  };
+  useEffect(() => () => window.clearTimeout(savedTimer.current), []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -75,24 +85,41 @@ export function ItemSheet({ item, today, onClose, onExpiry, onSellBy, onRemainin
               재료 사전에 없는 재료예요. 고친 기한·보관 위치는 기억해 두었다가 다음에 같은 재료를 넣을 때 써요.
             </div>
           )}
+          {/* 2026-11-27 사용자 점검: 날짜가 두 개 나란히 있어 헷갈림 → 소비기한만 먼저, 포장 기한은 펼쳐서 */}
           <DateSlider
-            label="소비기한"
-            hint="먹어도 되는 기한 · 얼른 먹어야 할 재료를 정하는 기준 · 유통기한보다 앞당기면 유통기한도 같이 당겨져요"
+            label="소비기한 · 이 날까지 먹어요"
+            hint="얼른 먹어야 할 재료를 정하는 기준이에요. 막대를 옆으로 밀어 고쳐요."
             value={item.expiresAt}
             min={item.enteredAt}
             today={today}
-            onChange={onExpiry}
+            onChange={(d) => {
+              onExpiry(d);
+              flashSaved(d);
+            }}
           />
-          <DateSlider
-            label="유통기한"
-            hint="포장에 적힌 판매 기한 · 참고용"
-            value={sellByOf(item)}
-            min={item.enteredAt}
-            high={item.expiresAt}
-            today={today}
-            tone="sub"
-            onChange={onSellBy}
-          />
+          {savedNote && (
+            <p className="saved-flash" role="status">
+              ✓ 저장했어요 · {savedNote}
+            </p>
+          )}
+          <button className="note" style={{ textDecoration: 'underline', marginTop: 10 }} aria-expanded={showSellBy} onClick={() => setShowSellBy((o) => !o)}>
+            포장에 적힌 유통기한도 보기 {showSellBy ? '▴' : '▾'}
+          </button>
+          {showSellBy && (
+            <DateSlider
+              label="유통기한 · 포장에 적힌 날짜 (참고)"
+              hint="참고용이에요. 소비기한보다 늦출 수 없고, 소비기한을 앞당기면 같이 당겨져요."
+              value={sellByOf(item)}
+              min={item.enteredAt}
+              high={item.expiresAt}
+              today={today}
+              tone="sub"
+              onChange={(d) => {
+                onSellBy(d);
+                flashSaved(d);
+              }}
+            />
+          )}
         </div>
 
         <div className="eyebrow" style={{ marginTop: 14 }}>

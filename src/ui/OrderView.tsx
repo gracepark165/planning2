@@ -286,7 +286,12 @@ export function OrderView({ today, myFoods, onAdd, onPickCatalog, initialText = 
       <h1>장 본 재료를 올려주세요</h1>
       <p className="lead">주문 화면을 올리거나 글로 적어 주세요. 재료와 소비기한은 알아서 정리해요.</p>
 
-      <div className="eyebrow" style={{ marginTop: 0 }}>
+      {/* 2026-11-27 사용자 점검: 시장·동네 마트 입구가 흐렸음 → 맨 위에 둔다 (냉장고 사진은 재료 추가 화면) */}
+      <button className="sample-btn" onClick={onPickCatalog}>
+        시장·동네 마트에서 샀어요<small>냉장고 사진을 찍으면 재료가 한 번에 들어가요</small>
+      </button>
+
+      <div className="eyebrow" style={{ marginTop: 16 }}>
         주문 화면(캡처) 올리기
       </div>
       <label className="drop" style={{ display: 'block', cursor: 'pointer', marginTop: 8 }}>

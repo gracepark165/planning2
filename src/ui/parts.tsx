@@ -181,7 +181,7 @@ export function DateSlider({
       <div className="ds-head">
         <span>{label}</span>
         <b>
-          {formatDate(value)} · {dDayLabel(left)}
+          {formatDate(value)} · {left > 0 ? `${left}일 남음` : dDayLabel(left)}
         </b>
       </div>
       <input

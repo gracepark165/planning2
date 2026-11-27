@@ -1,5 +1,5 @@
 // 앱을 열 때 하루 한 번 뜨는 팝업 (2026-11-10, 사용자 요청: 홈 위에 계속 있던 배너 대신)
-// 가장 급한 재료 + 그 재료를 쓰는 끼니, `이번 주 플랜 보기`로 바로 이동
+// 가장 급한 재료 + 그 재료를 쓰는 끼니, `이번 주 식단 보기`로 바로 이동
 
 import { useEffect } from 'react';
 import type { Item } from '../rules/types';
@@ -40,10 +40,10 @@ export function UrgentPopup({ item, soonCount, slot, today, onPlan, onClose }: P
             <b>{slot.recipe.name}에 넣어 뒀어요</b>
           </p>
         ) : (
-          <p className="popup-sub">이번 주 플랜에서 언제 먹을지 확인해 보세요</p>
+          <p className="popup-sub">이번 주 식단에서 언제 먹을지 확인해 보세요</p>
         )}
         <button className="cta" onClick={onPlan}>
-          이번 주 플랜 보기
+          이번 주 식단 보기
         </button>
         <button className="note reason-skip" onClick={onClose}>
           닫기

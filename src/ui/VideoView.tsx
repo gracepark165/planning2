@@ -7,7 +7,7 @@ import { AI_FAILURE_TEXT, fetchIngredients, readVideo } from '../ai/client';
 import { ingredientsOf, videoMenusOf, type VideoMenu } from '../ai/convert';
 import { BASIC_SEASONINGS } from '../rules/constants';
 import { AI_DAILY_LIMIT, deviceQuota } from '../state/aiMenu';
-import { PLAN_RECIPES, SUBSTITUTES, VIDEO_EXAMPLES } from '../data';
+import { PLAN_RECIPES, SUBSTITUTES, VIDEO_EXAMPLES, findCatalog } from '../data';
 import { eul, ro } from '../rules/josa';
 import { pantryNames } from '../rules/plan';
 import { dDayLabel, daysLeft, stateOf } from '../rules/status';
@@ -415,16 +415,20 @@ export function VideoView({ items, today, onPin }: Props) {
   const nSub = rows.filter((x) => x.kind === 'sub').length;
   const undecided = rows.filter((x) => x.kind === 'sub' && !choices.subs[x.name]).length;
   const setSub = (name: string, c: 'sub' | 'buy') => setChoices((ch) => ({ ...ch, subs: { ...ch.subs, [name]: c } }));
-  const toggleBuy = (name: string) =>
-    setChoices((ch) => ({
-      ...ch,
-      skipBuy: ch.skipBuy.includes(name) ? ch.skipBuy.filter((n) => n !== name) : [...ch.skipBuy, name],
-    }));
+  // 장보기 기본값 (2026-11-27 사용자 점검): 양념·소스(고춧가루·참치액·올리고당 등)는 기본으로 체크하지 않는다
+  const isSauce = (name: string) => findCatalog(name)?.category === 'sauce';
+  const buyOn = (name: string) => choices.buy?.[name] ?? (!choices.skipBuy.includes(name) && !isSauce(name));
+  const missing = rows.filter((x) => x.kind !== 'have' && x.kind !== 'sub');
+  const toggleBuy = (name: string) => setChoices((ch) => ({ ...ch, buy: { ...(ch.buy ?? {}), [name]: !buyOn(name) } }));
+  const buyAll = () =>
+    setChoices((ch) => ({ ...ch, buy: { ...(ch.buy ?? {}), ...Object.fromEntries(missing.map((x) => [x.name, true])) } }));
+  // 저장할 때 쓰는 값: 체크 안 된 재료만 빼서 넘긴다
+  const effChoices: VideoChoices = { subs: choices.subs, skipBuy: missing.filter((x) => !buyOn(x.name)).map((x) => x.name) };
   const pin = (mode: 'week' | 'today') => {
     const meal: PinnedMeal = {
       id: newId(),
       name: r.title,
-      ...videoMealOf(rows, choices, PANTRY),
+      ...videoMealOf(rows, effChoices, PANTRY),
       source: 'video',
       url: sourceUrl,
       title: r.title,
@@ -512,7 +516,7 @@ export function VideoView({ items, today, onPin }: Props) {
                 <div className="meta">냉장고에 없어요</div>
               </div>
               <label className="buy-check">
-                <input type="checkbox" checked={!choices.skipBuy.includes(x.name)} onChange={() => toggleBuy(x.name)} />
+                <input type="checkbox" checked={buyOn(x.name)} onChange={() => toggleBuy(x.name)} />
                 장보기 목록에 담기
               </label>
             </div>
@@ -525,8 +529,13 @@ export function VideoView({ items, today, onPin }: Props) {
       </p>
       <div className="video-actions">
         {undecided > 0 && <p className="note">대체할지 고르지 않은 재료 {undecided}개는 장보기 목록에 담아요.</p>}
+        {missing.some((x) => !buyOn(x.name)) && (
+          <button className="cta ghost" onClick={buyAll}>
+            없는 재료 장보기에 담기
+          </button>
+        )}
         <button className="cta" onClick={() => pin('week')}>
-          이번 주 플랜에 넣을게요
+          이번 주 식단에 넣을게요
         </button>
         <div className="ctas">
           <button className="cta ghost" onClick={() => pin('today')}>

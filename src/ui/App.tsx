@@ -221,7 +221,7 @@ export function App() {
     showToast(
       mode === 'today'
         ? `오늘 한 끼를 ${meal.name}${ro(meal.name)} 정했어요.${extra}`
-        : `${meal.name}${eul(meal.name)} 이번 주 플랜에 넣었어요.${extra}`,
+        : `${meal.name}${eul(meal.name)} 이번 주 식단에 넣었어요.${extra}`,
     );
     return { ok: true };
   };
@@ -283,7 +283,7 @@ export function App() {
         }}
         onClear={() => {
           const n = state.items.length;
-          if (!window.confirm(`냉장고에 있는 재료 ${n}개를 모두 지울까요?\n먹은·버린 기록과 플랜도 같이 지워져요. 지난번에 정한 값은 남아요.`)) return;
+          if (!window.confirm(`냉장고에 있는 재료 ${n}개를 모두 지울까요?\n먹은·버린 기록과 식단도 같이 지워져요. 지난번에 정한 값은 남아요.`)) return;
           dispatch({ type: 'clearAll' });
           showToast('냉장고를 비웠어요. 내 재료로 채워 주세요');
         }}

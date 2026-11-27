@@ -21,7 +21,7 @@ export function TodayCard({ meal, items, today, onConfirm, onSwap, onUndo, onPla
 
   const planLink = (
     <button className="today-link" onClick={onPlan}>
-      전체 플랜 보기 ›
+      이번 주 식단 보기 ›
     </button>
   );
 
