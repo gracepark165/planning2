@@ -19,7 +19,7 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
   // 영상은 부분 요청(Range)으로 받아서 저장할 수 없다 → 브라우저가 직접 받게 둔다
-  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/') || url.pathname.endsWith('.mp4') || req.headers.has('range')) return;
+  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/') || url.pathname.endsWith('.mp4') || url.pathname.endsWith('.vtt') || req.headers.has('range')) return;
 
   const save = (res) => {
     if (res.ok) {

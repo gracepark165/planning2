@@ -41,7 +41,10 @@ export function DemoVideoModal({ onClose }: { onClose: () => void }) {
           muted
           playsInline
           preload="metadata"
-        />
+        >
+          {/* 자막 (2026-11-27): 영상 창의 CC 버튼으로 켜고 끈다 */}
+          <track kind="subtitles" srcLang="ko" label="한국어" src="/demo/demo.ko.vtt" default />
+        </video>
         <p className="demo-note">냉장고 사진으로 재료 넣기 → 쇼츠 영상 확인 → 커뮤니티 글쓰기. 시연용 화면과 예시 데이터예요. 전체 화면으로 보면 더 잘 보여요. (소리 없음)</p>
       </div>
     </div>

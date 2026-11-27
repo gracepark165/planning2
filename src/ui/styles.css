@@ -824,3 +824,6 @@ body::after,.opening::after{content:'';position:fixed;inset:0;z-index:-1;pointer
 /* 시연영상이 가로 영상(16:9)이라 창을 넓게 */
 .demo-modal{max-width:min(960px,100%)}
 .demo-video{aspect-ratio:16/9;max-height:calc(100dvh - 200px)}
+
+/* 시연영상 자막 모양 */
+.demo-video::cue{font:700 15px/1.4 var(--font);color:#fff;background:rgba(10,24,40,.72)}
